@@ -8,8 +8,8 @@ type Props = {
 
 export const Main: React.FC<Props> = ({
   flex = true,
-  padding = true,
-  maxWidth = "1310px",
+  padding = false,
+  maxWidth = "100%",
   children,
 }) => {
   return (
