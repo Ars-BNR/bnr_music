@@ -12,7 +12,7 @@ export const formLoginSchema = z.object({
 });
 export const formRegisterSchema = z
   .object({
-    login: z.string().email("Неверный email"),
+    email: z.string().email("Неверный email"),
     password: passwordSchema,
     confirmPassword: passwordSchema,
   })

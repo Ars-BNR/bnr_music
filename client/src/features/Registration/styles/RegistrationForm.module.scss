@@ -1,0 +1,29 @@
+.RegForm {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+  }
+  
+  .RegForm__block {
+    padding: 34px;
+    border: 3px solid #6300ff;
+    background: #000000;
+    max-width: 494px;
+    border-radius: 28px;
+    width: 100%;
+  }
+  .RegForm__title {
+    color: white;
+    font-size: 64px;
+    text-align: center;
+    font-weight: 500;
+  }
+  
+  .Buttons {
+    display: flex;
+    gap: 20px;
+  }
+  
+  

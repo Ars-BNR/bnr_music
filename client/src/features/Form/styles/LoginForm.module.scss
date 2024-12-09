@@ -20,23 +20,9 @@
   text-align: center;
   font-weight: 500;
 }
-.Input {
-  background: #23262d;
-  color: white;
-  border: 1px solid #71717a;
-}
 
 .Buttons {
   display: flex;
   gap: 20px;
 }
-.Button {
-  background: #6300ff;
-  color: white;
-  max-width: 204px;
-  flex-grow: 1;
-}
-.Button:hover {
-  background: #ffffff;
-  color: #09090b;
-}
+

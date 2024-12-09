@@ -2,7 +2,9 @@
 
 import {
   formLoginSchema,
+  formRegisterSchema,
   TFormLoginValues,
+  TFormRegisterValues,
 } from "@/shared/constants/validateSchemas";
 import {
   Form,
@@ -16,26 +18,27 @@ import { Input } from "@/shared/components/ui/input";
 import { zodResolver } from "@hookform/resolvers/zod";
 import React from "react";
 import { useForm } from "react-hook-form";
-import styles from "../styles/LoginForm.module.scss";
+import styles from "../styles/RegistrationForm.module.scss";
 import { Button } from "@/shared/components/ui/button";
 import { useRouter } from "next/navigation";
 
- const LoginForm = () => {
+export const  RegistrationForm = () => {
   const router = useRouter();
-  const form = useForm<TFormLoginValues>({
-    resolver: zodResolver(formLoginSchema),
+  const form = useForm<TFormRegisterValues>({
+    resolver: zodResolver(formRegisterSchema),
     defaultValues: {
       email: "",
       password: "",
+      confirmPassword:"",
     },
   });
-  const onSubmit = (data: TFormLoginValues) => {
+  const onSubmit = (data: TFormRegisterValues) => {
     console.log(data, "data");
   };
   return (
-    <div className={styles.LoginForm}>
-      <div className={styles.LoginForm__block}>
-        <div className={styles.LoginForm__title}>Вход</div>
+    <div className={styles.RegForm}>
+      <div className={styles.RegForm__block}>
+        <div className={styles.RegForm__title}>Регистрация</div>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
             <FormField
@@ -68,9 +71,26 @@ import { useRouter } from "next/navigation";
                 </FormItem>
               )}
             />
+            <FormField
+              control={form.control}
+              name="confirmPassword"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-white">Подтверждение пароля</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="password"
+                      placeholder="Введите пароль снова"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
             <div className={styles.Buttons}>
-              <Button type="submit">Войти</Button>
-              <Button type="button" onClick={()=>router.replace("/registration")} >Зарегистрироваться</Button>
+              <Button type="submit">Зарегистрироваться</Button>
+              <Button type="button" onClick={()=>router.replace("/login")} >Войти</Button>
             </div>
           </form>
         </Form>
@@ -79,4 +99,4 @@ import { useRouter } from "next/navigation";
   );
 };
 
-export default LoginForm;
+export default RegistrationForm;
