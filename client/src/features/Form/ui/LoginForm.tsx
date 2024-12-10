@@ -69,8 +69,8 @@ import { useRouter } from "next/navigation";
               )}
             />
             <div className={styles.Buttons}>
-              <Button type="submit">Войти</Button>
-              <Button type="button" onClick={()=>router.replace("/registration")} >Зарегистрироваться</Button>
+              <Button className="max-w-[204px]" type="submit">Войти</Button>
+              <Button  className="max-w-[204px]" type="button" onClick={()=>router.replace("/registration")} >Зарегистрироваться</Button>
             </div>
           </form>
         </Form>

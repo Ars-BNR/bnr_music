@@ -1,9 +1,7 @@
 "use client";
 
 import {
-  formLoginSchema,
   formRegisterSchema,
-  TFormLoginValues,
   TFormRegisterValues,
 } from "@/shared/constants/validateSchemas";
 import {
@@ -89,8 +87,8 @@ export const  RegistrationForm = () => {
               )}
             />
             <div className={styles.Buttons}>
-              <Button type="submit">Зарегистрироваться</Button>
-              <Button type="button" onClick={()=>router.replace("/login")} >Войти</Button>
+              <Button  className="max-w-[204px]" type="submit">Зарегистрироваться</Button>
+              <Button   className="max-w-[204px]" type="button" onClick={()=>router.replace("/login")} >Войти</Button>
             </div>
           </form>
         </Form>

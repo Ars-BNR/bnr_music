@@ -1,0 +1,34 @@
+.sidebar {
+  flex-grow: 1;
+  padding: 33px 36px;
+  background: #181b22;
+  max-width: 282px;
+  border-radius: 15px;
+  min-height: 672px;
+  display: flex;
+  flex-direction: column;
+}
+.sidebar > :last-child {
+  margin-top: auto;
+}
+
+.sidebar__el {
+  padding: 12px 0px 12px 12px;
+  max-width: 210px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  color: white;
+  gap: 12px;
+}
+.sidebar__el {
+  transition: 0.4s ease;
+}
+
+.sidebar__el:hover {
+  background: #6300ff;
+}
+.links__list {
+  display: flex;
+  flex-direction: column;
+}

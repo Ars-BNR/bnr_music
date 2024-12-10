@@ -1,9 +1,5 @@
-import { Button } from "@/shared/components/ui/button";
+import Home from "@/widgets/home/ui/Home";
 
 export const HomePage = () => {
-  return (
-    <>
-      <Button>Войти</Button>
-    </>
-  );
+  return <Home />;
 };
