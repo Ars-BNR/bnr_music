@@ -61,7 +61,7 @@ export const Sidebar = () => {
         </Accordion>
       </div>
 
-      <div className="flex gap-3 align-center pl-3 max-w-[120px]">
+      <div className="flex gap-3 align-center pl-3 py-[12px] rounded-[14px] hover:bg-[#6300ff]">
         <ExitIcon />
         <span className="text-white text-[20px] ">Выход</span>
       </div>
