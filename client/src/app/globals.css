@@ -76,7 +76,18 @@ section {
   flex-grow: 1;
 }
 
+@keyframes fillAnimation {
+  from {
+    fill: none;
+  }
+  to {
+    fill: #6300ff;
+  }
+}
 
+.fill-animation {
+  animation: fillAnimation 0.5s ease-in-out forwards;
+}
 
 @layer base {
   :root {
@@ -134,7 +145,6 @@ section {
     --chart-5: 340 75% 55%;
   }
 }
-
 
 /* 
 .equipment {
