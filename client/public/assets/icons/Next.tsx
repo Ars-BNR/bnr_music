@@ -8,6 +8,7 @@ const NextIcon = () => {
       viewBox="0 0 26 26"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
+      style={{ cursor: "pointer" }}
     >
       <path
         d="M5.41666 4.33325L16.25 12.9999L5.41666 21.6666V4.33325Z"

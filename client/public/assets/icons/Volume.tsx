@@ -1,7 +1,28 @@
-import React from "react";
+"use client"
+
+import { Slider } from "@/shared/components/ui/slider";
+import React, { useState } from "react";
 
 const VolumeIcon = () => {
+  const [isHovered, setIsHovered] = useState(false);
+  const [volume, setVolume] = useState(50);
+  const handleMouseEnter = () => {
+    setIsHovered(true);
+  };
+  const handleMouseLeave = () => {
+    setIsHovered(false);
+  };
+  const handleVolumeChange = (value: number) => {
+    setVolume(value);
+    // Здесь можно добавить логику для изменения громкости
+  };
   return (
+    <div
+      style={{ position: "relative", display: "inline-block" }}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+    >
+
     <svg
       width="26"
       height="26"
@@ -31,6 +52,32 @@ const VolumeIcon = () => {
         strokeLinejoin="round"
       />
     </svg>
+    {isHovered && (
+        <div
+        style={{
+          position: "absolute",
+          bottom: "30px", // Позиция слайдера над иконкой
+          left: "50%",
+          transform: "translateX(-50%)",
+          height: "100px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+        >
+          <Slider
+            value={[volume]}
+            onValueChange={(value) => handleVolumeChange(value[0])}
+            max={100}
+            step={1}
+            style={{
+              transform: "rotate(-90deg)", // Поворачиваем слайдер на 90 градусов
+              width: "100px", // Ширина слайдера (после поворота)
+            }}
+          />
+        </div>
+      )}
+    </div>
   );
 };
 

@@ -1,4 +1,6 @@
 .background {
-  background: url("../../../../public/assets/img/loginTheme.png");
+  background: url("../../../../public/assets/img/loginTheme.png") center / cover
+    no-repeat fixed;
   position: relative;
+  background-size: 100%;
 }

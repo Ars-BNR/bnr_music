@@ -20,24 +20,27 @@ import Image from "next/image";
 import ExitIcon from "../../../../public/assets/icons/Exit";
 export const Sidebar = () => {
   const router = useRouter();
+  const links = [
+    { href: "/", icon: <HomeIcon />, text: "Главная" },
+    { href: "/category", icon: <CategoryIcon />, text: "Категории" },
+    { href: "/author", icon: <ArtistIcon />, text: "Артисты" },
+  ];
+  const playlist = [
+    { image: drill, name: "Drill" },
+    { image: drill, name: "Drill" },
+  ];
   return (
     <div className={stl.sidebar}>
-      <Title className="text-[20px] mb-6">BNR - Be Natural Rare</Title>
+      <div className="cursor-pointer" onClick={() => router.replace("/")}>
+        <Title className="text-[20px] mb-6">BNR - Be Natural Rare</Title>
+      </div>
       <div className={stl.links__list}>
-        <Link href={"/"} className={stl.sidebar__el}>
-          <HomeIcon />
-          <span className="text-[20px]">Главная</span>
-        </Link>
-
-        <Link href={"/"} className={stl.sidebar__el}>
-          <CategoryIcon />
-          <span className="text-[20px]">Категории</span>
-        </Link>
-
-        <Link href={"/"} className={stl.sidebar__el}>
-          <ArtistIcon />
-          <span className="text-[20px]">Артисты</span>
-        </Link>
+        {links.map((link, index) => (
+          <Link key={index} href={link.href} className={stl.sidebar__el}>
+            {link.icon}
+            <span className="text-[20px]">{link.text}</span>
+          </Link>
+        ))}
 
         <Accordion type="single" collapsible>
           <AccordionItem value="item-1">
@@ -48,22 +51,23 @@ export const Sidebar = () => {
               </AccordionTrigger>
             </div>
             <div className="flex flex-col items-center gap-5">
-              <AccordionContent className="text-white text-[20px] flex gap-4 justify-center">
-                <Image src={drill} alt="" />
-                Drill
-              </AccordionContent>
-              <AccordionContent className="text-white text-[20px] flex gap-4 justify-center">
-                <Image src={drill} alt="" />
-                Drill
-              </AccordionContent>
+              {playlist.map((playlist, index) => (
+                <AccordionContent
+                  key={index}
+                  className="text-white text-[20px] flex gap-4 justify-center"
+                >
+                  <Image src={playlist.image} alt="" />
+                  {playlist.name}
+                </AccordionContent>
+              ))}
             </div>
           </AccordionItem>
         </Accordion>
       </div>
 
-      <div className="flex gap-3 align-center pl-3 py-[12px] rounded-[14px] hover:bg-[#6300ff]">
+      <div className="flex gap-3 align-center pl-3 py-[12px] rounded-[14px] hover:bg-[#6300ff] cursor-pointer">
         <ExitIcon />
-        <span className="text-white text-[20px] ">Выход</span>
+        <span className="text-white text-[20px]">Выход</span>
       </div>
     </div>
   );

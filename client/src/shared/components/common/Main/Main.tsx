@@ -16,6 +16,7 @@ export const Main: React.FC<Props> = ({
     <main
       style={{
         flexGrow: flex ? 1 : undefined,
+        // background: "#09090B",
       }}
     >
       <div
@@ -23,7 +24,6 @@ export const Main: React.FC<Props> = ({
           maxWidth: maxWidth,
           padding: padding ? "0 15px" : undefined,
           margin: "0 auto",
-          height: "100vh",
         }}
       >
         {children}

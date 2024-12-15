@@ -10,8 +10,10 @@ import {
 } from 'sequelize-typescript';
 import { AlbumTrackModel } from 'src/album-track/model/album-track.model';
 import { AlbumModel } from 'src/album/model/album.model';
+import { GenreModel } from 'src/genre/model/genre.model';
 import { PlaylistTrackModel } from 'src/playlist-track/model/playlist-track.model';
 import { PlaylistModel } from 'src/playlist/model/playlist.model';
+import { TrackGenreModel } from 'src/track-genre/model/track-genre.model';
 
 @Table({ tableName: 'tracks', timestamps: false })
 export class TrackModel extends Model {
@@ -27,10 +29,6 @@ export class TrackModel extends Model {
   @ApiProperty({ example: 'Escape', description: 'Название трека' })
   @Column(DataType.STRING)
   name: string;
-
-  @ApiProperty({ example: 'Bryan Tyler', description: 'Автор трека' })
-  @Column(DataType.STRING)
-  author: string;
 
   @ApiProperty({
     example: 'gfsaswq',
@@ -65,4 +63,7 @@ export class TrackModel extends Model {
 
   @BelongsToMany(() => AlbumModel, () => AlbumTrackModel)
   albums: AlbumModel[];
+
+  @BelongsToMany(() => GenreModel, () => TrackGenreModel)
+  genres: GenreModel[];
 }

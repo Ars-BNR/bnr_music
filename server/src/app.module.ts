@@ -29,6 +29,12 @@ import { FileModule } from './file/file.module';
 import { MailModule } from './mail/mail.module';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
+import { AuthorModule } from './author/author.module';
+import { GenreModule } from './genre/genre.module';
+import { TrackGenreModule } from './track-genre/track-genre.module';
+import { AuthorModel } from './author/model/author.model';
+import { GenreModel } from './genre/model/genre.model';
+import { TrackGenreModel } from './track-genre/model/track-genre.model';
 
 @Module({
   imports: [
@@ -64,6 +70,9 @@ import { APP_GUARD } from '@nestjs/core';
         AlbumTrackModel,
         CollectionPlaylistModel,
         CollectionAlbumModel,
+        AuthorModel,
+        GenreModel,
+        TrackGenreModel,
       ],
       autoLoadModels: true,
       synchronize: true,
@@ -85,6 +94,9 @@ import { APP_GUARD } from '@nestjs/core';
     SeedModule,
     FileModule,
     MailModule,
+    AuthorModule,
+    GenreModule,
+    TrackGenreModule,
   ],
   controllers: [],
   providers: [

@@ -8,6 +8,7 @@ const BackIcon = () => {
       viewBox="0 0 26 26"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
+      style={{ cursor: "pointer" }}
     >
       <path
         d="M20.5835 21.6667L9.75013 13.0001L20.5835 4.33342V21.6667Z"
