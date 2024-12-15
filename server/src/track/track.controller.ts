@@ -18,7 +18,7 @@ import { searchDto } from './dto/search-dto';
 import { UpdateTrackDto } from './dto/update-track.dto';
 import { JwtAuthGuard } from 'src/guards/jwt-auth.guard';
 
-@UseGuards(JwtAuthGuard)
+// @UseGuards(JwtAuthGuard)
 @Controller('/tracks')
 export class TrackController {
   constructor(private trackService: TrackService) {}
@@ -38,6 +38,10 @@ export class TrackController {
   @Get()
   getAll(@Query('count') count: number, @Query('offset') offset: number) {
     return this.trackService.getAll(count, offset);
+  }
+  @Get('/popular')
+  getTopTracks(@Query('count') count: number, @Query('offset') offset: number) {
+    return this.trackService.getTopTracks(count, offset);
   }
 
   @Post('/listen/:id')
@@ -61,8 +65,8 @@ export class TrackController {
     return this.trackService.delete(id);
   }
 
-  @Patch("change/:id")
-   change(@Param("id") id:number,@Body() updateData:UpdateTrackDto){
-    return this.trackService.change(id,updateData)
+  @Patch('change/:id')
+  change(@Param('id') id: number, @Body() updateData: UpdateTrackDto) {
+    return this.trackService.change(id, updateData);
   }
 }

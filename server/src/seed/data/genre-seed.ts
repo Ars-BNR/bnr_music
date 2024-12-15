@@ -1,3 +1,3 @@
-const genres = [{ name: 'Game Music' }, { name: 'Rock' }, { name: 'Rap' }];
+const genres = [{ name: 'Игры' }, { name: 'Рок' }, { name: 'Рэп' }];
 
 export default genres;

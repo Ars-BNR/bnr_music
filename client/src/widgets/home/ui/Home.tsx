@@ -18,8 +18,7 @@ const Home = () => {
             <Search />
             <Profiles />
           </div>
-          <PopularAlbum />
-          {/* <Carousel /> */}
+          <Carousel />
 
           <Category />
           <PopularSongs />

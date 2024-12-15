@@ -27,6 +27,25 @@ export class AlbumService {
     }
   }
 
+  async getTopAlbum(count = 10, offset = 0): Promise<AlbumModel[]> {
+    try {
+      if (!count || !offset) {
+        throw new HttpException(
+          'Не указаны все данные',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+      const album = await this.albumRepository.findAll({
+        order: [['listens', 'DESC']],
+        limit: Number(count),
+        offset: Number(offset),
+      });
+      return album;
+    } catch (error) {
+      throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
   async getAll(count = 10, offset = 0) {
     try {
       if (!count || !offset) {

@@ -39,6 +39,25 @@ export class TrackService {
     }
   }
 
+  async getTopTracks(count = 10, offset = 0): Promise<TrackModel[]> {
+    try {
+      if (!count || !offset) {
+        throw new HttpException(
+          'Не указаны все данные',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+      const tracks = await TrackModel.findAll({
+        order: [['listens', 'DESC']],
+        limit: Number(count),
+        offset: Number(offset),
+      });
+      return tracks;
+    } catch (error) {
+      throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
   async getAll(count = 10, offset = 0): Promise<TrackModel[]> {
     try {
       if (!count || !offset) {
