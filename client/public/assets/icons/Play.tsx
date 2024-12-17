@@ -1,6 +1,6 @@
 import React from "react";
 interface props{
-  handlePlay:()=>void
+  handlePlay?:()=>void
 }
 const PlayIcon = ({handlePlay}:props) => {
   return (

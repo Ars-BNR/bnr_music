@@ -1,4 +1,5 @@
-import Carousel from "@/features/Carousel/ui/Carousel";
+// import Carousel from "@/features/Carousel/ui/Carousel";
+// import Carousel from "@/features/CarouselAI/ui/Carousel";
 import Category from "@/features/Category/ui/Category";
 import Player from "@/features/Player/Player";
 import PopularAlbum from "@/features/Popular Album/ui/PopularAlbum";
@@ -6,6 +7,7 @@ import PopularSongs from "@/features/PopularSongs/ui/PopularSongs";
 import Profiles from "@/features/Profiles/ui/Profiles";
 import Search from "@/features/Search/ui/Search";
 import Sidebar from "@/features/Sidebar/ui/Sidebar";
+import Carousel from "@/features/TruthCarousel/ui/Carousel";
 import React from "react";
 
 const Home = () => {

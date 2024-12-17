@@ -14,7 +14,7 @@ const PopularSongs = () => {
     { id: 9, nameSong: "Golden Days3", nameArt: "Golden Days" },
   ];
   return (
-    <div className="bg-[#09090B]">
+    <div className="bg-[#09090B] pb-[24px]">
       <div className="mb-4 flex items-center max-w-[270px] justify-between">
         <span className="text-[16px] text-white">Популярные песни</span>
       </div>

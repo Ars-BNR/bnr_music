@@ -15,8 +15,6 @@ import {
   AccordionTrigger,
 } from "@/shared/components/ui/accordion";
 import PlaylistIcon from "../../../../public/assets/icons/Playlist";
-import drill from "../../../../public/assets/img/image 3.png";
-import Image from "next/image";
 import ExitIcon from "../../../../public/assets/icons/Exit";
 export const Sidebar = () => {
   const router = useRouter();
@@ -26,8 +24,10 @@ export const Sidebar = () => {
     { href: "/author", icon: <ArtistIcon />, text: "Артисты" },
   ];
   const playlist = [
-    { image: drill, name: "Drill" },
-    { image: drill, name: "Drill" },
+    {  name: "Drill" },
+    {  name: "Hip-hop" },
+    {  name: "Фонкус" },
+    {  name: "Disturbed Best In the world sdwsasdasdasdasd" },
   ];
   return (
     <div className={stl.sidebar}>
@@ -50,16 +50,18 @@ export const Sidebar = () => {
                 Плейлисты
               </AccordionTrigger>
             </div>
-            <div className="flex flex-col items-center gap-5">
+            <div className="flex flex-col items-start gap-3 max-[198px] truncate">
               {playlist.map((playlist, index) => (
                 <AccordionContent
                   key={index}
-                  className="text-white text-[20px] flex gap-4 justify-center"
+                  className="text-white text-[20px] flex gap-4 justify-start cursor-pointer "
                 >
-                  <Image src={playlist.image} alt="" />
                   {playlist.name}
                 </AccordionContent>
               ))}
+              <AccordionContent>
+              <Link href={"/"} className="text-white text-[20px] flex gap-4 justify-start cursor-pointer hover:text-[#6300ff]" >Все плейлисты</Link>
+              </AccordionContent>
             </div>
           </AccordionItem>
         </Accordion>

@@ -12,7 +12,9 @@
 .sidebar > :last-child {
   margin-top: auto;
 }
-
+.sidebar > :nth-last-child(2) {
+  margin-bottom: 10px;
+}
 .sidebar__el {
   padding: 12px 0px 12px 12px;
   max-width: 210px;
