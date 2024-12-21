@@ -35,11 +35,11 @@ export class SeedService {
 
   // Функция для запуска всех сидов
   async seed() {
-    await this.autoInsert(this.trackModel, tracks);
     await this.autoInsert(this.authorModel, authors);
-    await this.autoInsert(this.genreModel, genres);
+    await this.autoInsert(this.trackModel, tracks);
     await this.autoInsert(this.albumModel, albums);
     await this.autoInsert(this.albumTrackModel, album_tracks);
+    await this.autoInsert(this.genreModel, genres);
     await this.autoInsert(this.userModel, users);
     console.log('✅ Все сиды успешно добавлены!');
   }

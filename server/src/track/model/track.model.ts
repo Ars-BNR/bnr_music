@@ -1,15 +1,18 @@
 import { ApiProperty } from '@nestjs/swagger';
 import {
   AutoIncrement,
+  BelongsTo,
   BelongsToMany,
   Column,
   DataType,
+  ForeignKey,
   Model,
   PrimaryKey,
   Table,
 } from 'sequelize-typescript';
 import { AlbumTrackModel } from 'src/album-track/model/album-track.model';
 import { AlbumModel } from 'src/album/model/album.model';
+import { AuthorModel } from 'src/author/model/author.model';
 import { GenreModel } from 'src/genre/model/genre.model';
 import { PlaylistTrackModel } from 'src/playlist-track/model/playlist-track.model';
 import { PlaylistModel } from 'src/playlist/model/playlist.model';
@@ -57,6 +60,14 @@ export class TrackModel extends Model {
   })
   @Column(DataType.STRING)
   audio: string;
+
+  @ForeignKey(() => AuthorModel)
+  @ApiProperty({ example: 1, description: 'ID автора трека' })
+  @Column(DataType.INTEGER)
+  authorId: number;
+
+  @BelongsTo(() => AuthorModel)
+  author: AuthorModel;
 
   @BelongsToMany(() => PlaylistModel, () => PlaylistTrackModel)
   playlists: PlaylistModel[];

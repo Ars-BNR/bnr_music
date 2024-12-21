@@ -9,6 +9,7 @@ import {
   Table,
 } from 'sequelize-typescript';
 import { AlbumModel } from 'src/album/model/album.model';
+import { TrackModel } from 'src/track/model/track.model';
 
 @Table({ tableName: 'authors', timestamps: false })
 export class AuthorModel extends Model {
@@ -30,4 +31,7 @@ export class AuthorModel extends Model {
 
   @HasMany(() => AlbumModel)
   albums: AlbumModel[];
+
+  @HasMany(() => TrackModel)
+  tracks: TrackModel[];
 }

@@ -6,6 +6,7 @@
   margin-bottom: 50px;
   justify-content: center;
   position: relative;
+  overflow: hidden;
 }
 .Carousel__block {
   position: relative;
@@ -73,4 +74,26 @@
   background: #6300ff;
   transition: 0.4s ease;
   cursor: pointer;
+}
+.image {
+  border-radius: 28px;
+  transition: opacity 0.5s ease-in-out; // Плавное изменение прозрачности
+}
+
+.imageEnter {
+  opacity: 0; // Изображение скрыто
+}
+
+.imageEnterActive {
+  opacity: 1; // Изображение появляется
+  transition: opacity 0.5s ease-in-out;
+}
+
+.imageExit {
+  opacity: 1; // Изображение видимо
+}
+
+.imageExitActive {
+  opacity: 0; // Изображение исчезает
+  transition: opacity 0.5s ease-in-out;
 }

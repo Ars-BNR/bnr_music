@@ -5,6 +5,7 @@ import { TrackModel } from './model/track.model';
 import { CreateTrackDto } from './dto/create-track.dto';
 import { Op } from 'sequelize';
 import { UpdateTrackDto } from './dto/update-track.dto';
+import { AuthorModel } from 'src/author/model/author.model';
 
 @Injectable()
 export class TrackService {
@@ -39,7 +40,7 @@ export class TrackService {
     }
   }
 
-  async getTopTracks(count = 10, offset = 0): Promise<TrackModel[]> {
+  async getTopTracks(count = 10, offset = 0) {
     try {
       if (!count || !offset) {
         throw new HttpException(
@@ -51,8 +52,18 @@ export class TrackService {
         order: [['listens', 'DESC']],
         limit: Number(count),
         offset: Number(offset),
+        include: [{ model: AuthorModel, attributes: ['name'] }],
       });
-      return tracks;
+      const result = tracks.map((track) => ({
+        id: track.id,
+        name: track.name,
+        picture: track.picture,
+        text: track.text,
+        listens: track.listens,
+        audio: track.audio,
+        author: track.author.name,
+      }));
+      return result;
     } catch (error) {
       throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
     }

@@ -5,10 +5,11 @@ import { SequelizeModule } from '@nestjs/sequelize';
 import { TrackModel } from './model/track.model';
 import { FileService } from 'src/file/file.service';
 import { JwtService } from '@nestjs/jwt';
+import { AuthorModel } from 'src/author/model/author.model';
 
 @Module({
-  imports: [SequelizeModule.forFeature([TrackModel])],
-  providers: [TrackService, FileService,JwtService],
+  imports: [SequelizeModule.forFeature([TrackModel, AuthorModel])],
+  providers: [TrackService, FileService, JwtService],
   controllers: [TrackController],
 })
 export class TrackModule {}

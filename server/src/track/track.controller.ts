@@ -39,6 +39,7 @@ export class TrackController {
   getAll(@Query('count') count: number, @Query('offset') offset: number) {
     return this.trackService.getAll(count, offset);
   }
+
   @Get('/popular')
   getTopTracks(@Query('count') count: number, @Query('offset') offset: number) {
     return this.trackService.getTopTracks(count, offset);
