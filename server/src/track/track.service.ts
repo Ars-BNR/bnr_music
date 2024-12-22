@@ -3,7 +3,7 @@ import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/sequelize';
 import { TrackModel } from './model/track.model';
 import { CreateTrackDto } from './dto/create-track.dto';
-import { Op } from 'sequelize';
+import { Op, Sequelize } from 'sequelize';
 import { UpdateTrackDto } from './dto/update-track.dto';
 import { AuthorModel } from 'src/author/model/author.model';
 
@@ -48,22 +48,25 @@ export class TrackService {
           HttpStatus.BAD_REQUEST,
         );
       }
+
       const tracks = await TrackModel.findAll({
         order: [['listens', 'DESC']],
         limit: Number(count),
         offset: Number(offset),
-        include: [{ model: AuthorModel, attributes: ['name'] }],
+        attributes: {
+          include: [[Sequelize.literal('"author"."name"'), 'authorName']],
+        },
+        include: [
+          {
+            model: AuthorModel,
+            attributes: [],
+          },
+        ],
+        raw: true,
+        nest: true,
       });
-      const result = tracks.map((track) => ({
-        id: track.id,
-        name: track.name,
-        picture: track.picture,
-        text: track.text,
-        listens: track.listens,
-        audio: track.audio,
-        author: track.author.name,
-      }));
-      return result;
+
+      return tracks;
     } catch (error) {
       throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
     }

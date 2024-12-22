@@ -230,6 +230,7 @@ import img4 from "../../../../public/assets/img/saints3.png";
 import img5 from "../../../../public/assets/img/saints4.png";
 import Image from "next/image";
 import PlayIcon from "../../../../public/assets/icons/Play";
+import albumService from "@/entities/album-service";
 
 const images = [img1, img2, img3, img4, img5];
 
@@ -239,7 +240,7 @@ const imageTexts = [
   "City at night",
   "Sunset over the mountains",
   "Beach paradise",
-  "Abstract art"
+  "Abstract art",
 ];
 
 // Массив с именами авторов для каждого изображения
@@ -248,10 +249,12 @@ const authors = [
   "Jane Smith",
   "Mike Johnson",
   "Emily Brown",
-  "Alex Wilson"
+  "Alex Wilson",
 ];
 
 const Carousel = () => {
+  const [data, setData] = useState([]);
+
   const [currentIndex, setCurrentIndex] = useState(0);
   const [nextIndex, setNextIndex] = useState(0);
   const [isAnimating, setIsAnimating] = useState(false);
@@ -283,6 +286,15 @@ const Carousel = () => {
     return newIndex;
   };
 
+  const fetchAlbums = async (params = { count: 5, offset: 0 }) => {
+    const response = await albumService.getTopAlbums(params);
+    setData(response);
+    console.log("data", data);
+  };
+
+  useEffect(() => {
+    fetchAlbums();
+  }, []);
   return (
     <div className={stl.Carousel}>
       {/* Центральный блок */}
@@ -292,9 +304,7 @@ const Carousel = () => {
       >
         <div className={stl.Carousel__img}>
           <Image
-            className={`${stl.image} ${
-              isExiting ? stl.imageExit : ""
-            }`}
+            className={`${stl.image} ${isExiting ? stl.imageExit : ""}`}
             src={isExiting ? images[currentIndex] : images[nextIndex]}
             alt="img"
           />

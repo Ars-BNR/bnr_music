@@ -3,6 +3,8 @@ import { InjectModel } from '@nestjs/sequelize';
 import { AlbumModel } from './model/album.model';
 import { CreateAlbumDto } from './dto/create-album.dto';
 import { TrackModel } from 'src/track/model/track.model';
+import { AuthorModel } from 'src/author/model/author.model';
+import { Sequelize } from 'sequelize';
 
 @Injectable()
 export class AlbumService {
@@ -35,12 +37,25 @@ export class AlbumService {
           HttpStatus.BAD_REQUEST,
         );
       }
-      const album = await this.albumRepository.findAll({
+
+      const albums = await this.albumRepository.findAll({
         order: [['listens', 'DESC']],
         limit: Number(count),
         offset: Number(offset),
+        attributes: {
+          include: [[Sequelize.literal('"author"."name"'), 'authorName']],
+        },
+        include: [
+          {
+            model: AuthorModel,
+            attributes: [],
+          },
+        ],
+        raw: true,
+        nest: true,
       });
-      return album;
+
+      return albums;
     } catch (error) {
       throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
     }

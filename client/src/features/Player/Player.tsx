@@ -51,6 +51,8 @@ const Player = () => {
   useEffect(() => {
     if (!audio) {
       audio = new Audio();
+      setAudio();
+      playTrack();
     } else {
       setAudio();
     }
