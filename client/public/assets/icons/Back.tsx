@@ -1,6 +1,10 @@
 import React from "react";
-
-const BackIcon = () => {
+interface BackIconProps {
+  onClick?: () => void; // Обработчик клика
+  onPointerDown?: () => void; // Обработчик нажатия
+  onPointerUp?: () => void; // Обработчик отпускания
+}
+const BackIcon = ({ onClick, onPointerDown, onPointerUp }:BackIconProps ) => {
   return (
     <svg
       width="26"
@@ -9,6 +13,9 @@ const BackIcon = () => {
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
       style={{ cursor: "pointer" }}
+      onClick={onClick} // Обработчик клика
+      onPointerDown={onPointerDown} // Обработчик нажатия
+      onPointerUp={onPointerUp} // Обработчик отпускания
     >
       <path
         d="M20.5835 21.6667L9.75013 13.0001L20.5835 4.33342V21.6667Z"

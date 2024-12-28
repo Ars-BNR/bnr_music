@@ -1,12 +1,17 @@
-import React from "react";
+"use client"
+
+import React, { useEffect } from "react";
 import CardSongs from "@/features/CardSongs/CardSongs";
-import { ITrack } from "@/shared/types/track";
+import useTrackStore from "@/shared/store/track";
 
-interface props {
-  tracks: ITrack[];
-}
 
-const PopularSongs = ({ tracks }: props) => {
+
+const PopularSongs = () => {
+  const { tracks, error, fetchTopTracks } = useTrackStore();
+
+  useEffect(() => {
+    fetchTopTracks({ count: 10, offset: 0 });
+  }, [fetchTopTracks]);
   return (
     <div className="bg-[#09090B] pb-[24px]">
       <div className="mb-4 flex items-center max-w-[270px] justify-between">

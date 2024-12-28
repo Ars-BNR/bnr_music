@@ -5,7 +5,7 @@ export interface ITrack {
   text: string;
   listens: number;
   audio: string;
-  author: string;
+  authorName: string;
 }
 
 export interface TrackState {

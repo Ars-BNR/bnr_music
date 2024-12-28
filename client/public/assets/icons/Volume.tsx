@@ -1,27 +1,81 @@
 "use client";
 
 import { Slider } from "@/shared/components/ui/slider";
+import usePlayerStore from "@/shared/store/player";
 import React, { useState } from "react";
-
-const VolumeIcon = () => {
+interface VolumeIconProps {
+  changeVolume: (value: number[]) => void; 
+}
+const VolumeIcon = ({ changeVolume }:VolumeIconProps) => {
+  const { volume } = usePlayerStore();
   const [isHovered, setIsHovered] = useState(false);
-  const [volume, setVolume] = useState(100);
+  const [isDragging, setIsDragging] = useState(false);
+
   const handleMouseEnter = () => {
     setIsHovered(true);
   };
+
   const handleMouseLeave = () => {
-    setIsHovered(false);
+    if (!isDragging) {
+      setIsHovered(false);
+    }
   };
-  const handleVolumeChange = (value: number) => {
-    setVolume(value);
-    // Здесь можно добавить логику для изменения громкости
+
+  const handleVolumeChange = (value: number[]) => {
+    changeVolume(value); // Используем переданную функцию
   };
+
+  const handleSliderDragStart = () => {
+    setIsDragging(true);
+  };
+
+  const handleSliderDragEnd = () => {
+    setIsDragging(false);
+  };
+
+  const handleWheel = (event:React.WheelEvent<HTMLDivElement>) => { 
+    const delta = event.deltaY > 0 ? -5 : 5;
+    const newValue = Math.min(Math.max(volume + delta,0),100)
+    console.log('newValue', newValue)
+    changeVolume([newValue]);
+   }
+
   return (
     <div
       style={{ position: "relative", display: "inline-block" }}
       onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
+      
+      onWheel={handleWheel}
     >
+      {isHovered && (
+        <div
+        onMouseLeave={handleMouseLeave}
+          style={{
+            position: "absolute",
+            bottom: "30px", // Позиция слайдера над иконкой
+            left: "50%",
+            transform: "translateX(-50%) rotate(-90deg)",
+            height: "100px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+         
+        >
+          <Slider
+          orientation="horizontal"
+            value={[volume]}
+            onValueChange={handleVolumeChange}
+            max={100}
+            step={1}
+            style={{
+              width: "100px", // Ширина слайдера (после поворота)
+            }}
+            onPointerDown={handleSliderDragStart}
+            onPointerUp={handleSliderDragEnd}
+          />
+        </div>
+      )}
       <svg
         width="26"
         height="26"
@@ -51,31 +105,6 @@ const VolumeIcon = () => {
           strokeLinejoin="round"
         />
       </svg>
-      {isHovered && (
-        <div
-          style={{
-            position: "absolute",
-            bottom: "30px", // Позиция слайдера над иконкой
-            left: "50%",
-            transform: "translateX(-50%)",
-            height: "100px",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <Slider
-            value={[volume]}
-            onValueChange={(value) => handleVolumeChange(value[0])}
-            max={100}
-            step={1}
-            style={{
-              transform: "rotate(-90deg)", // Поворачиваем слайдер на 90 градусов
-              width: "100px", // Ширина слайдера (после поворота)
-            }}
-          />
-        </div>
-      )}
     </div>
   );
 };

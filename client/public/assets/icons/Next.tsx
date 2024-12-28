@@ -1,6 +1,10 @@
 import React from "react";
-
-const NextIcon = () => {
+interface NextIconProps {
+  onClick?: () => void; // Обработчик клика
+  onPointerDown?: () => void; // Обработчик нажатия
+  onPointerUp?: () => void; // Обработчик отпускания
+}
+const NextIcon = ({ onClick, onPointerDown, onPointerUp }:NextIconProps) => {
   return (
     <svg
       width="26"
@@ -9,6 +13,9 @@ const NextIcon = () => {
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
       style={{ cursor: "pointer" }}
+      onClick={onClick} // Обработчик клика
+      onPointerDown={onPointerDown} // Обработчик нажатия
+      onPointerUp={onPointerUp} // Обработчик отпускания
     >
       <path
         d="M5.41666 4.33325L16.25 12.9999L5.41666 21.6666V4.33325Z"
