@@ -12,6 +12,7 @@ import VolumeIcon from "../../../public/assets/icons/Volume";
 import PauseIcon from "../../../public/assets/icons/Pause";
 import usePlayerStore from "@/shared/store/player";
 import useTrackStore from "@/shared/store/track";
+import Link from "next/link";
 
 const Player = () => {
   const {
@@ -32,8 +33,8 @@ const Player = () => {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [isSeeking, setIsSeeking] = useState(false);
 
-  const [isHoldingNext, setIsHoldingNext] = useState(false); // Состояние для удержания кнопки "Вперед"
-  const [isHoldingBack, setIsHoldingBack] = useState(false); // Состояние для удержания кнопки "Назад"
+  const [isHoldingNext, setIsHoldingNext] = useState(false);
+  const [isHoldingBack, setIsHoldingBack] = useState(false);
 
   const formatTime = (seconds: number) => {
     const minutes = Math.floor(seconds / 60);
@@ -161,13 +162,28 @@ const Player = () => {
     <div className="bg-[#1E212A] flex p-5 grow items-center rounded-b-[20px] justify-between">
       <div className="flex gap-[20px] items-center max-w-[280px] grow">
         <div className="flex flex-col gap-[7px] items-start max-w-[280px] grow">
-          <p className="text-[14px] text-white">{active.name}</p>
-          <p className="text-[#ACB0B1] text-[12px]">{active.authorName}</p>
+          <Link
+            href={`/album/${active.albumId}`}
+            className="text-[14px] text-white"
+          >
+            {active.name}
+          </Link>
+          <Link
+            href={`/album/${active.authorId}`}
+            className="text-[#ACB0B1] text-[12px]"
+          >
+            {active.authorName}
+          </Link>
         </div>
       </div>
       <div className="flex gap-[24px]">
         <BackIcon
-          onClick={handlePreviousTrack}
+          onClick={() => {
+            if (isHoldingNext === false) {
+              // Проверяем, не удерживается ли кнопка
+              handlePreviousTrack(); // Переключение на следующий трек
+            }
+          }}
           onPointerDown={() => {
             setIsHoldingBack(true);
             pauseTrack();
@@ -186,14 +202,19 @@ const Player = () => {
         )}
 
         <NextIcon
-          onClick={handleEnded} // Обработчик клика
+          onClick={() => {
+            if (isHoldingNext === false) {
+              // Проверяем, не удерживается ли кнопка
+              handleEnded(); // Переключение на следующий трек
+            }
+          }}
           onPointerDown={() => {
             setIsHoldingNext(true); // Начало перемотки вперед
             pauseTrack(); // Приостанавливаем воспроизведение
           }}
           onPointerUp={() => {
             setIsHoldingNext(false); // Окончание перемотки вперед
-            if (!pause) {
+            if (pause) {
               playTrack(); // Возобновляем воспроизведение, если оно не было приостановлено
             }
           }}

@@ -4,7 +4,7 @@ interface NextIconProps {
   onPointerDown?: () => void; // Обработчик нажатия
   onPointerUp?: () => void; // Обработчик отпускания
 }
-const NextIcon = ({ onClick, onPointerDown, onPointerUp }:NextIconProps) => {
+const NextIcon = ({ onClick, onPointerDown, onPointerUp }: NextIconProps) => {
   return (
     <svg
       width="26"

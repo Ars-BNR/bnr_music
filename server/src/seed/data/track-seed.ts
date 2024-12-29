@@ -32,8 +32,44 @@ const tracks = [
     authorId: 2, // Brian Tyler
     picture: 'image/ac4.jpg',
     text: '',
-    listens: 13,
+    listens: 132,
     audio: 'audio/AC_4_Brian_Tyler_Pyrates_Beware.mp3',
+    genreId: 1, // Game Music
+  },
+  {
+    name: 'Fight Club',
+    authorId: 4, // Brian Tyler
+    picture: 'image/ac3.jpg',
+    text: '',
+    listens: 131,
+    audio: 'audio/Lorne_Balfe_-_Fight_Club.mp3',
+    genreId: 1, // Game Music
+  },
+  {
+    name: 'Welcome to Boston',
+    authorId: 4, // Brian Tyler
+    picture: 'image/ac3.jpg',
+    text: '',
+    listens: 137,
+    audio: 'audio/Lorne_Balfe_-_Welcome_to_Boston.mp3',
+    genreId: 1, // Game Music
+  },
+  {
+    name: 'OST Saints_Row The Third',
+    authorId: 3, // Brian Tyler
+    picture: 'image/saintsRow3.jpg',
+    text: '',
+    listens: 137,
+    audio: 'audio/OST_Saints_Row_The_Third_-_Main_Theme.mp3',
+    genreId: 1, // Game Music
+  },
+  {
+    name: 'Saints Row 4 OST',
+    authorId: 3, // Brian Tyler
+    picture: 'image/saintsRow4.jpg',
+    text: '',
+    listens: 1371,
+    audio: 'audio/Saints_Row_4_OST_Malcolm_Kirby_Jr._Main_Theme.mp3',
     genreId: 1, // Game Music
   },
 ];

@@ -4,7 +4,7 @@ interface BackIconProps {
   onPointerDown?: () => void; // Обработчик нажатия
   onPointerUp?: () => void; // Обработчик отпускания
 }
-const BackIcon = ({ onClick, onPointerDown, onPointerUp }:BackIconProps ) => {
+const BackIcon = ({ onClick, onPointerDown, onPointerUp }: BackIconProps) => {
   return (
     <svg
       width="26"

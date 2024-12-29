@@ -15,5 +15,21 @@ const album_tracks = [
     trackId: 4,
     albumId: 2,
   },
+  {
+    trackId: 5,
+    albumId: 3,
+  },
+  {
+    trackId: 6,
+    albumId: 3,
+  },
+  {
+    trackId: 7,
+    albumId: 4,
+  },
+  {
+    trackId: 8,
+    albumId: 5,
+  },
 ];
 export default album_tracks;

@@ -6,6 +6,7 @@ import { CreateTrackDto } from './dto/create-track.dto';
 import { Op, Sequelize } from 'sequelize';
 import { UpdateTrackDto } from './dto/update-track.dto';
 import { AuthorModel } from 'src/author/model/author.model';
+import { AlbumModel } from 'src/album/model/album.model';
 
 @Injectable()
 export class TrackService {
@@ -98,7 +99,26 @@ export class TrackService {
           HttpStatus.BAD_REQUEST,
         );
       }
-      const track = await this.trackRepository.findByPk(id);
+      const track = await this.trackRepository.findByPk(id, {
+        subQuery: false,
+        attributes: {
+          include: [[Sequelize.literal('"albums"."id"'), 'albumId']],
+        },
+        include: [
+          {
+            model: AlbumModel,
+            attributes: [],
+            through: { attributes: [] },
+          },
+        ],
+        raw: true,
+        nest: true,
+      });
+
+      if (!track) {
+        throw new HttpException('Трек не найден', HttpStatus.NOT_FOUND);
+      }
+
       return track;
     } catch (error) {
       throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
