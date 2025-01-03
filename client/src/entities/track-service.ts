@@ -1,6 +1,7 @@
 import $api from "./http-service";
 
 const getPopTracksEndpoint = "/tracks/popular";
+const getSearchEndpoint = "/tracks/search?";
 
 const trackService = {
   getTopTracks: async (queryParams: object) => {
@@ -11,7 +12,7 @@ const trackService = {
   },
 
   searchTracks: async (query: string) => {
-    const { data } = await $api.get(`/search`, {
+    const { data } = await $api.get(getSearchEndpoint, {
       params: { query },
     });
     return data;

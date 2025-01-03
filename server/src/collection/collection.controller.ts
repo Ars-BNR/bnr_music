@@ -1,12 +1,22 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { CollectionService } from './collection.service';
 import { CreateCollectionDto } from './dto/create-collection.dto';
 import { JwtAuthGuard } from 'src/guards/jwt-auth.guard';
 
-@UseGuards(JwtAuthGuard)
+// @UseGuards(JwtAuthGuard)
 @Controller('collection')
 export class CollectionController {
-    constructor(private collectionService: CollectionService) {}
+  constructor(private collectionService: CollectionService) {}
 
   @Post()
   create(@Body() dto: CreateCollectionDto) {
@@ -23,13 +33,18 @@ export class CollectionController {
     return this.collectionService.getOne(id);
   }
 
-  @Delete("delete/:id")
-  delete(@Param("id") id:number){
-    return this.collectionService.delete(id)
+  @Get('user/:userId')
+  getByUserId(@Param('userId') userId: number) {
+    return this.collectionService.getByUserId(userId);
   }
 
-  @Patch("change/:id")
-  change(@Param("id") id:number,@Body() updateData:CreateCollectionDto){
-    return this.collectionService.change(id,updateData)
+  @Delete('delete/:id')
+  delete(@Param('id') id: number) {
+    return this.collectionService.delete(id);
+  }
+
+  @Patch('change/:id')
+  change(@Param('id') id: number, @Body() updateData: CreateCollectionDto) {
+    return this.collectionService.change(id, updateData);
   }
 }

@@ -8,6 +8,7 @@ import { JwtService } from '@nestjs/jwt';
 @Module({
   imports: [SequelizeModule.forFeature([CollectionModel])],
   controllers: [CollectionController],
-  providers: [CollectionService,JwtService],
+  providers: [CollectionService, JwtService],
+  exports: [CollectionService],
 })
 export class CollectionModule {}

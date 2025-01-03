@@ -1,27 +1,14 @@
 "use client";
 
 import { badgeVariants } from "@/shared/components/ui/badge";
+import useCategoryStore from "@/shared/store/category";
 import Link from "next/link";
-import React, { useRef } from "react";
-import ArrowIcon from "../../../../public/assets/icons/Arrow";
+import React, { useEffect, useRef } from "react";
 const Category = () => {
-  const category = [
-    { id: 1, name: "Все" },
-    { id: 2, name: "Sad" },
-    { id: 3, name: "Party" },
-    { id: 4, name: "Фонк" },
-    { id: 5, name: "Фонк" },
-    { id: 6, name: "Фонк" },
-    { id: 7, name: "Фонк" },
-    { id: 8, name: "Фонк" },
-    { id: 9, name: "Фонк" },
-    { id: 10, name: "Фонк" },
-    { id: 11, name: "Фонк" },
-    { id: 12, name: "Фонк" },
-    { id: 13, name: "Фонк" },
-    { id: 14, name: "Фонк" },
-    { id: 15, name: "Фонк" },
-  ];
+  const { categories, fetchCategories } = useCategoryStore();
+  useEffect(() => {
+    fetchCategories();
+  }, []);
 
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
 
@@ -57,7 +44,7 @@ const Category = () => {
         className="scroll-container flex gap-[24px] overflow-x-auto"
         onWheel={handleWheelScroll}
       >
-        {category.map((cat) => (
+        {categories.map((cat) => (
           <Link
             key={cat.id}
             href={"/"}

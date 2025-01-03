@@ -15,4 +15,5 @@ export interface AlbumState {
   albums: IAlbum[];
   selectedAlbumTracks: ISelectedAlbum | null;
   error: string;
+  loading: boolean;
 }

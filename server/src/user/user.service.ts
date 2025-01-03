@@ -7,12 +7,14 @@ import * as uuid from 'uuid';
 import { Response } from 'express';
 import { TokenService } from 'src/token/token.service';
 import { MailService } from 'src/mail/mail.service';
+import { CollectionService } from 'src/collection/collection.service';
 @Injectable()
 export class UserService {
   constructor(
     @InjectModel(UserModel) private userRepository: typeof UserModel,
     private readonly tokenService: TokenService,
     private readonly mailService: MailService,
+    private readonly collectionService: CollectionService,
   ) {}
 
   async hashPassword(password: string): Promise<string> {
@@ -74,7 +76,10 @@ export class UserService {
       );
 
       const userDto = new UserJWTData(user);
-      return this.generateAndSaveTokens(userDto);
+      const prepareUser = this.generateAndSaveTokens(userDto);
+      await this.collectionService.create({ userId: userDto.id });
+      console.log('prepareUser', prepareUser);
+      return prepareUser;
     } catch (error) {
       throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
     }

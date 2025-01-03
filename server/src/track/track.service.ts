@@ -142,7 +142,11 @@ export class TrackService {
     }
   }
 
-  async search(query: string): Promise<TrackModel[]> {
+  async search(
+    query: string,
+    page: number = 1,
+    limit: number = 5,
+  ): Promise<TrackModel[]> {
     try {
       if (!query) {
         throw new HttpException(
@@ -150,14 +154,32 @@ export class TrackService {
           HttpStatus.BAD_REQUEST,
         );
       }
+
+      const offset = (page - 1) * limit;
+
       const tracks = await this.trackRepository.findAll({
+        subQuery: false,
+        include: [
+          {
+            model: AuthorModel,
+            required: true,
+          },
+          {
+            model: AlbumModel,
+            required: true,
+          },
+        ],
         where: {
           [Op.or]: [
-            { name: { [Op.iLike]: `%${query}%` } },
-            { author: { [Op.iLike]: `%${query}%` } },
+            { name: { [Op.iLike]: `%${query}%` } }, // Поиск по названию трека
+            { '$author.name$': { [Op.iLike]: `%${query}%` } }, // Поиск по имени автора
+            { '$albums.name$': { [Op.iLike]: `%${query}%` } }, // Поиск по названию альбома
           ],
         },
+        limit: limit, // Ограничиваем количество результатов
+        offset: offset, // Указываем смещение для пагинации
       });
+
       return tracks;
     } catch (error) {
       throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);

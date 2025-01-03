@@ -4,6 +4,7 @@ import { CollectionModel } from './model/collection.model';
 import { CreateCollectionDto } from './dto/create-collection.dto';
 import { PlaylistModel } from 'src/playlist/model/playlist.model';
 import { AlbumModel } from 'src/album/model/album.model';
+import { TrackModel } from 'src/track/model/track.model';
 
 @Injectable()
 export class CollectionService {
@@ -45,45 +46,50 @@ export class CollectionService {
     }
   }
 
-  async getOne(id:number){
+  async getOne(id: number) {
     try {
-        if (!id) {
-            throw new HttpException(
-              'Не указаны все данные',
-              HttpStatus.BAD_REQUEST,
-            );
-          }
-          const collection = await this.collectionRepository.findByPk(id,{
-            include:[
-                {
-                    model:PlaylistModel
-                },
-                {
-                    model:AlbumModel
-                },
-            ]
-          })
-          return collection;
+      if (!id) {
+        throw new HttpException(
+          'Не указаны все данные',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+      const collection = await this.collectionRepository.findByPk(id, {
+        include: [
+          {
+            model: PlaylistModel,
+          },
+          {
+            model: AlbumModel,
+          },
+          {
+            model: TrackModel,
+            through: { attributes: [] },
+          },
+        ],
+      });
+      return collection;
     } catch (error) {
-        throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
+      throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
 
-  async delete(id:number){
+  async delete(id: number) {
     try {
-        if (!id) {
-          throw new HttpException(
-            'Не указаны все данные',
-            HttpStatus.BAD_REQUEST,
-          );
-        }
-        const collection = await this.collectionRepository.destroy({ where: { id } });
-        return collection;
-      } catch (error) {
-        throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
+      if (!id) {
+        throw new HttpException(
+          'Не указаны все данные',
+          HttpStatus.BAD_REQUEST,
+        );
       }
+      const collection = await this.collectionRepository.destroy({
+        where: { id },
+      });
+      return collection;
+    } catch (error) {
+      throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
   }
-
 
   async change(id: number, updateData: CreateCollectionDto) {
     try {
@@ -98,6 +104,41 @@ export class CollectionService {
       Object.assign(collection, updateData);
 
       await collection.save();
+
+      return collection;
+    } catch (error) {
+      throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
+  async getByUserId(userId: number) {
+    try {
+      if (!userId) {
+        throw new HttpException(
+          'Не указаны все данные',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      const collection = await this.collectionRepository.findOne({
+        where: { userId },
+        include: [
+          {
+            model: PlaylistModel,
+          },
+          {
+            model: AlbumModel,
+          },
+          {
+            model: TrackModel,
+            through: { attributes: [] },
+          },
+        ],
+      });
+
+      if (!collection) {
+        throw new HttpException('Коллекция не найдена', HttpStatus.NOT_FOUND);
+      }
 
       return collection;
     } catch (error) {

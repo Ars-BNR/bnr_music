@@ -35,6 +35,8 @@ import { TrackGenreModule } from './track-genre/track-genre.module';
 import { AuthorModel } from './author/model/author.model';
 import { GenreModel } from './genre/model/genre.model';
 import { TrackGenreModel } from './track-genre/model/track-genre.model';
+import { CollectionTrackModule } from './collection-track/collection-track.module';
+import { CollectionTrackModel } from './collection-track/model/collection-track.model';
 
 @Module({
   imports: [
@@ -73,6 +75,7 @@ import { TrackGenreModel } from './track-genre/model/track-genre.model';
         AuthorModel,
         GenreModel,
         TrackGenreModel,
+        CollectionTrackModel,
       ],
       autoLoadModels: true,
       synchronize: true,
@@ -97,6 +100,7 @@ import { TrackGenreModel } from './track-genre/model/track-genre.model';
     AuthorModule,
     GenreModule,
     TrackGenreModule,
+    CollectionTrackModule,
   ],
   controllers: [],
   providers: [

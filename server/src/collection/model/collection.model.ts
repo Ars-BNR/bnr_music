@@ -13,7 +13,9 @@ import {
 import { AlbumModel } from 'src/album/model/album.model';
 import { CollectionAlbumModel } from 'src/collection-album/model/collection-album.model';
 import { CollectionPlaylistModel } from 'src/collection-playlist/model/collection-playlist.model';
+import { CollectionTrackModel } from 'src/collection-track/model/collection-track.model';
 import { PlaylistModel } from 'src/playlist/model/playlist.model';
+import { TrackModel } from 'src/track/model/track.model';
 import { UserModel } from 'src/user/model/user.model';
 
 @Table({ tableName: 'collections', timestamps: false })
@@ -40,4 +42,7 @@ export class CollectionModel extends Model {
 
   @BelongsToMany(() => AlbumModel, () => CollectionAlbumModel)
   albums: AlbumModel[];
+
+  @BelongsToMany(() => TrackModel, () => CollectionTrackModel)
+  tracks: TrackModel[];
 }

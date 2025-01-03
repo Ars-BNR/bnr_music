@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { TrackState } from "@/shared/types/track";
+import { ITrack, TrackState } from "@/shared/types/track";
 import trackService from "@/entities/track-service";
 
 interface TrackStore extends TrackState {
@@ -8,19 +8,24 @@ interface TrackStore extends TrackState {
     offset?: number;
   }) => Promise<void>;
   searchTracks: (query: string) => Promise<void>;
+  setTracks: (tracks: ITrack[]) => void;
 }
 
 const useTrackStore = create<TrackStore>((set) => ({
   tracks: [],
   error: "",
+  loading: false,
 
   fetchTopTracks: async (params = { count: 5, offset: 0 }) => {
     try {
+      set({ loading: true });
       const data = await trackService.getTopTracks(params);
       console.log("data", data);
       set({ tracks: data, error: "" });
     } catch {
       set({ error: "Произошла ошибка при загрузке треков" });
+    } finally {
+      set({ loading: false });
     }
   },
 
@@ -32,6 +37,7 @@ const useTrackStore = create<TrackStore>((set) => ({
       set({ error: "Произошла ошибка при загрузке треков" });
     }
   },
+  setTracks: (tracks) => set({ tracks }),
 }));
 
 export default useTrackStore;

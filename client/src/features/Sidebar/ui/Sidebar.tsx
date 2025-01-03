@@ -21,13 +21,13 @@ export const Sidebar = () => {
   const links = [
     { href: "/", icon: <HomeIcon />, text: "Главная" },
     { href: "/category", icon: <CategoryIcon />, text: "Категории" },
-    { href: "/author", icon: <ArtistIcon />, text: "Артисты" },
+    { href: "/authors", icon: <ArtistIcon />, text: "Артисты" },
   ];
   const playlist = [
-    {  name: "Drill" },
-    {  name: "Hip-hop" },
-    {  name: "Фонкус" },
-    {  name: "Disturbed Best In the world sdwsasdasdasdasd" },
+    { name: "Drill" },
+    { name: "Hip-hop" },
+    { name: "Фонкус" },
+    { name: "Disturbed Best In the world sdwsasdasdasdasd" },
   ];
   return (
     <div className={stl.sidebar}>
@@ -60,7 +60,12 @@ export const Sidebar = () => {
                 </AccordionContent>
               ))}
               <AccordionContent>
-              <Link href={"/"} className="text-white text-[20px] flex gap-4 justify-start cursor-pointer hover:text-[#6300ff]" >Все плейлисты</Link>
+                <Link
+                  href={"/"}
+                  className="text-white text-[20px] flex gap-4 justify-start cursor-pointer hover:text-[#6300ff]"
+                >
+                  Все плейлисты
+                </Link>
               </AccordionContent>
             </div>
           </AccordionItem>

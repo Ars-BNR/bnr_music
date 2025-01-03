@@ -13,4 +13,5 @@ export interface ITrack {
 export interface TrackState {
   tracks: ITrack[];
   error: string;
+  loading: boolean;
 }

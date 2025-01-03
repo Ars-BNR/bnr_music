@@ -29,7 +29,7 @@ const Player = () => {
     setActiveTrack,
   } = usePlayerStore();
 
-  const { tracks } = useTrackStore();
+  const { tracks, setTracks } = useTrackStore();
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [isSeeking, setIsSeeking] = useState(false);
 
@@ -42,17 +42,37 @@ const Player = () => {
     return `${minutes}:${sec < 10 ? "0" : ""}${sec}`;
   };
 
-  const setAudio = () => {
+  const setAudio = async () => {
     if (active && audioRef.current) {
-      audioRef.current.src = "http://localhost:8340/" + active.audio;
-      audioRef.current.volume = volume / 100;
-      audioRef.current.onloadedmetadata = () => {
-        setDuration(Math.ceil(audioRef.current!.duration));
-      };
-      audioRef.current.ontimeupdate = () => {
-        setCurrentTime(Math.ceil(audioRef.current!.currentTime));
-      };
-      audioRef.current.onended = handleEnded;
+      try {
+        if (!audioRef.current.paused) {
+          audioRef.current.pause();
+        }
+        audioRef.current.currentTime = 0;
+
+        audioRef.current.src = "http://localhost:8340/" + active.audio;
+        audioRef.current.volume = volume / 100;
+
+        audioRef.current.onloadedmetadata = () => {
+          setDuration(Math.ceil(audioRef.current!.duration));
+        };
+        audioRef.current.ontimeupdate = () => {
+          setCurrentTime(Math.ceil(audioRef.current!.currentTime));
+        };
+        audioRef.current.onended = handleEnded;
+
+        audioRef.current.oncanplay = async () => {
+          try {
+            if (pause === false) {
+              await audioRef.current!.play();
+            }
+          } catch (error) {
+            console.error("Error playing audio:", error);
+          }
+        };
+      } catch (error) {
+        console.error("Error setting audio:", error);
+      }
     }
   };
 
@@ -63,30 +83,41 @@ const Player = () => {
     setAudio();
   }, [active]);
 
+  // useEffect(() => {
+  //   if (audioRef.current) {
+  //     if (pause) {
+  //       if (!audioRef.current.paused) {
+  //         audioRef.current.pause();
+  //       }
+  //     } else {
+  //       if (audioRef.current.paused) {
+  //         audioRef.current.play().catch((error) => {
+  //           console.error("Error playing audio:", error);
+  //         });
+  //       }
+  //     }
+  //   }
+  // }, [pause]);
+
   useEffect(() => {
-    if (audioRef.current) {
-      if (pause) {
+    return () => {
+      if (audioRef.current) {
         audioRef.current.pause();
-      } else {
-        audioRef.current.play().catch((error) => {
-          console.error("Error playing audio:", error);
-        });
+        audioRef.current.src = ""; // Очистите источник
       }
-    }
-  }, [pause]);
+    };
+  }, []);
 
-  useEffect(() => {
-    if (active && audioRef.current) {
-      audioRef.current.play().catch((error) => {
+  const play = async () => {
+    if (audioRef.current && audioRef.current.paused) {
+      try {
+        await audioRef.current.play();
+        playTrack();
+      } catch (error) {
         console.error("Error playing audio:", error);
-      });
-    }
-  }, [active]);
-
-  const play = () => {
-    if (pause) {
-      playTrack();
+      }
     } else {
+      audioRef.current?.pause();
       pauseTrack();
     }
   };
@@ -99,7 +130,6 @@ const Player = () => {
   };
 
   const changeCurrentTime = (value: number[]) => {
-    console.log("value", value);
     if (audioRef.current) {
       audioRef.current.currentTime = value[0];
       setCurrentTime(value[0]);
@@ -109,9 +139,7 @@ const Player = () => {
   const handleEnded = () => {
     if (tracks.length > 0 && active) {
       const currentIndex = tracks.findIndex((track) => track.id === active.id);
-      console.log("currentIndex", currentIndex);
       const nextIndex = (currentIndex + 1) % tracks.length;
-      console.log("nextIndex", nextIndex);
       const nextTrack = tracks[nextIndex];
       setActiveTrack(nextTrack);
       playTrack();
@@ -122,7 +150,7 @@ const Player = () => {
     if (tracks.length > 0 && active) {
       const currentIndex = tracks.findIndex((track) => track.id === active.id);
       const previousIndex =
-        currentIndex === 0 ? tracks.length - 1 : currentIndex - 1; // Переход на предыдущий трек
+        currentIndex === 0 ? tracks.length - 1 : currentIndex - 1;
       const previousTrack = tracks[previousIndex];
       setActiveTrack(previousTrack);
       playTrack();
@@ -133,23 +161,22 @@ const Player = () => {
     let interval: NodeJS.Timeout;
     if (isHoldingNext && audioRef.current) {
       interval = setInterval(() => {
-        const newTime = Math.min(audioRef.current!.currentTime + 2, duration); // Перемотка на 2 секунды вперед
+        const newTime = Math.min(audioRef.current!.currentTime + 2, duration);
         audioRef.current!.currentTime = newTime;
         setCurrentTime(newTime);
-      }, 200); // Интервал перемотки
+      }, 200);
     }
     return () => clearInterval(interval);
   }, [isHoldingNext, duration]);
 
-  // Перемотка назад, пока кнопка удерживается
   useEffect(() => {
     let interval: NodeJS.Timeout;
     if (isHoldingBack && audioRef.current) {
       interval = setInterval(() => {
-        const newTime = Math.max(audioRef.current!.currentTime - 2, 0); // Перемотка на 2 секунды назад
+        const newTime = Math.max(audioRef.current!.currentTime - 2, 0);
         audioRef.current!.currentTime = newTime;
         setCurrentTime(newTime);
-      }, 200); // Интервал перемотки
+      }, 200);
     }
     return () => clearInterval(interval);
   }, [isHoldingBack]);
@@ -180,8 +207,7 @@ const Player = () => {
         <BackIcon
           onClick={() => {
             if (isHoldingNext === false) {
-              // Проверяем, не удерживается ли кнопка
-              handlePreviousTrack(); // Переключение на следующий трек
+              handlePreviousTrack();
             }
           }}
           onPointerDown={() => {
@@ -204,18 +230,17 @@ const Player = () => {
         <NextIcon
           onClick={() => {
             if (isHoldingNext === false) {
-              // Проверяем, не удерживается ли кнопка
-              handleEnded(); // Переключение на следующий трек
+              handleEnded();
             }
           }}
           onPointerDown={() => {
-            setIsHoldingNext(true); // Начало перемотки вперед
-            pauseTrack(); // Приостанавливаем воспроизведение
+            setIsHoldingNext(true);
+            pauseTrack();
           }}
           onPointerUp={() => {
-            setIsHoldingNext(false); // Окончание перемотки вперед
+            setIsHoldingNext(false);
             if (pause) {
-              playTrack(); // Возобновляем воспроизведение, если оно не было приостановлено
+              playTrack();
             }
           }}
         />
