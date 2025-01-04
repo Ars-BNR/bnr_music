@@ -14,13 +14,15 @@ import {
 } from "@/shared/components/ui/form";
 import { Input } from "@/shared/components/ui/input";
 import { zodResolver } from "@hookform/resolvers/zod";
-import React from "react";
+import React, { FormEvent } from "react";
 import { useForm } from "react-hook-form";
 import styles from "../styles/LoginForm.module.scss";
 import { Button } from "@/shared/components/ui/button";
 import { useRouter } from "next/navigation";
+import AuthStore from "@/shared/store/auth";
 
- const LoginForm = () => {
+const LoginForm = () => {
+  const login = AuthStore((state) => state.login);
   const router = useRouter();
   const form = useForm<TFormLoginValues>({
     resolver: zodResolver(formLoginSchema),
@@ -29,9 +31,17 @@ import { useRouter } from "next/navigation";
       password: "",
     },
   });
-  const onSubmit = (data: TFormLoginValues) => {
-    console.log(data, "data");
+
+  const onSubmit = async (data: TFormLoginValues) => {
+    try {
+      login({ email: data.email, password: data.password, router });
+    } catch (error) {
+      if (error instanceof Error) {
+        console.log(error);
+      }
+    }
   };
+
   return (
     <div className={styles.LoginForm}>
       <div className={styles.LoginForm__block}>
@@ -69,8 +79,16 @@ import { useRouter } from "next/navigation";
               )}
             />
             <div className={styles.Buttons}>
-              <Button className="max-w-[204px]" type="submit">Войти</Button>
-              <Button  className="max-w-[204px]" type="button" onClick={()=>router.replace("/registration")} >Зарегистрироваться</Button>
+              <Button className="max-w-[204px]" type="submit">
+                Войти
+              </Button>
+              <Button
+                className="max-w-[204px]"
+                type="button"
+                onClick={() => router.replace("/registration")}
+              >
+                Зарегистрироваться
+              </Button>
             </div>
           </form>
         </Form>

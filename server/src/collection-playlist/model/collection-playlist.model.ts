@@ -1,6 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import {
   AutoIncrement,
+  BelongsTo,
   Column,
   DataType,
   ForeignKey,
@@ -37,4 +38,10 @@ export class CollectionPlaylistModel extends Model {
   @ForeignKey(() => PlaylistModel)
   @Column
   playlistId: number;
+
+  @BelongsTo(() => CollectionModel)
+  collection: CollectionModel;
+
+  @BelongsTo(() => PlaylistModel)
+  playlist: PlaylistModel;
 }

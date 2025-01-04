@@ -1,11 +1,12 @@
 "use client";
 
 import { badgeVariants } from "@/shared/components/ui/badge";
+import { Skeleton } from "@/shared/components/ui/skeleton";
 import useCategoryStore from "@/shared/store/category";
 import Link from "next/link";
 import React, { useEffect, useRef } from "react";
 const Category = () => {
-  const { categories, fetchCategories } = useCategoryStore();
+  const { categories, fetchCategories, loading } = useCategoryStore();
   useEffect(() => {
     fetchCategories();
   }, []);
@@ -34,7 +35,7 @@ const Category = () => {
     <div
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
-      className="bg-[#09090B] mb-[70px] overflow-hidden"
+      className="bg-[#09090B] mb-[70px] overflow-hidden min-h-[72px]"
     >
       <div className="mb-4 flex  items-center max-w-[270px] justify-between">
         <span className="text-[16px] text-white">Выберите категорию</span>
@@ -44,7 +45,22 @@ const Category = () => {
         className="scroll-container flex gap-[24px] overflow-x-auto"
         onWheel={handleWheelScroll}
       >
-        {categories.map((cat) => (
+        {loading
+          ? Array(8)
+              .fill(0)
+              .map((_, index) => (
+                <Skeleton key={index} className="h-[32px] w-[57px]" />
+              ))
+          : categories.map((cat) => (
+              <Link
+                key={cat.id}
+                href={"/"}
+                className={badgeVariants({ variant: "default" })}
+              >
+                {cat.name}
+              </Link>
+            ))}
+        {/* {categories.map((cat) => (
           <Link
             key={cat.id}
             href={"/"}
@@ -52,7 +68,7 @@ const Category = () => {
           >
             {cat.name}
           </Link>
-        ))}
+        ))} */}
       </div>
     </div>
   );

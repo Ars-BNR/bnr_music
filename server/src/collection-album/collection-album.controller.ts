@@ -1,10 +1,20 @@
-import { Body, Controller, Delete, Param, Patch, Post, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { CollectionAlbumService } from './collection-album.service';
 import { CreateCollectionAlbumDto } from './dto/create-collectionAlbum.dto';
 import { UpdateCollectionAlbumDto } from './dto/update-collectionAlbum.dto';
 import { JwtAuthGuard } from 'src/guards/jwt-auth.guard';
 
-@UseGuards(JwtAuthGuard)
+// @UseGuards(JwtAuthGuard)
 @Controller('collection_album')
 export class CollectionAlbumController {
   constructor(private collectionAlbumService: CollectionAlbumService) {}
@@ -25,5 +35,18 @@ export class CollectionAlbumController {
     @Body() updateData: UpdateCollectionAlbumDto,
   ) {
     return this.collectionAlbumService.change(id, updateData);
+  }
+
+  @Get(':collectionId')
+  getAlbumsByCollectionId(
+    @Param('collectionId') collectionId: number,
+    @Query('limit') limit: number = 10,
+    @Query('offset') offset: number = 0,
+  ) {
+    return this.collectionAlbumService.getAlbumsByCollectionId(
+      collectionId,
+      limit,
+      offset,
+    );
   }
 }

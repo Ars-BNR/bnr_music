@@ -139,10 +139,10 @@ export class UserService {
           HttpStatus.BAD_REQUEST,
         );
       }
-      const userData =
+      const validToken =
         await this.tokenService.validateRefreshToken(refreshToken);
       const tokenFromDB = await this.tokenService.findToken(refreshToken);
-      if (!userData || !tokenFromDB) {
+      if (!validToken || !tokenFromDB) {
         throw new HttpException(
           'Пользователь не авторизован',
           HttpStatus.BAD_REQUEST,
@@ -150,7 +150,7 @@ export class UserService {
       }
       const user = await this.userRepository.findOne({
         where: {
-          id: userData.user.id,
+          id: validToken.user.id,
         },
       });
       if (!user) {

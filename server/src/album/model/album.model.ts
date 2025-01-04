@@ -12,6 +12,8 @@ import {
 } from 'sequelize-typescript';
 import { AlbumTrackModel } from 'src/album-track/model/album-track.model';
 import { AuthorModel } from 'src/author/model/author.model';
+import { CollectionAlbumModel } from 'src/collection-album/model/collection-album.model';
+import { CollectionModel } from 'src/collection/model/collection.model';
 import { TrackModel } from 'src/track/model/track.model';
 
 @Table({ tableName: 'albums', timestamps: false })
@@ -48,4 +50,7 @@ export class AlbumModel extends Model {
 
   @BelongsToMany(() => TrackModel, () => AlbumTrackModel)
   tracks: TrackModel[];
+
+  @BelongsToMany(() => CollectionModel, () => CollectionAlbumModel)
+  collections: CollectionModel[];
 }

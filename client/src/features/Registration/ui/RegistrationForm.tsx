@@ -19,19 +19,27 @@ import { useForm } from "react-hook-form";
 import styles from "../styles/RegistrationForm.module.scss";
 import { Button } from "@/shared/components/ui/button";
 import { useRouter } from "next/navigation";
+import AuthStore from "@/shared/store/auth";
 
-export const  RegistrationForm = () => {
+export const RegistrationForm = () => {
+  const registration = AuthStore((state) => state.registration);
   const router = useRouter();
   const form = useForm<TFormRegisterValues>({
     resolver: zodResolver(formRegisterSchema),
     defaultValues: {
       email: "",
       password: "",
-      confirmPassword:"",
+      confirmPassword: "",
     },
   });
-  const onSubmit = (data: TFormRegisterValues) => {
-    console.log(data, "data");
+  const onSubmit = async (data: TFormRegisterValues) => {
+    try {
+      registration({ email: data.email, password: data.password, router });
+    } catch (error) {
+      if (error instanceof Error) {
+        console.log(error);
+      }
+    }
   };
   return (
     <div className={styles.RegForm}>
@@ -74,7 +82,9 @@ export const  RegistrationForm = () => {
               name="confirmPassword"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel className="text-white">Подтверждение пароля</FormLabel>
+                  <FormLabel className="text-white">
+                    Подтверждение пароля
+                  </FormLabel>
                   <FormControl>
                     <Input
                       type="password"
@@ -87,8 +97,16 @@ export const  RegistrationForm = () => {
               )}
             />
             <div className={styles.Buttons}>
-              <Button  className="max-w-[204px]" type="submit">Зарегистрироваться</Button>
-              <Button   className="max-w-[204px]" type="button" onClick={()=>router.replace("/login")} >Войти</Button>
+              <Button className="max-w-[204px]" type="submit">
+                Зарегистрироваться
+              </Button>
+              <Button
+                className="max-w-[204px]"
+                type="button"
+                onClick={() => router.replace("/login")}
+              >
+                Войти
+              </Button>
             </div>
           </form>
         </Form>

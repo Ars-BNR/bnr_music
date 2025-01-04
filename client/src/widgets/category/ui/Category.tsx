@@ -1,12 +1,13 @@
 "use client";
 
 import { badgeVariants } from "@/shared/components/ui/badge";
+import { Skeleton } from "@/shared/components/ui/skeleton";
 import useCategoryStore from "@/shared/store/category";
 import Link from "next/link";
 import React, { useEffect } from "react";
 
 const Category = () => {
-  const { categories, fetchCategories } = useCategoryStore();
+  const { categories, fetchCategories, loading } = useCategoryStore();
 
   useEffect(() => {
     fetchCategories();
@@ -18,15 +19,21 @@ const Category = () => {
         <span className="text-[16px] text-white">Выберите категорию</span>
       </div>
       <div className="flex flex-wrap gap-[24px] max-w-[894px]">
-        {categories.map((cat) => (
-          <Link
-            key={cat.id}
-            href={"/"}
-            className={badgeVariants({ variant: "default" })}
-          >
-            {cat.name}
-          </Link>
-        ))}
+        {loading
+          ? Array(8)
+              .fill(0)
+              .map((_, index) => (
+                <Skeleton key={index} className="h-[32px] w-[57px]" />
+              ))
+          : categories.map((cat) => (
+              <Link
+                key={cat.id}
+                href={"/"}
+                className={badgeVariants({ variant: "default" })}
+              >
+                {cat.name}
+              </Link>
+            ))}
       </div>
     </div>
   );

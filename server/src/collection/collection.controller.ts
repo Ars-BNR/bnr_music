@@ -47,4 +47,8 @@ export class CollectionController {
   change(@Param('id') id: number, @Body() updateData: CreateCollectionDto) {
     return this.collectionService.change(id, updateData);
   }
+  @Get('summary/:userId')
+  async getCollectionSummary(@Param('userId') userId: number) {
+    return this.collectionService.getCollectionSummary(userId);
+  }
 }

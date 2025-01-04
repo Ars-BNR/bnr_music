@@ -16,8 +16,17 @@ import {
 } from "@/shared/components/ui/accordion";
 import PlaylistIcon from "../../../../public/assets/icons/Playlist";
 import ExitIcon from "../../../../public/assets/icons/Exit";
+import AuthStore from "@/shared/store/auth";
 export const Sidebar = () => {
   const router = useRouter();
+  const logout = AuthStore((state) => state.logout);
+  const handleLogout = async () => {
+    try {
+      logout(router);
+    } catch (error) {
+      console.log(error);
+    }
+  };
   const links = [
     { href: "/", icon: <HomeIcon />, text: "Главная" },
     { href: "/category", icon: <CategoryIcon />, text: "Категории" },
@@ -72,7 +81,10 @@ export const Sidebar = () => {
         </Accordion>
       </div>
 
-      <div className="flex gap-3 align-center pl-3 py-[12px] rounded-[14px] hover:bg-[#6300ff] cursor-pointer">
+      <div
+        onClick={handleLogout}
+        className="flex gap-3 align-center pl-3 py-[12px] rounded-[14px] hover:bg-[#6300ff] cursor-pointer"
+      >
         <ExitIcon />
         <span className="text-white text-[20px]">Выход</span>
       </div>

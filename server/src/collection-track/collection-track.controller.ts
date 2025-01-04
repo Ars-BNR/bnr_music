@@ -1,4 +1,12 @@
-import { Body, Controller, Delete, Param, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Post,
+  Query,
+} from '@nestjs/common';
 import { CollectionTrackService } from './collection-track.service';
 import { CreateCollectionTrackDto } from './dto/create-collectionTrack.dto';
 
@@ -14,5 +22,18 @@ export class CollectionTrackController {
   @Delete('delete/:id')
   delete(@Param('id') id: number) {
     return this.collectionTrackService.delete(id);
+  }
+
+  @Get(':collectionId')
+  getTracksByCollectionId(
+    @Param('collectionId') collectionId: number,
+    @Query('limit') limit: number = 10,
+    @Query('offset') offset: number = 0,
+  ) {
+    return this.collectionTrackService.getTracksByCollectionId(
+      collectionId,
+      limit,
+      offset,
+    );
   }
 }

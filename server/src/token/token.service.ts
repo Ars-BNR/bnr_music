@@ -78,23 +78,4 @@ export class TokenService {
   async findToken(refreshToken: string): Promise<TokenModel> {
     return this.tokenRepository.findOne({ where: { refreshToken } });
   }
-
-  // async saveToken(userId: number, refreshToken: string) {
-  //   const tokenData = await this.tokenRepository.findOne({
-  //     where: { userId },
-  //   });
-  //   if (tokenData) {
-  //     tokenData.refreshToken = refreshToken;
-  //     await tokenData.save();
-  //     return tokenData;
-  //   }
-  //   return this.tokenRepository.create({ userId, refreshToken });
-  // }
-  // async removeToken(refreshToken: string): Promise<Number> {
-  //   return this.tokenRepository.destroy({ where: { refreshToken } });
-  // }
-
-  // async findToken(refreshToken: string): Promise<TokenModel> {
-  //   return this.tokenRepository.findOne({ where: { refreshToken } });
-  // }
 }

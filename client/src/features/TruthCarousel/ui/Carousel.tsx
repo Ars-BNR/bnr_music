@@ -11,6 +11,7 @@ import Image from "next/image";
 import PlayIcon from "../../../../public/assets/icons/Play";
 import Link from "next/link";
 import useAlbumStore from "@/shared/store/album";
+import { Skeleton } from "@/shared/components/ui/skeleton";
 
 const images = [img1, img2, img3, img4, img5];
 
@@ -33,7 +34,7 @@ const authors = [
 ];
 
 const Carousel = () => {
-  const { albums, fetchTopAlbums } = useAlbumStore();
+  const { albums, fetchTopAlbums, loading } = useAlbumStore();
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [nextIndex, setNextIndex] = useState(0);
@@ -70,17 +71,23 @@ const Carousel = () => {
     fetchTopAlbums();
   }, [fetchTopAlbums]);
 
-  // Если данные еще не загружены, показываем загрузку
-  if (!albums || albums.length === 0) {
-    return <div>Loading...</div>;
-  }
+  // // Если данные еще не загружены, показываем загрузку
+  // if (!albums || albums.length === 0) {
+  //   return <div>Loading...</div>;
+  // }
 
   // Проверяем, что currentIndex находится в пределах массива albums
   const currentAlbum = albums[currentIndex];
   const nextAlbum = albums[nextIndex];
 
-  if (!currentAlbum || !nextAlbum) {
-    return <div>Error: Album data is missing.</div>;
+  // Если данные еще не загружены, показываем скелетоны
+  if (loading || !albums || albums.length === 0) {
+    return (
+      <Skeleton
+        className={stl.Carousel}
+        style={{ height: "338px", width: "100%" }}
+      />
+    );
   }
 
   if (albums !== null) {

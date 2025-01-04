@@ -6,6 +6,7 @@ import {
   Post,
   Req,
   Res,
+  UnauthorizedException,
   UseGuards,
 } from '@nestjs/common';
 import { UserService } from './user.service';
@@ -39,7 +40,7 @@ export class UserController {
 
   @ApiOperation({ summary: 'Вход в учетную запись пользователя' })
   @ApiResponse({ status: 200, type: UserResponse })
-  @Throttle({default:{limit:3,ttl:50000}})
+  @Throttle({ default: { limit: 3, ttl: 50000 } })
   @Post('login')
   async login(
     @Body() userDto: CreateUserDto,
@@ -59,13 +60,15 @@ export class UserController {
       example: 1,
     },
   })
-  @UseGuards(JwtAuthGuard)
   @Post('logout')
   logout(
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ): Promise<Number> {
     const { refreshToken } = req.cookies;
+    if (!refreshToken) {
+      throw new UnauthorizedException('Refresh token not found');
+    }
     const token = this.userService.logout(refreshToken);
     res.clearCookie('refreshToken');
     return token;

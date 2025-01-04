@@ -10,6 +10,8 @@ import {
   PrimaryKey,
   Table,
 } from 'sequelize-typescript';
+import { CollectionPlaylistModel } from 'src/collection-playlist/model/collection-playlist.model';
+import { CollectionModel } from 'src/collection/model/collection.model';
 import { PlaylistTrackModel } from 'src/playlist-track/model/playlist-track.model';
 import { TrackModel } from 'src/track/model/track.model';
 import { UserModel } from 'src/user/model/user.model';
@@ -39,4 +41,7 @@ export class PlaylistModel extends Model {
 
   @BelongsToMany(() => TrackModel, () => PlaylistTrackModel)
   tracks: TrackModel[];
+
+  @BelongsToMany(() => CollectionModel, () => CollectionPlaylistModel)
+  collections: CollectionModel[];
 }

@@ -3,6 +3,7 @@ import { CollectionPlaylistModel } from './model/collection-playlist.model';
 import { InjectModel } from '@nestjs/sequelize';
 import { CreateCollectionPlaylistDto } from './dto/create-collectionPlaylist.dto';
 import { UpdateCollectionPlaylistDto } from './dto/update-collectionPlaylist.dto';
+import { PlaylistModel } from 'src/playlist/model/playlist.model';
 
 @Injectable()
 export class CollectionPlaylistService {
@@ -95,6 +96,46 @@ export class CollectionPlaylistService {
         },
       );
       return newData;
+    } catch (error) {
+      throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
+  async getPlaylistsByCollectionId(
+    collectionId: number,
+    limit: number = 10,
+    offset: number = 0,
+  ) {
+    try {
+      if (!limit || !offset) {
+        throw new HttpException(
+          'Не указаны все данные',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      const collectionPlaylists = await CollectionPlaylistModel.findAll({
+        where: { collectionId },
+        include: [
+          {
+            model: PlaylistModel,
+          },
+        ],
+        limit: Number(limit),
+        offset: Number(offset),
+        subQuery: false, // Отключаем подзапросы для пагинации
+        raw: true, // Возвращаем сырые данные
+        nest: true, // Вложенные объекты
+      });
+
+      // Форматируем данные
+      const playlists = collectionPlaylists.map((cp) => ({
+        id: cp.playlist.id,
+        name: cp.playlist.name,
+        // Добавьте другие поля плейлиста, если нужно
+      }));
+
+      return playlists;
     } catch (error) {
       throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
     }

@@ -1,6 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import {
   AutoIncrement,
+  BelongsTo,
   BelongsToMany,
   Column,
   DataType,
@@ -38,4 +39,10 @@ export class CollectionTrackModel extends Model {
   @ForeignKey(() => TrackModel)
   @Column
   trackId: number;
+
+  @BelongsTo(() => CollectionModel)
+  collection: CollectionModel;
+
+  @BelongsTo(() => TrackModel)
+  track: TrackModel;
 }

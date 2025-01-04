@@ -5,6 +5,9 @@ import { CreateCollectionDto } from './dto/create-collection.dto';
 import { PlaylistModel } from 'src/playlist/model/playlist.model';
 import { AlbumModel } from 'src/album/model/album.model';
 import { TrackModel } from 'src/track/model/track.model';
+import { CollectionPlaylistModel } from 'src/collection-playlist/model/collection-playlist.model';
+import { CollectionAlbumModel } from 'src/collection-album/model/collection-album.model';
+import { CollectionTrackModel } from 'src/collection-track/model/collection-track.model';
 
 @Injectable()
 export class CollectionService {
@@ -122,18 +125,6 @@ export class CollectionService {
 
       const collection = await this.collectionRepository.findOne({
         where: { userId },
-        include: [
-          {
-            model: PlaylistModel,
-          },
-          {
-            model: AlbumModel,
-          },
-          {
-            model: TrackModel,
-            through: { attributes: [] },
-          },
-        ],
       });
 
       if (!collection) {
@@ -141,6 +132,45 @@ export class CollectionService {
       }
 
       return collection;
+    } catch (error) {
+      throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+  async getCollectionSummary(userId: number) {
+    try {
+      if (!userId) {
+        throw new HttpException(
+          'Не указаны все данные',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      const collection = await this.collectionRepository.findOne({
+        where: { userId },
+      });
+
+      if (!collection) {
+        throw new HttpException('Коллекция не найдена', HttpStatus.NOT_FOUND);
+      }
+
+      const totalPlaylists = await CollectionPlaylistModel.count({
+        where: { collectionId: collection.id },
+      });
+
+      const totalAlbums = await CollectionAlbumModel.count({
+        where: { collectionId: collection.id },
+      });
+
+      const totalTracks = await CollectionTrackModel.count({
+        where: { collectionId: collection.id },
+      });
+
+      return {
+        collectionId: collection.id,
+        totalPlaylists,
+        totalAlbums,
+        totalTracks,
+      };
     } catch (error) {
       throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
     }
