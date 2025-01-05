@@ -28,7 +28,9 @@ export default function RootLayout({
       <head></head>
       <body>
         {isLoading ? (
-          <h1>Somithing neeed loading</h1>
+          <ClientWrapper>
+            <h1>Somithing neeed loading</h1>
+          </ClientWrapper>
         ) : (
           <ClientWrapper>
             <Providers>{children}</Providers>
