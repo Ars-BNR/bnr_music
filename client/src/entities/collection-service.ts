@@ -50,7 +50,7 @@ const collectionService = {
     userId: number,
     params?: { limit?: number; offset?: number }
   ) => {
-    const { data } = await $api.get(`${collectionEndpoint}_track/${userId}`, {
+    const { data } = await $api.get(`playlist_track/playlist/${userId}`, {
       params: {
         limit: params?.limit,
         offset: params?.offset,

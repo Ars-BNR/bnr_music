@@ -14,7 +14,7 @@ export default function HomeLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <div className="flex">
+    <div className="flex bg-[#09090B]">
       <div
         style={{
           width: "100%",

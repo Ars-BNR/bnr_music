@@ -4,6 +4,7 @@ import { InjectModel } from '@nestjs/sequelize';
 import { CreateCollectionPlaylistDto } from './dto/create-collectionPlaylist.dto';
 import { UpdateCollectionPlaylistDto } from './dto/update-collectionPlaylist.dto';
 import { PlaylistModel } from 'src/playlist/model/playlist.model';
+import { Sequelize } from 'sequelize';
 
 @Injectable()
 export class CollectionPlaylistService {
@@ -119,23 +120,18 @@ export class CollectionPlaylistService {
         include: [
           {
             model: PlaylistModel,
+            attributes: [],
           },
         ],
+        attributes: ['id', [Sequelize.literal('playlist.name'), 'name']],
         limit: Number(limit),
         offset: Number(offset),
-        subQuery: false, // Отключаем подзапросы для пагинации
-        raw: true, // Возвращаем сырые данные
-        nest: true, // Вложенные объекты
+        subQuery: false,
+        raw: true,
+        nest: true,
       });
 
-      // Форматируем данные
-      const playlists = collectionPlaylists.map((cp) => ({
-        id: cp.playlist.id,
-        name: cp.playlist.name,
-        // Добавьте другие поля плейлиста, если нужно
-      }));
-
-      return playlists;
+      return collectionPlaylists;
     } catch (error) {
       throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
     }

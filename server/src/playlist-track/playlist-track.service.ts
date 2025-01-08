@@ -3,6 +3,10 @@ import { InjectModel } from '@nestjs/sequelize';
 import { PlaylistTrackModel } from './model/playlist-track.model';
 import { CreatePlaylistTrackDto } from './dto/create-playlistTrack.dto';
 import { UpdatePlaylistTrackDto } from './dto/update-playlistTrack.dto';
+import { Sequelize } from 'sequelize';
+import { TrackModel } from 'src/track/model/track.model';
+import { PlaylistModel } from 'src/playlist/model/playlist.model';
+import { AuthorModel } from 'src/author/model/author.model';
 
 @Injectable()
 export class PlaylistTrackService {
@@ -86,6 +90,70 @@ export class PlaylistTrackService {
         },
       });
       return newData;
+    } catch (error) {
+      throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+
+  async getTracksByPlaylistId(
+    playlistId: number,
+    limit: number = 10,
+    offset: number = 0,
+  ) {
+    try {
+      if (!playlistId) {
+        throw new HttpException(
+          'Не указаны все данные',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      const playlistTracks = await this.playlistTrackRepository.findAll({
+        where: { playlistId },
+        attributes: [
+          'id',
+          'playlistId',
+          'trackId',
+          [Sequelize.literal('"track"."name"'), 'name'],
+          [Sequelize.literal('"track"."picture"'), 'picture'],
+          [Sequelize.literal('"track"."text"'), 'text'],
+          [Sequelize.literal('"track"."listens"'), 'listens'],
+          [Sequelize.literal('"track"."audio"'), 'audio'],
+          [Sequelize.literal('"track"."authorId"'), 'authorId'],
+          [Sequelize.literal('"track->author"."name"'), 'authorName'], // Имя автора
+          [Sequelize.literal('"playlist"."name"'), 'playlistname'], // Имя плейлиста
+        ],
+        include: [
+          {
+            model: TrackModel,
+            attributes: [], // Не включаем поля трека, так как они уже выбраны через literal
+            include: [
+              {
+                model: AuthorModel,
+                attributes: [], // Не включаем поля автора, так как они уже выбраны через literal
+              },
+            ],
+          },
+          {
+            model: PlaylistModel,
+            attributes: [], // Не включаем поля плейлиста, так как они уже выбраны через literal
+          },
+        ],
+        limit: Number(limit),
+        offset: Number(offset),
+        subQuery: false,
+        raw: true, // Возвращаем сырые данные (плоский формат)
+        nest: true, // Вложенные объекты для связанных моделей
+      });
+
+      if (!playlistTracks || playlistTracks.length === 0) {
+        throw new HttpException(
+          'Треки в плейлисте не найдены',
+          HttpStatus.NOT_FOUND,
+        );
+      }
+
+      return playlistTracks;
     } catch (error) {
       throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
     }

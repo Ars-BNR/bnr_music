@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useEffect } from "react";
 import stl from "../styles/Sidebar.module.scss";
 import { useRouter } from "next/navigation";
 import Title from "@/shared/components/common/Title/Title";
@@ -17,6 +17,7 @@ import {
 import PlaylistIcon from "../../../../public/assets/icons/Playlist";
 import ExitIcon from "../../../../public/assets/icons/Exit";
 import AuthStore from "@/shared/store/auth";
+import useCollectionStore from "@/shared/store/collection";
 export const Sidebar = () => {
   const router = useRouter();
   const logout = AuthStore((state) => state.logout);
@@ -32,12 +33,13 @@ export const Sidebar = () => {
     { href: "/category", icon: <CategoryIcon />, text: "Категории" },
     { href: "/authors", icon: <ArtistIcon />, text: "Артисты" },
   ];
-  const playlist = [
-    { name: "Drill" },
-    { name: "Hip-hop" },
-    { name: "Фонкус" },
-    { name: "Disturbed Best In the world sdwsasdasdasdasd" },
-  ];
+  const idCollection = Number(localStorage.getItem("collection"));
+  const { userPlaylist, getUserPlaylists } = useCollectionStore();
+  useEffect(() => {
+    if (idCollection !== null) {
+      getUserPlaylists(idCollection);
+    }
+  }, []);
   return (
     <div className={stl.sidebar}>
       <div className="cursor-pointer" onClick={() => router.replace("/")}>
@@ -60,17 +62,17 @@ export const Sidebar = () => {
               </AccordionTrigger>
             </div>
             <div className="flex flex-col items-start gap-3 max-[198px] truncate">
-              {playlist.map((playlist, index) => (
+              {userPlaylist.map((playlist, index) => (
                 <AccordionContent
                   key={index}
                   className="text-white text-[20px] flex gap-4 justify-start cursor-pointer "
                 >
-                  {playlist.name}
+                  <Link href={`/playlist/${playlist.id}`}>{playlist.name}</Link>
                 </AccordionContent>
               ))}
               <AccordionContent>
                 <Link
-                  href={"/"}
+                  href={`/collection/playlist`}
                   className="text-white text-[20px] flex gap-4 justify-start cursor-pointer hover:text-[#6300ff]"
                 >
                   Все плейлисты

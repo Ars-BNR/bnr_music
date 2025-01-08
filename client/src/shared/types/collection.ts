@@ -12,14 +12,16 @@ export interface ICollectionPlaylist {
 }
 export interface ICollectionTrack {
   id: number;
+  playlistId: number;
+  trackId: number;
   name: string;
   picture: string;
   text: string;
   listens: number;
   audio: string;
-  authorName?: string;
-  authorId?: number;
-  albumId?: number;
+  authorId: number;
+  authorName: string;
+  playlistname: string;
 }
 
 export interface CollectionState {
