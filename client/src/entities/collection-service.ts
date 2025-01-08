@@ -3,9 +3,18 @@ import $api from "./http-service";
 const collectionEndpoint = "/collection";
 
 const collectionService = {
-  getAll: async (userId: number) => {
+  getCollectionIdByUserId: async (userId: number) => {
     const { data } = await $api.get(`${collectionEndpoint}/user/${userId}`);
     return data;
+  },
+
+  saveCollectionIdToLocalStorage: (collectionId: number) => {
+    localStorage.setItem(`collection`, collectionId.toString());
+  },
+
+  getCollectionIdFromLocalStorage: () => {
+    const collectionId = localStorage.getItem(`collection`);
+    return collectionId ? parseInt(collectionId, 10) : null;
   },
 
   getAlbums: async (

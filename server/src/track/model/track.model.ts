@@ -13,8 +13,6 @@ import {
 import { AlbumTrackModel } from 'src/album-track/model/album-track.model';
 import { AlbumModel } from 'src/album/model/album.model';
 import { AuthorModel } from 'src/author/model/author.model';
-import { CollectionTrackModel } from 'src/collection-track/model/collection-track.model';
-import { CollectionModel } from 'src/collection/model/collection.model';
 import { GenreModel } from 'src/genre/model/genre.model';
 import { PlaylistTrackModel } from 'src/playlist-track/model/playlist-track.model';
 import { PlaylistModel } from 'src/playlist/model/playlist.model';
@@ -36,7 +34,7 @@ export class TrackModel extends Model {
   name: string;
 
   @ApiProperty({
-    example: 'gfsaswq',
+    example: 'gfsaswq.jpg',
     description: 'путь до картинки(только ее название)',
   })
   @Column(DataType.STRING)

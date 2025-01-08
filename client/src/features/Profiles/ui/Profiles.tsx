@@ -6,27 +6,40 @@ import LoveIcon from "../../../../public/assets/icons/Love";
 import SettingsIcon from "../../../../public/assets/icons/Settings";
 import Link from "next/link";
 import AuthStore from "@/shared/store/auth";
-import $api from "@/entities/http-service";
+import collectionService from "@/entities/collection-service";
 
 const Profiles = () => {
   const userId = AuthStore((state) => state.profiles.user.id);
   const [collectionId, setCollectionId] = useState<number | null>(null);
 
-  // Получаем id коллекции по id пользователя
-  useEffect(() => {
-    const fetchCollectionId = async () => {
-      try {
-        const response = await $api.get(`/collection/user/${userId}`);
-        setCollectionId(response.data.id); // Предполагаем, что ответ содержит поле `id`
-      } catch (error) {
-        console.error("Ошибка при получении id коллекции:", error);
-      }
-    };
+  const fetchCollectionId = async () => {
+    if (!userId) return;
 
-    if (userId) {
-      fetchCollectionId();
+    // Проверяем, есть ли id коллекции в localStorage
+    const savedCollectionId =
+      collectionService.getCollectionIdFromLocalStorage();
+    if (savedCollectionId) {
+      setCollectionId(savedCollectionId);
+      return;
     }
-  }, [userId]);
+
+    // Если id коллекции нет в localStorage, делаем запрос на сервер
+    try {
+      if (userId !== null) {
+        const response = await collectionService.getCollectionIdByUserId(
+          userId
+        );
+        const newCollectionId = response.id; // Предполагаем, что ответ содержит поле `id`
+        setCollectionId(newCollectionId);
+        collectionService.saveCollectionIdToLocalStorage(newCollectionId);
+      }
+    } catch (error) {
+      console.error("Ошибка при получении id коллекции:", error);
+    }
+  };
+  useEffect(() => {
+    fetchCollectionId();
+  }, []);
 
   return (
     <div className="flex px-8 py-4 gap-[32px] bg-[#23262D] rounded-[12px]">

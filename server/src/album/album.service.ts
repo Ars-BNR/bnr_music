@@ -44,20 +44,12 @@ export class AlbumService {
         offset: Number(offset),
         subQuery: false,
         attributes: {
-          include: [
-            [Sequelize.literal('"author"."name"'), 'authorName'],
-            [Sequelize.literal('"tracks"."picture"'), 'picture'],
-          ],
+          include: [[Sequelize.literal('"author"."name"'), 'authorName']],
         },
         include: [
           {
             model: AuthorModel,
             attributes: [],
-          },
-          {
-            model: TrackModel,
-            attributes: [],
-            through: { attributes: [] },
           },
         ],
         raw: true,
@@ -81,6 +73,16 @@ export class AlbumService {
       const album = await this.albumRepository.findAll({
         limit: Number(count),
         offset: Number(offset),
+        subQuery: false,
+        attributes: {
+          include: [[Sequelize.literal('"author"."name"'), 'authorName']],
+        },
+        include: [
+          {
+            model: AuthorModel,
+            attributes: [],
+          },
+        ],
       });
       return album;
     } catch (error) {
@@ -99,10 +101,7 @@ export class AlbumService {
       const album = await this.albumRepository.findByPk(id, {
         subQuery: false,
         attributes: {
-          include: [
-            [Sequelize.literal('"author"."name"'), 'authorName'],
-            [Sequelize.literal('"tracks"."picture"'), 'picture'],
-          ],
+          include: [[Sequelize.literal('"author"."name"'), 'authorName']],
         },
         include: [
           {

@@ -95,6 +95,45 @@ export class CollectionAlbumService {
     }
   }
 
+  // async getAlbumsByCollectionId(
+  //   collectionId: number,
+  //   limit: number = 10,
+  //   offset: number = 0,
+  // ) {
+  //   try {
+  //     if (!limit || !offset) {
+  //       throw new HttpException(
+  //         'Не указаны все данные',
+  //         HttpStatus.BAD_REQUEST,
+  //       );
+  //     }
+
+  //     const collectionAlbums = await CollectionAlbumModel.findAll({
+  //       where: { collectionId },
+  //       include: [
+  //         {
+  //           model: AlbumModel,
+  //           include: [
+  //             {
+  //               model: AuthorModel,
+  //               attributes: ['name'],
+  //             },
+  //           ],
+  //         },
+  //       ],
+  //       limit: Number(limit),
+  //       offset: Number(offset),
+  //       subQuery: false,
+  //       raw: true,
+  //       nest: true,
+  //     });
+
+  //     return collectionAlbums;
+  //   } catch (error) {
+  //     throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
+  //   }
+  // }
+
   async getAlbumsByCollectionId(
     collectionId: number,
     limit: number = 10,
@@ -113,13 +152,22 @@ export class CollectionAlbumService {
         include: [
           {
             model: AlbumModel,
+            attributes: [],
             include: [
               {
                 model: AuthorModel,
-                attributes: ['name'],
+                attributes: [],
               },
             ],
           },
+        ],
+        attributes: [
+          'id',
+          'albumId',
+          [Sequelize.literal('album.name'), 'Albumname'],
+          [Sequelize.literal('album.picture'), 'Albumpicture'],
+          [Sequelize.literal('album.listens'), 'Albumlistens'],
+          [Sequelize.literal('"album->author"."name"'), 'authorName'],
         ],
         limit: Number(limit),
         offset: Number(offset),
@@ -128,14 +176,7 @@ export class CollectionAlbumService {
         nest: true,
       });
 
-      const albums = collectionAlbums.map((ca) => ({
-        id: ca.album.id,
-        name: ca.album.name,
-        listens: ca.album.listens,
-        authorName: ca.album.author.name,
-      }));
-
-      return albums;
+      return collectionAlbums;
     } catch (error) {
       throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
     }

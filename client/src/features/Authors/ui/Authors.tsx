@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import authorService from "@/entities/author-service";
 import AuthorIcon from "../../../../public/assets/icons/Artist";
 import { Skeleton } from "@/shared/components/ui/skeleton";
+import CardItem from "@/shared/components/common/CardItem/CardItem";
 
 const Authors = () => {
   const [authors, setAuthors] = useState<any[]>([]);
@@ -37,20 +38,11 @@ const Authors = () => {
                 <Skeleton key={index} className="w-[170px] h-[225px]" />
               ))
           : authors.map((author) => (
-              <div
+              <CardItem
                 key={author.id}
-                className={`
-         cursor-pointer flex flex-col grow justify-between max-w-[172px]  p-[12px] bg-[#5801E1] rounded-[12px] gap-[10px] hover:bg-[#7A1FE3] hover:brightness-110 transition-all duration-300 relative 
-         
-       `}
-              >
-                <div className="rounded-[4px] flex justify-center items-center min-h-[170px]">
-                  <AuthorIcon height="100" width="100" />
-                </div>
-                <div className="flex flex-col justify-center items-center gap-[2px] text-center">
-                  <p className="text-white text-[14px]">{author.name}</p>
-                </div>
-              </div>
+                title={author.name}
+                icon={<AuthorIcon height="100" width="100" />}
+              />
             ))}
       </div>
     </div>

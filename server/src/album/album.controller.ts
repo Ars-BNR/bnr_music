@@ -28,6 +28,7 @@ export class AlbumController {
   getAll(@Query('count') count: number, @Query('offset') offset: number) {
     return this.albumService.getAll(count, offset);
   }
+
   @Get('/popular')
   getTopTracks(@Query('count') count: number, @Query('offset') offset: number) {
     return this.albumService.getTopAlbum(count, offset);

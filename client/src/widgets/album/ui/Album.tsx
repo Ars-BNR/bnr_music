@@ -19,7 +19,6 @@ const Album = () => {
   useEffect(() => {
     if (id) {
       getOneById(Number(id));
-      console.log("selectedAlbumTracks", selectedAlbumTracks);
     }
   }, [id, getOneById]);
 

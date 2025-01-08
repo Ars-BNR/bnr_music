@@ -1,5 +1,6 @@
 "use client";
 
+import { CategoryList } from "@/shared/components/common/CategoryList/CategoryList";
 import { badgeVariants } from "@/shared/components/ui/badge";
 import { Skeleton } from "@/shared/components/ui/skeleton";
 import useCategoryStore from "@/shared/store/category";
@@ -7,29 +8,42 @@ import Link from "next/link";
 import React, { useEffect, useRef } from "react";
 const Category = () => {
   const { categories, fetchCategories, loading } = useCategoryStore();
+
   useEffect(() => {
     fetchCategories();
   }, []);
 
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
 
-  // Отключение прокрутки на уровне body
   const handleMouseEnter = () => {
-    document.body.style.overflowY = "hidden"; // Отключаем вертикальный скролл
+    document.body.style.overflowY = "hidden";
   };
 
-  // Возвращение прокрутки
   const handleMouseLeave = () => {
-    document.body.style.overflowY = ""; // Возвращаем прокрутку
+    document.body.style.overflowY = "";
   };
 
-  // Обработчик для горизонтальной прокрутки
-  const handleWheelScroll = (event: React.WheelEvent<HTMLDivElement>) => {
+  const handleWheelScroll = (event: WheelEvent) => {
     if (scrollContainerRef.current) {
       scrollContainerRef.current.scrollLeft += event.deltaY * 1.5;
       event.preventDefault();
     }
   };
+
+  useEffect(() => {
+    const scrollContainer = scrollContainerRef.current;
+    if (scrollContainer) {
+      scrollContainer.addEventListener("wheel", handleWheelScroll, {
+        passive: false,
+      });
+    }
+
+    return () => {
+      if (scrollContainer) {
+        scrollContainer.removeEventListener("wheel", handleWheelScroll);
+      }
+    };
+  }, []);
 
   return (
     <div
@@ -43,32 +57,8 @@ const Category = () => {
       <div
         ref={scrollContainerRef}
         className="scroll-container flex gap-[24px] overflow-x-auto"
-        onWheel={handleWheelScroll}
       >
-        {loading
-          ? Array(8)
-              .fill(0)
-              .map((_, index) => (
-                <Skeleton key={index} className="h-[32px] w-[57px]" />
-              ))
-          : categories.map((cat) => (
-              <Link
-                key={cat.id}
-                href={"/"}
-                className={badgeVariants({ variant: "default" })}
-              >
-                {cat.name}
-              </Link>
-            ))}
-        {/* {categories.map((cat) => (
-          <Link
-            key={cat.id}
-            href={"/"}
-            className={badgeVariants({ variant: "default" })}
-          >
-            {cat.name}
-          </Link>
-        ))} */}
+        <CategoryList categories={categories} loading={loading} />
       </div>
     </div>
   );

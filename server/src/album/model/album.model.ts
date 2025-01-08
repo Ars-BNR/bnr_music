@@ -35,6 +35,13 @@ export class AlbumModel extends Model {
   name: string;
 
   @ApiProperty({
+    example: 'gfsaswq.jpg',
+    description: 'путь до картинки(только ее название)',
+  })
+  @Column(DataType.STRING)
+  picture: string;
+
+  @ApiProperty({
     example: 1000,
     description: 'Количество прослушиваний альбома',
   })

@@ -23,6 +23,7 @@ import AuthStore from "@/shared/store/auth";
 
 const LoginForm = () => {
   const login = AuthStore((state) => state.login);
+  const loading = AuthStore((state) => state.isLoading);
   const router = useRouter();
   const form = useForm<TFormLoginValues>({
     resolver: zodResolver(formLoginSchema),
@@ -79,7 +80,7 @@ const LoginForm = () => {
               )}
             />
             <div className={styles.Buttons}>
-              <Button className="max-w-[204px]" type="submit">
+              <Button loading={loading} className="max-w-[204px]" type="submit">
                 Войти
               </Button>
               <Button

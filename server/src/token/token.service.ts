@@ -60,7 +60,6 @@ export class TokenService {
   async saveToken(userId: number, refreshToken: string) {
     const tokensCount = await this.tokenRepository.count({ where: { userId } });
     if (tokensCount >= 2) {
-      // Если уже есть два токена, удаляем самый старый
       const oldestToken = await this.tokenRepository.findOne({
         where: { userId },
         order: [['createdAt', 'ASC']],

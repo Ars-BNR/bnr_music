@@ -84,6 +84,15 @@ export class TrackService {
       const tracks = await TrackModel.findAll({
         limit: Number(count),
         offset: Number(offset),
+        attributes: {
+          include: [[Sequelize.literal('"author"."name"'), 'authorName']],
+        },
+        include: [
+          {
+            model: AuthorModel,
+            attributes: [],
+          },
+        ],
       });
       return tracks;
     } catch (error) {

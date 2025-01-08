@@ -1,7 +1,9 @@
-export interface ICollectionAlbums {
+export interface ICollectionAlbum {
   id: number;
-  name: string;
-  listens: number;
+  albumId: number;
+  Albumname: string;
+  Albumpicture: string;
+  Albumlistens: number;
   authorName: string;
 }
 export interface ICollectionPlaylist {
@@ -16,10 +18,12 @@ export interface ICollectionTrack {
   listens: number;
   audio: string;
   authorName?: string;
+  authorId?: number;
+  albumId?: number;
 }
 
 export interface CollectionState {
-  userAlbums: ICollectionAlbums[];
+  userAlbums: ICollectionAlbum[];
   userPlaylist: ICollectionPlaylist[];
   userTracks: ICollectionTrack[];
   error: string;

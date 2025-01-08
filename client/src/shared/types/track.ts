@@ -1,11 +1,11 @@
 export interface ITrack {
-  id: string;
+  id: number;
   name: string;
   picture: string;
   text: string;
   listens: number;
   audio: string;
-  authorName?: string;
+  authorName: string;
   authorId?: number;
   albumId?: number;
 }
