@@ -15,7 +15,6 @@ const Profiles = () => {
   const fetchCollectionId = async () => {
     if (!userId) return;
 
-    // Проверяем, есть ли id коллекции в localStorage
     const savedCollectionId =
       collectionService.getCollectionIdFromLocalStorage();
     if (savedCollectionId) {
@@ -23,7 +22,6 @@ const Profiles = () => {
       return;
     }
 
-    // Если id коллекции нет в localStorage, делаем запрос на сервер
     try {
       if (userId !== null) {
         const response = await collectionService.getCollectionIdByUserId(

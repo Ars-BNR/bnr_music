@@ -1,17 +1,15 @@
 "use client";
 
-import React, { useState } from "react";
-type props = {
+import React from "react";
+
+type Props = {
   width?: string;
   height?: string;
+  isFilled?: boolean;
+  onClick?: () => void;
 };
-const LoveIcon = ({ width, height }: props) => {
-  const [isFilled, setIsFilled] = useState(false);
 
-  const handleClick = () => {
-    setIsFilled(!isFilled);
-  };
-
+const LoveIcon = ({ width, height, isFilled, onClick }: Props) => {
   return (
     <svg
       width={width ? width : "26"}
@@ -19,7 +17,7 @@ const LoveIcon = ({ width, height }: props) => {
       viewBox="0 0 26 26"
       fill={isFilled ? "#6300FF" : "none"}
       xmlns="http://www.w3.org/2000/svg"
-      onClick={handleClick}
+      onClick={onClick}
       style={{ cursor: "pointer" }}
     >
       <path

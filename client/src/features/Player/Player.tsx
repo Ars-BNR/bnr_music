@@ -13,6 +13,7 @@ import PauseIcon from "../../../public/assets/icons/Pause";
 import usePlayerStore from "@/shared/store/player";
 import useTrackStore from "@/shared/store/track";
 import Link from "next/link";
+import useCollectionStore from "@/shared/store/collection";
 
 const Player = () => {
   const {
@@ -29,12 +30,53 @@ const Player = () => {
     setActiveTrack,
   } = usePlayerStore();
 
+  const collectionId = Number(localStorage.getItem("collection"));
+  const {
+    userTracks,
+    getUserTracks,
+    addTrackToCollection,
+    removeTrackFromCollection,
+  } = useCollectionStore();
   const { tracks, setTracks } = useTrackStore();
+
+  useEffect(() => {
+    if (collectionId !== null) {
+      getUserTracks(collectionId);
+    }
+  }, []);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [isSeeking, setIsSeeking] = useState(false);
 
   const [isHoldingNext, setIsHoldingNext] = useState(false);
   const [isHoldingBack, setIsHoldingBack] = useState(false);
+
+  const [isFilled, setIsFilled] = useState(false);
+
+  useEffect(() => {
+    if (active) {
+      setIsFilled(userTracks.some((track) => track.id === active.id));
+    }
+  }, [active, userTracks]);
+
+  const handleLoveIconClick = async () => {
+    if (!active) return;
+
+    if (isFilled) {
+      try {
+        await removeTrackFromCollection(collectionId, active.id); // Удалить трек
+        setIsFilled(false);
+      } catch (error) {
+        console.error("Ошибка при удалении трека из коллекции:", error);
+      }
+    } else {
+      try {
+        await addTrackToCollection(collectionId, active.id); // Добавить трек
+        setIsFilled(true);
+      } catch (error) {
+        console.error("Ошибка при добавлении трека в коллекцию:", error);
+      }
+    }
+  };
 
   const formatTime = (seconds: number) => {
     const minutes = Math.floor(seconds / 60);
@@ -270,7 +312,7 @@ const Player = () => {
       </div>
 
       <div className="flex gap-[20px]">
-        <LoveIcon />
+        <LoveIcon isFilled={isFilled} onClick={handleLoveIconClick} />
         <RepeatIcon />
         <ShakeIcon />
         <VolumeIcon changeVolume={handleVolumeChangeSlider} />

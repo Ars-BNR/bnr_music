@@ -31,7 +31,7 @@ export class CollectionTrackService {
       });
       if (candidate) {
         throw new HttpException(
-          'Данный плейлист  уже привязан к коллекции',
+          'Данный трек  уже привязан к коллекции',
           HttpStatus.BAD_REQUEST,
         );
       }
@@ -45,9 +45,9 @@ export class CollectionTrackService {
     }
   }
 
-  async delete(id: number) {
+  async delete(dto: CreateCollectionTrackDto) {
     try {
-      if (!id) {
+      if (!dto) {
         throw new HttpException(
           'Не указаны все данные',
           HttpStatus.BAD_REQUEST,
@@ -56,7 +56,8 @@ export class CollectionTrackService {
       const collectionPlaylist =
         await this.collectionTrackModelRepository.destroy({
           where: {
-            id,
+            collectionId: dto.collectionId,
+            trackId: dto.trackId,
           },
         });
 

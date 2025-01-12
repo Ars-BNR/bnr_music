@@ -50,11 +50,26 @@ const collectionService = {
     userId: number,
     params?: { limit?: number; offset?: number }
   ) => {
-    const { data } = await $api.get(`playlist_track/playlist/${userId}`, {
+    const { data } = await $api.get(`${collectionEndpoint}_track/${userId}`, {
       params: {
         limit: params?.limit,
         offset: params?.offset,
       },
+    });
+    return data;
+  },
+
+  addTrackToCollection: async (collectionId: number, trackId: number) => {
+    const { data } = await $api.post(`${collectionEndpoint}_track`, {
+      collectionId,
+      trackId,
+    });
+    return data;
+  },
+
+  removeTrackFromCollection: async (collectionId: number, trackId: number) => {
+    const { data } = await $api.delete(`${collectionEndpoint}_track/delete`, {
+      data: { collectionId, trackId },
     });
     return data;
   },

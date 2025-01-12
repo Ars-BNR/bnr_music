@@ -12,7 +12,7 @@ export class CreateCollectionTrackDto {
 
   @ApiProperty({
     example: 1,
-    description: 'id плейлиста',
+    description: 'id трека',
     type: Number,
   })
   @IsInt({ message: 'Должен быть целым числом' })

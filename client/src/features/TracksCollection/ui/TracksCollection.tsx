@@ -14,9 +14,9 @@ const TracksCollection = () => {
       getUserTracks(collection);
     }
   }, []);
-  useEffect(() => {
-    console.log("userTracks", userTracks);
-  }, [userTracks]);
+  // useEffect(() => {
+  //   console.log("userTracks", userTracks);
+  // }, [userTracks]);
   const { playTrack, setActiveTrack } = usePlayerStore();
 
   const play = (e: React.MouseEvent, track: ITrack) => {

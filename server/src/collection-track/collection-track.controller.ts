@@ -19,9 +19,9 @@ export class CollectionTrackController {
     return this.collectionTrackService.create(dto);
   }
 
-  @Delete('delete/:id')
-  delete(@Param('id') id: number) {
-    return this.collectionTrackService.delete(id);
+  @Delete('delete')
+  delete(@Body() dto: CreateCollectionTrackDto) {
+    return this.collectionTrackService.delete(dto);
   }
 
   @Get(':collectionId')

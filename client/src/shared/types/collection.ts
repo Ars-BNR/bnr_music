@@ -12,8 +12,6 @@ export interface ICollectionPlaylist {
 }
 export interface ICollectionTrack {
   id: number;
-  playlistId: number;
-  trackId: number;
   name: string;
   picture: string;
   text: string;
@@ -21,7 +19,6 @@ export interface ICollectionTrack {
   audio: string;
   authorId: number;
   authorName: string;
-  playlistname: string;
 }
 
 export interface CollectionState {
