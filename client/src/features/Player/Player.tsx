@@ -41,7 +41,9 @@ const Player = () => {
 
   useEffect(() => {
     if (collectionId !== null) {
-      getUserTracks(collectionId);
+      if (active !== null) {
+        getUserTracks(collectionId);
+      }
     }
   }, []);
   const audioRef = useRef<HTMLAudioElement | null>(null);

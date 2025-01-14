@@ -73,6 +73,10 @@ const collectionService = {
     });
     return data;
   },
+  getTracksFromPlaylist: async (idPlaylist: number) => {
+    const { data } = await $api.get(`playlist/${idPlaylist}`);
+    return data;
+  },
 };
 
 export default collectionService;

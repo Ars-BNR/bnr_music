@@ -16,7 +16,7 @@ const PlaylistsCollection = () => {
     }
   }, []);
   useEffect(() => {
-    console.log("userAlbums", userPlaylist);
+    console.log("userPlaylist", userPlaylist);
   }, [userPlaylist]);
   return (
     <div>

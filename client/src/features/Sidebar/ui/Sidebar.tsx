@@ -37,7 +37,9 @@ export const Sidebar = () => {
   const { userPlaylist, getUserPlaylists } = useCollectionStore();
   useEffect(() => {
     if (idCollection !== null) {
-      getUserPlaylists(idCollection);
+      if (userPlaylist === null) {
+        getUserPlaylists(idCollection);
+      }
     }
   }, []);
   return (

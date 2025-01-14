@@ -23,7 +23,7 @@ const Playlist = () => {
   }, []);
 
   useEffect(() => {
-    if (userTracks) {
+    if (userTracks === null) {
       setTracks(userTracks);
     }
   }, [userTracks, setTracks]);
