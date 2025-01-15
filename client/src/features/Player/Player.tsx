@@ -54,6 +54,8 @@ const Player = () => {
 
   const [isFilled, setIsFilled] = useState(false);
 
+  const [isRepeat, setIsRepeat] = useState(false);
+
   useEffect(() => {
     if (active) {
       setIsFilled(userTracks.some((track) => track.id === active.id));
@@ -65,14 +67,14 @@ const Player = () => {
 
     if (isFilled) {
       try {
-        await removeTrackFromCollection(collectionId, active.id); // Удалить трек
+        await removeTrackFromCollection(collectionId, active.id);
         setIsFilled(false);
       } catch (error) {
         console.error("Ошибка при удалении трека из коллекции:", error);
       }
     } else {
       try {
-        await addTrackToCollection(collectionId, active.id); // Добавить трек
+        await addTrackToCollection(collectionId, active.id);
         setIsFilled(true);
       } catch (error) {
         console.error("Ошибка при добавлении трека в коллекцию:", error);
@@ -127,27 +129,11 @@ const Player = () => {
     setAudio();
   }, [active]);
 
-  // useEffect(() => {
-  //   if (audioRef.current) {
-  //     if (pause) {
-  //       if (!audioRef.current.paused) {
-  //         audioRef.current.pause();
-  //       }
-  //     } else {
-  //       if (audioRef.current.paused) {
-  //         audioRef.current.play().catch((error) => {
-  //           console.error("Error playing audio:", error);
-  //         });
-  //       }
-  //     }
-  //   }
-  // }, [pause]);
-
   useEffect(() => {
     return () => {
       if (audioRef.current) {
         audioRef.current.pause();
-        audioRef.current.src = ""; // Очистите источник
+        audioRef.current.src = "";
       }
     };
   }, []);
@@ -181,14 +167,31 @@ const Player = () => {
   };
 
   const handleEnded = () => {
-    if (tracks.length > 0 && active) {
-      const currentIndex = tracks.findIndex((track) => track.id === active.id);
-      const nextIndex = (currentIndex + 1) % tracks.length;
-      const nextTrack = tracks[nextIndex];
-      setActiveTrack(nextTrack);
-      playTrack();
+    if (isRepeat) {
+      if (audioRef.current) {
+        audioRef.current.currentTime = 0;
+        audioRef.current.play();
+      }
+    } else {
+      if (tracks.length > 0 && active) {
+        const currentIndex = tracks.findIndex(
+          (track) => track.id === active.id
+        );
+        const nextIndex = (currentIndex + 1) % tracks.length;
+        const nextTrack = tracks[nextIndex];
+        setActiveTrack(nextTrack);
+        playTrack();
+      }
     }
   };
+  const handleRepeatClick = () => {
+    setIsRepeat((prev) => !prev);
+  };
+  useEffect(() => {
+    if (audioRef.current) {
+      audioRef.current.onended = handleEnded;
+    }
+  }, [isRepeat]);
 
   const handlePreviousTrack = () => {
     if (tracks.length > 0 && active) {
@@ -315,7 +318,7 @@ const Player = () => {
 
       <div className="flex gap-[20px]">
         <LoveIcon isFilled={isFilled} onClick={handleLoveIconClick} />
-        <RepeatIcon />
+        <RepeatIcon onClick={handleRepeatClick} isActive={isRepeat} />
         <ShakeIcon />
         <VolumeIcon changeVolume={handleVolumeChangeSlider} />
       </div>
