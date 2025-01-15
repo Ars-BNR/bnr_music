@@ -73,8 +73,13 @@ const collectionService = {
     });
     return data;
   },
-  getTracksFromPlaylist: async (idPlaylist: number) => {
-    const { data } = await $api.get(`playlist/${idPlaylist}`);
+  getTracksFromPlaylist: async (idPlaylist: number, params?: { limit?: number; offset?: number }) => {
+    const { data } = await $api.get(`playlist/${idPlaylist}`, {
+      params: {
+        limit: params?.limit,
+        offset: params?.offset,
+      },
+    });
     return data;
   },
 };

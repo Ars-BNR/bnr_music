@@ -20,11 +20,18 @@ export interface ICollectionTrack {
   authorId: number;
   authorName: string;
 }
+export interface ITracksFromUserPlaylist {
+  id: number;
+  name: string;
+  userId: number;
+  tracks: ICollectionTrack[];
+}
 
 export interface CollectionState {
   userAlbums: ICollectionAlbum[];
   userPlaylist: ICollectionPlaylist[];
   userTracks: ICollectionTrack[];
+  userTracksFromPlaylist: ITracksFromUserPlaylist | null;
   error: string;
   loading: boolean;
 }

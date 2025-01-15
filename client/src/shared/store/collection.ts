@@ -16,6 +16,10 @@ interface CollectionStore extends CollectionState {
     id: number,
     params?: { limit?: number; offset?: number }
   ) => Promise<void>;
+  getUserTracksFromPlaylist: (
+    idPlaylist: number,
+    params?: { limit?: number; offset?: number }
+  ) => Promise<void>;
   addTrackToCollection: (
     collectionId: number,
     trackId: number
@@ -30,6 +34,7 @@ const useCollectionStore = create<CollectionStore>((set) => ({
   userAlbums: [],
   userPlaylist: [],
   userTracks: [],
+  userTracksFromPlaylist: null,
   error: "",
   loading: false,
 
@@ -58,6 +63,21 @@ const useCollectionStore = create<CollectionStore>((set) => ({
     try {
       const data = await collectionService.getTracks(id, params);
       set({ userTracks: data, loading: false });
+    } catch (error: any) {
+      set({ error: error.message, loading: false });
+    }
+  },
+  getUserTracksFromPlaylist: async (
+    idPlaylist,
+    params = { limit: 10, offset: 0 }
+  ) => {
+    set({ loading: true, error: "" });
+    try {
+      const data = await collectionService.getTracksFromPlaylist(
+        idPlaylist,
+        params
+      );
+      set({ userTracksFromPlaylist: data, loading: false });
     } catch (error: any) {
       set({ error: error.message, loading: false });
     }

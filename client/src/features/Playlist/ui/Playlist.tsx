@@ -12,25 +12,25 @@ const Playlist = () => {
   const params = useParams();
   const id = params?.id as string;
 
-  const { getUserTracks, userTracks } = useCollectionStore();
+  const { getUserTracksFromPlaylist, userTracksFromPlaylist } = useCollectionStore();
   const { setTracks } = useTrackStore();
   const { playTrack, setActiveTrack } = usePlayerStore();
 
   useEffect(() => {
     if (id !== null) {
-      getUserTracks(Number(id));
+      getUserTracksFromPlaylist(Number(id));
     }
   }, []);
 
   useEffect(() => {
-    if (userTracks === null) {
-      setTracks(userTracks);
+    if (userTracksFromPlaylist === null) {
+      setTracks(userTracksFromPlaylist);
     }
-  }, [userTracks, setTracks]);
+  }, []);
 
   useEffect(() => {
-    console.log("userTracks", userTracks);
-  }, [userTracks]);
+    console.log("userTracksFromPlaylist", userTracksFromPlaylist);
+  }, [userTracksFromPlaylist]);
 
   const play = (e: React.MouseEvent, track: ICollectionTrack) => {
     e.stopPropagation();
@@ -39,28 +39,31 @@ const Playlist = () => {
     console.log("trackAlbumPersonal", track);
   };
 
-  return (
-    <>
-      {userTracks.length > 0 && (
-        <>
-          <h1 className="bg-black text-white text-[18px] mb-3">
-            Треки с {userTracks[0]?.playlistname}
-          </h1>
-          <div className="flex justify-stretch flex-wrap gap-2">
-            {userTracks.map((track) => (
-              <CardItem
-                key={track.id}
-                title={track.name}
-                subtitle={track.authorName}
-                imageUrl={`http://localhost:8340/${track.picture}`}
-                onClick={(e) => play(e, track)}
-              />
-            ))}
-          </div>
-        </>
-      )}
-    </>
-  );
+  if(userTracksFromPlaylist !== null){
+
+    return (
+      <>
+        {userTracksFromPlaylist.tracks && (
+          <>
+            <h1 className="bg-black text-white text-[18px] mb-3">
+              Треки с {userTracksFromPlaylist.name}
+            </h1>
+            <div className="flex justify-stretch flex-wrap gap-2">
+              {userTracksFromPlaylist.tracks.map((track) => (
+                <CardItem
+                  key={track.id}
+                  title={track.name}
+                  subtitle={track.authorName}
+                  imageUrl={`http://localhost:8340/${track.picture}`}
+                  onClick={(e) => play(e, track)}
+                />
+              ))}
+            </div>
+          </>
+        )}
+      </>
+    );
+  }
 };
 
 export default Playlist;
