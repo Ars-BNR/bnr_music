@@ -56,11 +56,35 @@ const Player = () => {
 
   const [isRepeat, setIsRepeat] = useState(false);
 
+  const [isShuffle, setIsShuffle] = useState(false);
+  const [shuffledTracks, setShuffledTracks] = useState<any[]>([]);
+
   useEffect(() => {
     if (active) {
       setIsFilled(userTracks.some((track) => track.id === active.id));
     }
   }, [active, userTracks]);
+
+  const shuffleTracks = (tracks: any[]) => {
+    const shuffled = [...tracks];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    return shuffled;
+  };
+
+  const handleShakeClick = () => {
+    if (isShuffle) {
+      // Если режим перемешивания выключен, сбросим перемешанный список
+      setShuffledTracks([]);
+    } else {
+      // Если режим перемешивания включен, перемешаем треки
+      const shuffled = shuffleTracks(tracks);
+      setShuffledTracks(shuffled);
+    }
+    setIsShuffle(!isShuffle); // Переключаем состояние
+  };
 
   const handleLoveIconClick = async () => {
     if (!active) return;
@@ -166,13 +190,43 @@ const Player = () => {
     }
   };
 
+  // const handleEnded = () => {
+  //   if (isRepeat) {
+  //     if (audioRef.current) {
+  //       audioRef.current.currentTime = 0;
+  //       audioRef.current.play();
+  //     }
+  //   } else {
+  //     if (tracks.length > 0 && active) {
+  //       const currentIndex = tracks.findIndex(
+  //         (track) => track.id === active.id
+  //       );
+  //       const nextIndex = (currentIndex + 1) % tracks.length;
+  //       const nextTrack = tracks[nextIndex];
+  //       setActiveTrack(nextTrack);
+  //       playTrack();
+  //     }
+  //   }
+  // };
+
   const handleEnded = () => {
     if (isRepeat) {
+      // Если режим повторения включен, просто перезапускаем текущий трек
       if (audioRef.current) {
         audioRef.current.currentTime = 0;
         audioRef.current.play();
       }
+    } else if (isShuffle && shuffledTracks.length > 0) {
+      // Если режим перемешивания включен, выбираем случайный трек из перемешанного списка
+      const currentIndex = shuffledTracks.findIndex(
+        (track) => track.id === active.id
+      );
+      const nextIndex = (currentIndex + 1) % shuffledTracks.length;
+      const nextTrack = shuffledTracks[nextIndex];
+      setActiveTrack(nextTrack);
+      playTrack();
     } else {
+      // Если режим перемешивания выключен, переходим к следующему треку в обычном порядке
       if (tracks.length > 0 && active) {
         const currentIndex = tracks.findIndex(
           (track) => track.id === active.id
@@ -184,6 +238,7 @@ const Player = () => {
       }
     }
   };
+
   const handleRepeatClick = () => {
     setIsRepeat((prev) => !prev);
   };
@@ -192,6 +247,13 @@ const Player = () => {
       audioRef.current.onended = handleEnded;
     }
   }, [isRepeat]);
+
+  useEffect(() => {
+    if (isShuffle) {
+      const shuffled = shuffleTracks(tracks);
+      setShuffledTracks(shuffled);
+    }
+  }, [tracks, isShuffle]);
 
   const handlePreviousTrack = () => {
     if (tracks.length > 0 && active) {
@@ -319,7 +381,7 @@ const Player = () => {
       <div className="flex gap-[20px]">
         <LoveIcon isFilled={isFilled} onClick={handleLoveIconClick} />
         <RepeatIcon onClick={handleRepeatClick} isActive={isRepeat} />
-        <ShakeIcon />
+        <ShakeIcon onClick={handleShakeClick} isActive={isShuffle} />
         <VolumeIcon changeVolume={handleVolumeChangeSlider} />
       </div>
     </div>
