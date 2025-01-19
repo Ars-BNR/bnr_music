@@ -52,9 +52,24 @@ const Player = () => {
         getUserTracks(collectionId);
       }
     }
-  }, []);
+  }, [active, collectionId]);
+
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const [isSeeking, setIsSeeking] = useState(false);
+
+  const [wasPlayingBeforeSeek, setWasPlayingBeforeSeek] = useState(false);
+
+  const handleSliderPointerDown = () => {
+    setWasPlayingBeforeSeek(!pause);
+    if (!pause) {
+      pauseTrack(); // Ставим на паузу, если трек воспроизводился
+    }
+  };
+
+  const handleSliderPointerUp = () => {
+    if (wasPlayingBeforeSeek) {
+      playTrack();
+    }
+  };
 
   const [isHoldingNext, setIsHoldingNext] = useState(false);
   const [isHoldingBack, setIsHoldingBack] = useState(false);
@@ -192,6 +207,11 @@ const Player = () => {
     if (audioRef.current) {
       audioRef.current.currentTime = value[0];
       setCurrentTime(value[0]);
+
+      if (!pause) {
+        audioRef.current.pause(); // Ставим трек на паузу, если он не на паузе
+        pauseTrack();
+      }
     }
   };
 
@@ -276,9 +296,6 @@ const Player = () => {
   if (!active) {
     return null;
   }
-  // useEffect(() => {
-  //   console.log("active", active);
-  // }, [active]);
 
   return (
     <div className="bg-[#1E212A] flex p-5 grow items-center rounded-b-[20px] justify-between">
@@ -346,17 +363,9 @@ const Player = () => {
           value={[currentTime]}
           max={duration}
           step={1}
-          onChange={changeCurrentTime}
-          onPointerDown={() => {
-            setIsSeeking(true);
-            pauseTrack();
-          }}
-          onPointerUp={() => {
-            setIsSeeking(false);
-            if (pause) {
-              playTrack();
-            }
-          }}
+          onChange={(value: number[]) => changeCurrentTime(value)}
+          onPointerDown={handleSliderPointerDown}
+          onPointerUp={handleSliderPointerUp}
         />
         <div className="flex justify-between">
           <span className="text-white">{formatTime(currentTime)}</span>

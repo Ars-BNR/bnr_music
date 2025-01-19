@@ -5,8 +5,11 @@ import * as SliderPrimitive from "@radix-ui/react-slider";
 
 import { cn } from "@/shared/components/lib/utils";
 
-type SliderProps = React.ComponentPropsWithoutRef<typeof SliderPrimitive.Root> & {
-  onChange?: (value: number[]) => void; // Указываем, что onChange принимает массив чисел
+type SliderProps = Omit<
+  React.ComponentPropsWithoutRef<typeof SliderPrimitive.Root>,
+  "onChange"
+> & {
+  onChange?: (value: number[]) => void;
 };
 
 const Slider = React.forwardRef<
@@ -15,7 +18,7 @@ const Slider = React.forwardRef<
 >(({ className, onChange, ...props }, ref) => {
   const handleValueChange = (value: number[]) => {
     if (onChange) {
-      onChange(value); // Передаем значение в onChange
+      onChange(value);
     }
   };
 
@@ -26,7 +29,7 @@ const Slider = React.forwardRef<
         "relative flex w-full touch-none select-none items-center",
         className
       )}
-      onValueChange={handleValueChange} // Используем onValueChange для получения значения
+      onValueChange={handleValueChange}
       {...props}
     >
       <SliderPrimitive.Track className="relative h-1.5 w-full grow overflow-hidden rounded-full bg-secondary">
@@ -36,6 +39,7 @@ const Slider = React.forwardRef<
     </SliderPrimitive.Root>
   );
 });
+
 Slider.displayName = SliderPrimitive.Root.displayName;
 
 export { Slider };

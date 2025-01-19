@@ -1,7 +1,6 @@
 import { create } from "zustand";
 import { ITrack } from "@/shared/types/track";
 import { PlayerState } from "@/shared/types/player";
-import { ICollectionTrack } from "../types/collection";
 
 interface PlayerStore extends PlayerState {
   playTrack: () => void;
