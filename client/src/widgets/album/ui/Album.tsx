@@ -7,6 +7,7 @@ import useAlbumStore from "@/shared/store/album";
 import usePlayerStore from "@/shared/store/player";
 import { ITrack } from "@/shared/types/track";
 import useTrackStore from "@/shared/store/track";
+import { BASE_URL } from "@/shared/config/config";
 
 const Album = () => {
   const params = useParams();
@@ -40,7 +41,7 @@ const Album = () => {
       <div className="bg-black flex justify-center items-center mb-[16px]">
         <div className="max-w-[636px] bg-black">
           <img
-            src={"http://localhost:8340/" + selectedAlbumTracks?.picture}
+            src={BASE_URL + selectedAlbumTracks?.picture}
             alt="img"
             className="rounded-[13px]"
           />

@@ -5,6 +5,7 @@ import { CreateCollectionTrackDto } from './dto/create-collectionTrack.dto';
 import { TrackModel } from 'src/track/model/track.model';
 import { Sequelize } from 'sequelize';
 import { AuthorModel } from 'src/author/model/author.model';
+import { AlbumModel } from 'src/album/model/album.model';
 
 @Injectable()
 export class CollectionTrackService {
@@ -96,12 +97,19 @@ export class CollectionTrackService {
               'text',
               'listens',
               'audio',
+              'authorId',
               [Sequelize.literal('"track->author"."name"'), 'authorName'],
+              [Sequelize.literal('"track->albums"."id"'), 'albumId'],
             ],
             include: [
               {
                 model: AuthorModel,
                 attributes: [],
+              },
+              {
+                model: AlbumModel,
+                attributes: [],
+                through: { attributes: [] },
               },
             ],
           },

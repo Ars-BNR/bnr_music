@@ -20,7 +20,7 @@ export const CategoryList = ({
 }: CategoryListProps) => {
   return (
     <div className={`flex gap-[24px] flex-wrap max-w-[894px] ${className}`}>
-      {loading
+      {loading || !categories || categories.length === 0
         ? Array(8)
             .fill(0)
             .map((_, index) => (

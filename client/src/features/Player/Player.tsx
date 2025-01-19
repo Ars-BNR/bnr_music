@@ -14,6 +14,7 @@ import usePlayerStore from "@/shared/store/player";
 import useTrackStore from "@/shared/store/track";
 import Link from "next/link";
 import useCollectionStore from "@/shared/store/collection";
+import { BASE_URL } from "@/shared/config/config";
 
 const Player = () => {
   const {
@@ -30,7 +31,7 @@ const Player = () => {
     setActiveTrack,
   } = usePlayerStore();
 
-  const collectionId = Number(localStorage.getItem("collection"));
+  const [collectionId, setCollectionId] = useState<number>(0);
   const {
     userTracks,
     getUserTracks,
@@ -39,6 +40,12 @@ const Player = () => {
   } = useCollectionStore();
   const { tracks, setTracks } = useTrackStore();
 
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const id = Number(localStorage.getItem("collection"));
+      setCollectionId(id);
+    }
+  }, []);
   useEffect(() => {
     if (collectionId !== null) {
       if (active !== null) {
@@ -76,14 +83,12 @@ const Player = () => {
 
   const handleShakeClick = () => {
     if (isShuffle) {
-      // Если режим перемешивания выключен, сбросим перемешанный список
       setShuffledTracks([]);
     } else {
-      // Если режим перемешивания включен, перемешаем треки
       const shuffled = shuffleTracks(tracks);
       setShuffledTracks(shuffled);
     }
-    setIsShuffle(!isShuffle); // Переключаем состояние
+    setIsShuffle(!isShuffle);
   };
 
   const handleLoveIconClick = async () => {
@@ -120,7 +125,7 @@ const Player = () => {
         }
         audioRef.current.currentTime = 0;
 
-        audioRef.current.src = "http://localhost:8340/" + active.audio;
+        audioRef.current.src = BASE_URL + active.audio;
         audioRef.current.volume = volume / 100;
 
         audioRef.current.onloadedmetadata = () => {
@@ -190,43 +195,21 @@ const Player = () => {
     }
   };
 
-  // const handleEnded = () => {
-  //   if (isRepeat) {
-  //     if (audioRef.current) {
-  //       audioRef.current.currentTime = 0;
-  //       audioRef.current.play();
-  //     }
-  //   } else {
-  //     if (tracks.length > 0 && active) {
-  //       const currentIndex = tracks.findIndex(
-  //         (track) => track.id === active.id
-  //       );
-  //       const nextIndex = (currentIndex + 1) % tracks.length;
-  //       const nextTrack = tracks[nextIndex];
-  //       setActiveTrack(nextTrack);
-  //       playTrack();
-  //     }
-  //   }
-  // };
-
   const handleEnded = () => {
     if (isRepeat) {
-      // Если режим повторения включен, просто перезапускаем текущий трек
       if (audioRef.current) {
         audioRef.current.currentTime = 0;
         audioRef.current.play();
       }
     } else if (isShuffle && shuffledTracks.length > 0) {
-      // Если режим перемешивания включен, выбираем случайный трек из перемешанного списка
       const currentIndex = shuffledTracks.findIndex(
-        (track) => track.id === active.id
+        (track) => track.id === active?.id
       );
       const nextIndex = (currentIndex + 1) % shuffledTracks.length;
       const nextTrack = shuffledTracks[nextIndex];
       setActiveTrack(nextTrack);
       playTrack();
     } else {
-      // Если режим перемешивания выключен, переходим к следующему треку в обычном порядке
       if (tracks.length > 0 && active) {
         const currentIndex = tracks.findIndex(
           (track) => track.id === active.id
@@ -293,6 +276,9 @@ const Player = () => {
   if (!active) {
     return null;
   }
+  // useEffect(() => {
+  //   console.log("active", active);
+  // }, [active]);
 
   return (
     <div className="bg-[#1E212A] flex p-5 grow items-center rounded-b-[20px] justify-between">
@@ -305,7 +291,7 @@ const Player = () => {
             {active.name}
           </Link>
           <Link
-            href={`/album/${active.authorId}`}
+            href={`/author/${active.authorId}`}
             className="text-[#ACB0B1] text-[12px]"
           >
             {active.authorName}

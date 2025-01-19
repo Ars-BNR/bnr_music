@@ -34,7 +34,12 @@ const useCollectionStore = create<CollectionStore>((set) => ({
   userAlbums: [],
   userPlaylist: [],
   userTracks: [],
-  userTracksFromPlaylist: null,
+  userTracksFromPlaylist: {
+    id: 0,
+    name: "",
+    userId: 0,
+    tracks: [],
+  },
   error: "",
   loading: false,
 
@@ -96,7 +101,6 @@ const useCollectionStore = create<CollectionStore>((set) => ({
         throw new Error("Трек не найден");
       }
 
-      // Обновляем локальное состояние, добавляя новый трек
       set((state) => ({
         userTracks: [...state.userTracks, track],
         loading: false,

@@ -33,15 +33,26 @@ export const Sidebar = () => {
     { href: "/category", icon: <CategoryIcon />, text: "Категории" },
     { href: "/authors", icon: <ArtistIcon />, text: "Артисты" },
   ];
-  const idCollection = Number(localStorage.getItem("collection"));
+
   const { userPlaylist, getUserPlaylists } = useCollectionStore();
   useEffect(() => {
-    if (idCollection !== null) {
-      if (userPlaylist === null) {
-        getUserPlaylists(idCollection);
+    if (typeof window !== "undefined") {
+      const idCollection = Number(localStorage.getItem("collection"));
+      if (idCollection !== null && userPlaylist.length === 0) {
+        getUserPlaylists(idCollection, { limit: 4, offset: 0 });
       }
     }
-  }, []);
+  }, [userPlaylist, getUserPlaylists]);
+  // useEffect(() => {
+  //   if (idCollection !== null) {
+  //     if (userPlaylist === null) {
+  //       getUserPlaylists(idCollection, { limit: 4, offset: 0 });
+  //     }
+  //   }
+  // }, []);
+  useEffect(() => {
+    console.log("userPlaylist", userPlaylist);
+  }, [userPlaylist]);
   return (
     <div className={stl.sidebar}>
       <div className="cursor-pointer" onClick={() => router.replace("/")}>

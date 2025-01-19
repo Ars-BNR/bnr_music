@@ -7,6 +7,7 @@ import { Op, Sequelize } from 'sequelize';
 import { UpdateTrackDto } from './dto/update-track.dto';
 import { AuthorModel } from 'src/author/model/author.model';
 import { AlbumModel } from 'src/album/model/album.model';
+import { AlbumTrackModel } from 'src/album-track/model/album-track.model';
 
 @Injectable()
 export class TrackService {
@@ -54,13 +55,22 @@ export class TrackService {
         order: [['listens', 'DESC']],
         limit: Number(count),
         offset: Number(offset),
+        subQuery: false,
         attributes: {
-          include: [[Sequelize.literal('"author"."name"'), 'authorName']],
+          include: [
+            [Sequelize.literal('"author"."name"'), 'authorName'],
+            [Sequelize.literal('"albums"."id"'), 'albumId'],
+          ],
         },
         include: [
           {
             model: AuthorModel,
             attributes: [],
+          },
+          {
+            model: AlbumModel,
+            attributes: [],
+            through: { attributes: [] },
           },
         ],
         raw: true,
@@ -84,6 +94,7 @@ export class TrackService {
       const tracks = await TrackModel.findAll({
         limit: Number(count),
         offset: Number(offset),
+
         attributes: {
           include: [[Sequelize.literal('"author"."name"'), 'authorName']],
         },

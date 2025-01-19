@@ -11,13 +11,14 @@ const PopularSongs = () => {
   useEffect(() => {
     fetchTopTracks({ count: 10, offset: 0 });
   }, [fetchTopTracks]);
+
   return (
     <div className="bg-[#09090B] pb-[24px] mb-16 min-h-[570px]">
       <div className="mb-4 flex items-center max-w-[270px] justify-between">
         <span className="text-[16px] text-white">Популярные песни</span>
       </div>
       <div className="flex gap-[30px] flex-wrap">
-        {loading
+        {loading || !tracks || tracks.length === 0
           ? Array(8)
               .fill(0)
               .map((_, index) => (

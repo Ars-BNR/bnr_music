@@ -1,6 +1,7 @@
 "use client";
 
 import CardItem from "@/shared/components/common/CardItem/CardItem";
+import { BASE_URL } from "@/shared/config/config";
 import useCollectionStore from "@/shared/store/collection";
 import { useRouter } from "next/navigation";
 import React, { useEffect } from "react";
@@ -26,7 +27,7 @@ const AlbumsCollection = () => {
             key={album.id}
             title={album.Albumname}
             subtitle={album.authorName}
-            imageUrl={`http://localhost:8340/${album.Albumpicture}`}
+            imageUrl={`${BASE_URL}${album.Albumpicture}`}
             onClick={() => router.push(`/album/${album.albumId}`)}
           />
         ))}

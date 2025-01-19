@@ -12,10 +12,10 @@ import PlayIcon from "../../../../public/assets/icons/Play";
 import Link from "next/link";
 import useAlbumStore from "@/shared/store/album";
 import { Skeleton } from "@/shared/components/ui/skeleton";
+import { BASE_URL } from "@/shared/config/config";
 
 const images = [img1, img2, img3, img4, img5];
 
-// Массив с текстами для каждого изображения
 const imageTexts = [
   "Beautiful landscape",
   "City at night",
@@ -24,7 +24,6 @@ const imageTexts = [
   "Abstract art",
 ];
 
-// Массив с именами авторов для каждого изображения
 const authors = [
   "John Doe",
   "Jane Smith",
@@ -41,27 +40,23 @@ const Carousel = () => {
   const [isAnimating, setIsAnimating] = useState(false);
   const [isExiting, setIsExiting] = useState(false);
 
-  // Функция для смены центрального изображения при клике
   const handleImageClick = (index: number) => {
     if (!isAnimating) {
-      setIsAnimating(true); // Запускаем анимацию
-      setIsExiting(true); // Запускаем фазу исчезновения
-      setNextIndex(index); // Сохраняем индекс нового изображения
+      setIsAnimating(true);
+      setIsExiting(true);
+      setNextIndex(index);
 
-      // После завершения исчезновения (500 мс)
       setTimeout(() => {
-        setCurrentIndex(nextIndex); // Обновляем текущий индекс
-        setIsExiting(false); // Завершаем фазу исчезновения
+        setCurrentIndex(nextIndex);
+        setIsExiting(false);
 
-        // После завершения появления (500 мс)
         setTimeout(() => {
-          setIsAnimating(false); // Завершаем анимацию
+          setIsAnimating(false);
         }, 500);
       }, 500);
     }
   };
 
-  // Функция для получения сдвинутого индекса с учетом текущего центра
   const getShiftedIndex = (shift: number) => {
     const newIndex = (currentIndex + shift + images.length) % images.length;
     return newIndex;
@@ -71,16 +66,9 @@ const Carousel = () => {
     fetchTopAlbums();
   }, [fetchTopAlbums]);
 
-  // // Если данные еще не загружены, показываем загрузку
-  // if (!albums || albums.length === 0) {
-  //   return <div>Loading...</div>;
-  // }
-
-  // Проверяем, что currentIndex находится в пределах массива albums
   const currentAlbum = albums[currentIndex];
   const nextAlbum = albums[nextIndex];
 
-  // Если данные еще не загружены, показываем скелетоны
   if (loading || !albums || albums.length === 0) {
     return (
       <Skeleton
@@ -93,7 +81,6 @@ const Carousel = () => {
   if (albums !== null) {
     return (
       <div className={stl.Carousel}>
-        {/* Центральный блок */}
         <Link
           href={`/album/${albums[currentIndex].id}`}
           className={stl.Carousel__block}
@@ -102,7 +89,7 @@ const Carousel = () => {
           <div className={stl.Carousel__img}>
             <img
               className={`${stl.image} ${isExiting ? stl.imageExit : ""}`}
-              src={`http://localhost:8340/${
+              src={`${BASE_URL}${
                 isExiting ? currentAlbum.picture : nextAlbum.picture
               }`}
               alt={isExiting ? currentAlbum.name : nextAlbum.name}
@@ -125,7 +112,6 @@ const Carousel = () => {
           </div>
         </Link>
 
-        {/* Левый блок */}
         <div
           className={stl.Carousel__blockLeft}
           onClick={() => handleImageClick(getShiftedIndex(-1))}
@@ -139,7 +125,6 @@ const Carousel = () => {
           </div>
         </div>
 
-        {/* Самый левый блок */}
         <div
           className={stl.Carousel__blockLeft__left}
           onClick={() => handleImageClick(getShiftedIndex(-2))}
@@ -153,7 +138,6 @@ const Carousel = () => {
           </div>
         </div>
 
-        {/* Правый блок */}
         <div
           className={stl.Carousel__blockRight}
           onClick={() => handleImageClick(getShiftedIndex(1))}
@@ -167,7 +151,6 @@ const Carousel = () => {
           </div>
         </div>
 
-        {/* Самый правый блок */}
         <div
           className={stl.Carousel__blockRight__right}
           onClick={() => handleImageClick(getShiftedIndex(2))}

@@ -1,6 +1,7 @@
 "use client";
 
 import CardItem from "@/shared/components/common/CardItem/CardItem";
+import { BASE_URL } from "@/shared/config/config";
 import useCollectionStore from "@/shared/store/collection";
 import usePlayerStore from "@/shared/store/player";
 import { ITrack } from "@/shared/types/track";
@@ -33,7 +34,7 @@ const TracksCollection = () => {
             key={track.id}
             title={track.name}
             subtitle={track.authorName}
-            imageUrl={`http://localhost:8340/${track.picture}`}
+            imageUrl={`${BASE_URL}${track.picture}`}
             onClick={(e) => play(e, track)}
           />
         ))}

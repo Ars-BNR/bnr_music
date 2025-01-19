@@ -1,3 +1,5 @@
+import { ITrack } from "./track";
+
 export interface ICollectionAlbum {
   id: number;
   albumId: number;
@@ -10,28 +12,19 @@ export interface ICollectionPlaylist {
   id: number;
   name: string;
 }
-export interface ICollectionTrack {
-  id: number;
-  name: string;
-  picture: string;
-  text: string;
-  listens: number;
-  audio: string;
-  authorId: number;
-  authorName: string;
-}
+
 export interface ITracksFromUserPlaylist {
   id: number;
   name: string;
   userId: number;
-  tracks: ICollectionTrack[];
+  tracks: ITrack[];
 }
 
 export interface CollectionState {
   userAlbums: ICollectionAlbum[];
   userPlaylist: ICollectionPlaylist[];
-  userTracks: ICollectionTrack[];
-  userTracksFromPlaylist: ITracksFromUserPlaylist | null;
+  userTracks: ITrack[];
+  userTracksFromPlaylist: ITracksFromUserPlaylist;
   error: string;
   loading: boolean;
 }
