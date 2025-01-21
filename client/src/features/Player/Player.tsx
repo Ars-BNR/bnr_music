@@ -32,13 +32,14 @@ const Player = () => {
   } = usePlayerStore();
 
   const [collectionId, setCollectionId] = useState<number>(0);
+
   const {
     userTracks,
     getUserTracks,
     addTrackToCollection,
     removeTrackFromCollection,
   } = useCollectionStore();
-  const { tracks, setTracks } = useTrackStore();
+  const { tracks } = useTrackStore();
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -56,19 +57,17 @@ const Player = () => {
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  const [wasPlayingBeforeSeek, setWasPlayingBeforeSeek] = useState(false);
-
-  const handleSliderPointerDown = () => {
-    setWasPlayingBeforeSeek(!pause);
-    if (!pause) {
-      pauseTrack(); // Ставим на паузу, если трек воспроизводился
-    }
-  };
+  const [tempTime, setTempTime] = useState<number | null>(null);
 
   const handleSliderPointerUp = () => {
-    if (wasPlayingBeforeSeek) {
-      playTrack();
+    if (audioRef.current && tempTime !== null) {
+      audioRef.current.currentTime = tempTime;
+      setCurrentTime(tempTime);
+      setTempTime(null);
     }
+  };
+  const handleSliderChange = (value: number[]) => {
+    setTempTime(value[0]);
   };
 
   const [isHoldingNext, setIsHoldingNext] = useState(false);
@@ -79,6 +78,7 @@ const Player = () => {
   const [isRepeat, setIsRepeat] = useState(false);
 
   const [isShuffle, setIsShuffle] = useState(false);
+
   const [shuffledTracks, setShuffledTracks] = useState<any[]>([]);
 
   useEffect(() => {
@@ -146,9 +146,11 @@ const Player = () => {
         audioRef.current.onloadedmetadata = () => {
           setDuration(Math.ceil(audioRef.current!.duration));
         };
+
         audioRef.current.ontimeupdate = () => {
           setCurrentTime(Math.ceil(audioRef.current!.currentTime));
         };
+
         audioRef.current.onended = handleEnded;
 
         audioRef.current.oncanplay = async () => {
@@ -173,15 +175,6 @@ const Player = () => {
     setAudio();
   }, [active]);
 
-  useEffect(() => {
-    return () => {
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current.src = "";
-      }
-    };
-  }, []);
-
   const play = async () => {
     if (audioRef.current && audioRef.current.paused) {
       try {
@@ -200,18 +193,6 @@ const Player = () => {
     if (audioRef.current) {
       audioRef.current.volume = value[0] / 100;
       setVolume(value[0]);
-    }
-  };
-
-  const changeCurrentTime = (value: number[]) => {
-    if (audioRef.current) {
-      audioRef.current.currentTime = value[0];
-      setCurrentTime(value[0]);
-
-      if (!pause) {
-        audioRef.current.pause(); // Ставим трек на паузу, если он не на паузе
-        pauseTrack();
-      }
     }
   };
 
@@ -360,11 +341,10 @@ const Player = () => {
 
       <div className="max-w-[439px] w-full flex flex-col gap-[5px] self-end">
         <Slider
-          value={[currentTime]}
+          value={[tempTime !== null ? tempTime : currentTime]}
           max={duration}
           step={1}
-          onChange={(value: number[]) => changeCurrentTime(value)}
-          onPointerDown={handleSliderPointerDown}
+          onChange={handleSliderChange}
           onPointerUp={handleSliderPointerUp}
         />
         <div className="flex justify-between">

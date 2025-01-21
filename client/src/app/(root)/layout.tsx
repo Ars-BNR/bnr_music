@@ -33,7 +33,7 @@ export default function HomeLayout({
         </div>
       </div>
       <div className="fixed bottom-0 left-0 w-full shadow-lg ">
-        <div className="mx-auto max-w-[1200px]">
+        <div className="mx-auto max-w-[1200px] bg-[#09090B]">
           <Player />
         </div>
       </div>

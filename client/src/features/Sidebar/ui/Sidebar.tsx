@@ -43,13 +43,7 @@ export const Sidebar = () => {
       }
     }
   }, [userPlaylist, getUserPlaylists]);
-  // useEffect(() => {
-  //   if (idCollection !== null) {
-  //     if (userPlaylist === null) {
-  //       getUserPlaylists(idCollection, { limit: 4, offset: 0 });
-  //     }
-  //   }
-  // }, []);
+
   useEffect(() => {
     console.log("userPlaylist", userPlaylist);
   }, [userPlaylist]);
@@ -75,15 +69,19 @@ export const Sidebar = () => {
               </AccordionTrigger>
             </div>
             <div className="flex flex-col items-start gap-3 max-[198px] truncate">
-              {userPlaylist.map((playlist, index) => (
-                <AccordionContent
-                  key={index}
-                  className="text-white text-[20px] flex gap-4 justify-start cursor-pointer "
-                >
-                  <Link href={`/playlist/${playlist.id}`}>{playlist.name}</Link>
-                </AccordionContent>
-              ))}
-              <AccordionContent>
+              {userPlaylist.length > 0 ? (
+                <>
+                {userPlaylist.map((playlist, index) => (
+                  <AccordionContent
+                    key={index}
+                    className="text-white text-[20px] flex gap-4 justify-start cursor-pointer "
+                    >
+                    <Link href={`/playlist/${playlist.id}`}>
+                      {playlist.name}
+                    </Link>
+                  </AccordionContent>
+                ))}
+                <AccordionContent>
                 <Link
                   href={`/collection/playlist`}
                   className="text-white text-[20px] flex gap-4 justify-start cursor-pointer hover:text-[#6300ff]"
@@ -91,6 +89,19 @@ export const Sidebar = () => {
                   Все плейлисты
                 </Link>
               </AccordionContent>
+                    </>
+              ) : (
+                <AccordionContent>
+                  <Link
+                    href={``}
+                    className="text-white text-[20px] flex gap-4 justify-start cursor-pointer hover:text-[#6300ff]"
+                  >
+                    Создать плейлист
+                  </Link>
+                </AccordionContent>
+              )}
+
+              
             </div>
           </AccordionItem>
         </Accordion>
