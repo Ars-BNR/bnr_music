@@ -70,9 +70,6 @@ const Player = () => {
     setTempTime(value[0]);
   };
 
-  const [isHoldingNext, setIsHoldingNext] = useState(false);
-  const [isHoldingBack, setIsHoldingBack] = useState(false);
-
   const [isFilled, setIsFilled] = useState(false);
 
   const [isRepeat, setIsRepeat] = useState(false);
@@ -250,50 +247,6 @@ const Player = () => {
     }
   };
 
-  const handleNextPointerUp = () => {
-    setIsHoldingNext(false);
-    if (tempTime !== null && audioRef.current) {
-      audioRef.current.currentTime = tempTime;
-      setCurrentTime(tempTime);
-      setTempTime(null);
-    }
-    if (pause) {
-      playTrack();
-    }
-  };
-
-  const handleBackPointerUp = () => {
-    setIsHoldingBack(false);
-    if (tempTime !== null && audioRef.current) {
-      audioRef.current.currentTime = tempTime;
-      setCurrentTime(tempTime);
-      setTempTime(null);
-    }
-  };
-  useEffect(() => {
-    let interval: NodeJS.Timeout;
-    if (isHoldingNext && audioRef.current) {
-      interval = setInterval(() => {
-        const newTime = Math.min(audioRef.current!.currentTime + 2, duration);
-        setTempTime(newTime);
-        setCurrentTime(newTime);
-      }, 200);
-    }
-    return () => clearInterval(interval);
-  }, [isHoldingNext, duration]);
-
-  useEffect(() => {
-    let interval: NodeJS.Timeout;
-    if (isHoldingBack && audioRef.current) {
-      interval = setInterval(() => {
-        const newTime = Math.max(audioRef.current!.currentTime - 2, 0);
-        setTempTime(newTime);
-        setCurrentTime(newTime);
-      }, 200);
-    }
-    return () => clearInterval(interval);
-  }, [isHoldingBack]);
-
   if (!active) {
     return null;
   }
@@ -319,19 +272,7 @@ const Player = () => {
       <div className="flex gap-[24px]">
         <BackIcon
           onClick={() => {
-            if (isHoldingNext === false) {
-              handlePreviousTrack();
-            }
-          }}
-          onPointerDown={() => {
-            setIsHoldingBack(true);
-            pauseTrack();
-          }}
-          onPointerUp={() => {
-            setIsHoldingBack(false);
-            if (pause) {
-              playTrack();
-            }
+            handlePreviousTrack();
           }}
         />
         {pause ? (
@@ -342,15 +283,8 @@ const Player = () => {
 
         <NextIcon
           onClick={() => {
-            if (!isHoldingNext) {
-              handleEnded();
-            }
+            handleEnded();
           }}
-          onPointerDown={() => {
-            setIsHoldingNext(true);
-            pauseTrack();
-          }}
-          onPointerUp={handleNextPointerUp}
         />
       </div>
 

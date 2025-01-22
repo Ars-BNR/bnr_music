@@ -1,10 +1,8 @@
 import React from "react";
 interface BackIconProps {
   onClick?: () => void;
-  onPointerDown?: () => void;
-  onPointerUp?: () => void;
 }
-const BackIcon = ({ onClick, onPointerDown, onPointerUp }: BackIconProps) => {
+const BackIcon = ({ onClick }: BackIconProps) => {
   return (
     <svg
       width="26"
@@ -14,8 +12,6 @@ const BackIcon = ({ onClick, onPointerDown, onPointerUp }: BackIconProps) => {
       xmlns="http://www.w3.org/2000/svg"
       style={{ cursor: "pointer" }}
       onClick={onClick}
-      onPointerDown={onPointerDown}
-      onPointerUp={onPointerUp}
     >
       <path
         d="M20.5835 21.6667L9.75013 13.0001L20.5835 4.33342V21.6667Z"

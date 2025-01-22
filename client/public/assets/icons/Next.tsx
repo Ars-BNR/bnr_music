@@ -1,10 +1,8 @@
 import React from "react";
 interface NextIconProps {
   onClick?: () => void;
-  onPointerDown?: () => void;
-  onPointerUp?: () => void;
 }
-const NextIcon = ({ onClick, onPointerDown, onPointerUp }: NextIconProps) => {
+const NextIcon = ({ onClick }: NextIconProps) => {
   return (
     <svg
       width="26"
@@ -14,8 +12,6 @@ const NextIcon = ({ onClick, onPointerDown, onPointerUp }: NextIconProps) => {
       xmlns="http://www.w3.org/2000/svg"
       style={{ cursor: "pointer" }}
       onClick={onClick}
-      onPointerDown={onPointerDown}
-      onPointerUp={onPointerUp}
     >
       <path
         d="M5.41666 4.33325L16.25 12.9999L5.41666 21.6666V4.33325Z"
