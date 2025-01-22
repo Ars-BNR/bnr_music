@@ -250,12 +250,32 @@ const Player = () => {
     }
   };
 
+  const handleNextPointerUp = () => {
+    setIsHoldingNext(false);
+    if (tempTime !== null && audioRef.current) {
+      audioRef.current.currentTime = tempTime;
+      setCurrentTime(tempTime);
+      setTempTime(null);
+    }
+    if (pause) {
+      playTrack();
+    }
+  };
+
+  const handleBackPointerUp = () => {
+    setIsHoldingBack(false);
+    if (tempTime !== null && audioRef.current) {
+      audioRef.current.currentTime = tempTime;
+      setCurrentTime(tempTime);
+      setTempTime(null);
+    }
+  };
   useEffect(() => {
     let interval: NodeJS.Timeout;
     if (isHoldingNext && audioRef.current) {
       interval = setInterval(() => {
         const newTime = Math.min(audioRef.current!.currentTime + 2, duration);
-        audioRef.current!.currentTime = newTime;
+        setTempTime(newTime);
         setCurrentTime(newTime);
       }, 200);
     }
@@ -267,7 +287,7 @@ const Player = () => {
     if (isHoldingBack && audioRef.current) {
       interval = setInterval(() => {
         const newTime = Math.max(audioRef.current!.currentTime - 2, 0);
-        audioRef.current!.currentTime = newTime;
+        setTempTime(newTime);
         setCurrentTime(newTime);
       }, 200);
     }
@@ -322,7 +342,7 @@ const Player = () => {
 
         <NextIcon
           onClick={() => {
-            if (isHoldingNext === false) {
+            if (!isHoldingNext) {
               handleEnded();
             }
           }}
@@ -330,12 +350,7 @@ const Player = () => {
             setIsHoldingNext(true);
             pauseTrack();
           }}
-          onPointerUp={() => {
-            setIsHoldingNext(false);
-            if (pause) {
-              playTrack();
-            }
-          }}
+          onPointerUp={handleNextPointerUp}
         />
       </div>
 

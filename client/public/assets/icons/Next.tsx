@@ -1,8 +1,8 @@
 import React from "react";
 interface NextIconProps {
-  onClick?: () => void; // Обработчик клика
-  onPointerDown?: () => void; // Обработчик нажатия
-  onPointerUp?: () => void; // Обработчик отпускания
+  onClick?: () => void;
+  onPointerDown?: () => void;
+  onPointerUp?: () => void;
 }
 const NextIcon = ({ onClick, onPointerDown, onPointerUp }: NextIconProps) => {
   return (
@@ -13,9 +13,9 @@ const NextIcon = ({ onClick, onPointerDown, onPointerUp }: NextIconProps) => {
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
       style={{ cursor: "pointer" }}
-      onClick={onClick} // Обработчик клика
-      onPointerDown={onPointerDown} // Обработчик нажатия
-      onPointerUp={onPointerUp} // Обработчик отпускания
+      onClick={onClick}
+      onPointerDown={onPointerDown}
+      onPointerUp={onPointerUp}
     >
       <path
         d="M5.41666 4.33325L16.25 12.9999L5.41666 21.6666V4.33325Z"
