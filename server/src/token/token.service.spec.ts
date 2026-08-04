@@ -18,4 +18,27 @@ describe('TokenService', () => {
     expect(stored).not.toBe('raw-refresh-token');
     expect(stored).toMatch(/^\$2[aby]\$/);
   });
+
+  it('adds a unique id so refresh rotation cannot reproduce the old JWT', async () => {
+    const jwtService = {
+      signAsync: jest.fn().mockResolvedValue('signed-token'),
+      verifyAsync: jest.fn(),
+    };
+    const service = new TokenService(
+      jwtService as any,
+      { getOrThrow: jest.fn().mockReturnValue('test-value') } as any,
+      {} as any,
+      {} as any,
+    );
+    const user = { sub: 7, email: 'user@example.test', role: 'user' };
+
+    await service.generateTokens(user);
+    await service.generateTokens(user);
+
+    const firstRefreshPayload = jwtService.signAsync.mock.calls[1][0];
+    const secondRefreshPayload = jwtService.signAsync.mock.calls[3][0];
+    expect(firstRefreshPayload).toEqual(expect.objectContaining(user));
+    expect(firstRefreshPayload.jti).toEqual(expect.any(String));
+    expect(secondRefreshPayload.jti).not.toBe(firstRefreshPayload.jti);
+  });
 });

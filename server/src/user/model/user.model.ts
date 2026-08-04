@@ -1,6 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import {
   AutoIncrement,
+  AllowNull,
   Column,
   DataType,
   Default,
@@ -29,6 +30,26 @@ export class UserModel extends Model {
   @Unique
   @Column(DataType.STRING)
   email: string;
+
+  @ApiProperty({
+    example: 'Third Street Saint',
+    description: 'Public display name',
+  })
+  @AllowNull(false)
+  @Default('')
+  @Column(DataType.STRING(80))
+  displayName: string;
+
+  @ApiProperty({ example: 'Собираю редкие саундтреки.', required: false })
+  @AllowNull(false)
+  @Default('')
+  @Column(DataType.STRING(280))
+  bio: string;
+
+  @ApiProperty({ example: 'image/avatar.png', required: false })
+  @AllowNull
+  @Column(DataType.STRING)
+  avatar: string | null;
 
   @ApiProperty({ example: 'Miha6318', description: 'Пароль пользователя' })
   @Column(DataType.STRING)

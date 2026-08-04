@@ -91,11 +91,13 @@ const CardItem = ({
   );
 
   if (href) {
-    return <Link href={href} aria-label={ariaLabel ?? title} className="group block min-w-0 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bnr-lilac focus-visible:ring-offset-2 focus-visible:ring-offset-bnr-abyss">{visual}</Link>;
+    const link = <Link href={href} aria-label={ariaLabel ?? title} className="group block h-full w-full min-w-0 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bnr-lilac focus-visible:ring-offset-2 focus-visible:ring-offset-bnr-abyss">{visual}</Link>;
+
+    return isAuthor ? <article className="min-w-0">{link}</article> : link;
   }
 
   if (onAction) {
-    return <button type="button" onClick={onAction} aria-label={ariaLabel} aria-pressed={isTrack ? active : undefined} className="group block min-w-0 rounded-lg text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bnr-lilac focus-visible:ring-offset-2 focus-visible:ring-offset-bnr-abyss">{visual}</button>;
+    return <button type="button" onClick={onAction} aria-label={ariaLabel} aria-pressed={isTrack ? active : undefined} className="group block h-full w-full min-w-0 rounded-lg text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bnr-lilac focus-visible:ring-offset-2 focus-visible:ring-offset-bnr-abyss">{visual}</button>;
   }
 
   return <article className="min-w-0">{visual}</article>;

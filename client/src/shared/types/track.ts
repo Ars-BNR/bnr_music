@@ -8,6 +8,7 @@ export interface ITrack {
   authorName: string;
   authorId?: number;
   albumId?: number;
+  featuredAuthors?: Array<{ id: number; name: string; avatar: string | null }>;
 }
 
 export interface TrackState {

@@ -4,7 +4,7 @@ import { Heart, Pause, Play, Repeat2, Shuffle, SkipBack, SkipForward } from "luc
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { usePlaybackStore } from "@/entities/playback";
-import useCollectionStore from "@/shared/store/collection";
+import { useFavoriteTracksStore } from "@/entities/track";
 import { Button } from "@/shared/ui/button";
 import { Slider } from "@/shared/ui/slider";
 import { useAudioEngine } from "../model/useAudioEngine";
@@ -32,25 +32,29 @@ export default function Player() {
   const replaceQueue = usePlaybackStore((state) => state.replaceQueue);
   const toggleRepeat = usePlaybackStore((state) => state.toggleRepeat);
   const toggleShuffle = usePlaybackStore((state) => state.toggleShuffle);
-  const { userTracks, getUserTracks, addTrackToCollection, removeTrackFromCollection } = useCollectionStore();
+  const favoriteTracks = useFavoriteTracksStore((state) => state.items);
+  const favoriteStatuses = useFavoriteTracksStore((state) => state.statusById);
+  const checkingTrackId = useFavoriteTracksStore((state) => state.checkingTrackId);
+  const mutatingTrackId = useFavoriteTracksStore((state) => state.mutatingTrackId);
+  const favoriteError = useFavoriteTracksStore((state) => state.mutationError);
+  const checkFavoriteStatus = useFavoriteTracksStore((state) => state.checkStatus);
+  const addFavorite = useFavoriteTracksStore((state) => state.add);
+  const removeFavorite = useFavoriteTracksStore((state) => state.remove);
+  const clearFavoriteError = useFavoriteTracksStore((state) => state.clearMutationError);
   const { audioRef, seek } = useAudioEngine();
-  const [collectionId, setCollectionId] = useState<number | null>(null);
   const [tempTime, setTempTime] = useState<number | null>(null);
 
   useEffect(() => {
-    const value = Number(localStorage.getItem("collection"));
-    setCollectionId(Number.isInteger(value) && value > 0 ? value : null);
-  }, []);
+    if (!active) return;
+    clearFavoriteError();
+    void checkFavoriteStatus(active.id);
+  }, [active, checkFavoriteStatus, clearFavoriteError]);
 
   useEffect(() => {
-    if (active && collectionId !== null) void getUserTracks(collectionId);
-  }, [active, collectionId, getUserTracks]);
-
-  useEffect(() => {
-    if (context?.type === "favorites" && context.collectionId === collectionId) {
-      replaceQueue(userTracks, context);
+    if (context?.type === "favorites") {
+      replaceQueue(favoriteTracks, context);
     }
-  }, [collectionId, context, replaceQueue, userTracks]);
+  }, [context, favoriteTracks, replaceQueue]);
 
   const safeDuration = Number.isFinite(duration) && duration > 0 ? duration : 0;
   const seekValue = safeDuration > 0 ? Math.min(currentTime, safeDuration) : 0;
@@ -61,20 +65,22 @@ export default function Player() {
     setTempTime(null);
   };
 
-  const handleLoveIconClick = () => {
-    if (!active || collectionId === null) return;
-    const isFilled = userTracks.some((track) => track.id === active.id);
-
-    if (isFilled) {
-      void removeTrackFromCollection(collectionId, active.id);
-      return;
+  const handleLoveIconClick = async () => {
+    if (!active || favoriteStatuses[active.id] === undefined) return;
+    if (favoriteStatuses[active.id]) {
+      await removeFavorite(active.id);
+    } else {
+      await addFavorite(active);
     }
-    void addTrackToCollection(collectionId, active);
   };
 
   if (!active) return null;
 
-  const isFilled = userTracks.some((track) => track.id === active.id);
+  const isFilled = favoriteStatuses[active.id] === true;
+  const favoritePending =
+    favoriteStatuses[active.id] === undefined ||
+    checkingTrackId === active.id ||
+    mutatingTrackId === active.id;
 
   return (
     <section
@@ -137,8 +143,10 @@ export default function Player() {
             size="icon"
             aria-label={isFilled ? "Remove track from favorites" : "Add track to favorites"}
             aria-pressed={isFilled}
+            aria-busy={favoritePending}
+            disabled={favoritePending}
             className={isFilled ? "text-player-accent hover:text-player-accent" : undefined}
-            onClick={handleLoveIconClick}
+            onClick={() => void handleLoveIconClick()}
           >
             <Heart data-icon="inline-start" fill={isFilled ? "currentColor" : "none"} />
           </Button>
@@ -167,6 +175,11 @@ export default function Player() {
           <VolumeControl />
         </div>
       </div>
+      {favoriteError ? (
+        <p role="alert" className="text-xs text-destructive sm:col-span-2 lg:col-span-4">
+          {favoriteError}
+        </p>
+      ) : null}
     </section>
   );
 }

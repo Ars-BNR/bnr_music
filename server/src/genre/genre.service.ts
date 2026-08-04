@@ -4,6 +4,8 @@ import { AlbumModel } from 'src/album/model/album.model';
 import { AuthorModel } from 'src/author/model/author.model';
 import { PaginationQueryDto } from 'src/common/dto/pagination-query.dto';
 import { TrackModel } from 'src/track/model/track.model';
+import { TrackGenreModel } from 'src/track-genre/model/track-genre.model';
+import { Op } from 'sequelize';
 import { GenreModel } from './model/genre.model';
 
 export interface GenreTracksResponse {
@@ -18,6 +20,11 @@ export interface GenreTracksResponse {
     authorId: number;
     authorName: string;
     albumId?: number;
+    featuredAuthors: Array<{
+      id: number;
+      name: string;
+      avatar: string | null;
+    }>;
   }>;
   total: number;
 }
@@ -29,6 +36,8 @@ export class GenreService {
     private readonly genreRepository: typeof GenreModel,
     @InjectModel(TrackModel)
     private readonly trackRepository: typeof TrackModel,
+    @InjectModel(TrackGenreModel)
+    private readonly trackGenreRepository: typeof TrackGenreModel,
   ) {}
 
   async getOne(id: number): Promise<GenreModel> {
@@ -46,33 +55,62 @@ export class GenreService {
     pagination: PaginationQueryDto,
   ): Promise<GenreTracksResponse> {
     const genre = await this.getOne(id);
-    const { count, rows } = await this.trackRepository.findAndCountAll({
-      distinct: true,
-      limit: pagination.count,
-      offset: pagination.offset,
+    const [relations, total] = await Promise.all([
+      this.trackGenreRepository.findAll({
+        where: { genreId: id },
+        attributes: ['trackId'],
+        order: [['id', 'ASC']],
+        limit: pagination.count,
+        offset: pagination.offset,
+      }),
+      this.trackGenreRepository.count({
+        where: { genreId: id },
+        distinct: true,
+        col: 'trackId',
+      }),
+    ]);
+    const trackIds = [
+      ...new Set(relations.map((relation) => relation.trackId)),
+    ];
+    if (trackIds.length === 0) {
+      return { genre: { id: genre.id, name: genre.name }, tracks: [], total };
+    }
+
+    const rows = await this.trackRepository.findAll({
+      where: { id: { [Op.in]: trackIds } },
       include: [
         {
-          model: GenreModel,
-          where: { id },
-          attributes: [],
-          through: { attributes: [] },
+          model: AuthorModel,
+          as: 'author',
+          attributes: ['id', 'name', 'avatar'],
           required: true,
         },
-        { model: AuthorModel, attributes: ['id', 'name'], required: true },
         {
           model: AlbumModel,
+          as: 'albums',
           attributes: ['id'],
           through: { attributes: [] },
           required: false,
         },
+        {
+          model: AuthorModel,
+          as: 'featuredAuthors',
+          attributes: ['id', 'name', 'avatar'],
+          through: { attributes: ['position'] },
+          required: false,
+        },
       ],
-      order: [['id', 'ASC']],
     });
+    const tracksById = new Map(rows.map((track) => [track.id, track]));
 
     return {
       genre: { id: genre.id, name: genre.name },
-      tracks: rows.map((track) => {
-        const value = track.get({ plain: true }) as TrackModel;
+      tracks: trackIds.flatMap((trackId) => {
+        const track = tracksById.get(trackId);
+        if (!track) return [];
+        const value = track.get({ plain: true }) as TrackModel & {
+          featuredAuthors?: AuthorModel[];
+        };
         return {
           id: value.id,
           name: value.name,
@@ -83,9 +121,15 @@ export class GenreService {
           authorId: value.authorId,
           authorName: value.author?.name ?? '',
           albumId: value.albums?.[0]?.id,
+          featuredAuthors:
+            value.featuredAuthors?.map((author) => ({
+              id: author.id,
+              name: author.name,
+              avatar: author.avatar ?? null,
+            })) ?? [],
         };
       }),
-      total: count,
+      total,
     };
   }
 }

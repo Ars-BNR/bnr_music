@@ -5,9 +5,10 @@ export type PlaybackContext =
   | { type: "popular" }
   | { type: "search"; query: string }
   | { type: "album"; id: number }
-  | { type: "favorites"; collectionId: number }
+  | { type: "favorites" }
   | { type: "playlist"; id: number }
-  | { type: "genre"; id: number };
+  | { type: "genre"; id: number }
+  | { type: "author"; id: number };
 
 export interface PlaybackQueue {
   context: PlaybackContext;
@@ -84,8 +85,10 @@ const isSameContext = (left: PlaybackContext | null, right: PlaybackContext) => 
       return right.type === "playlist" && left.id === right.id;
     case "genre":
       return right.type === "genre" && left.id === right.id;
+    case "author":
+      return right.type === "author" && left.id === right.id;
     case "favorites":
-      return right.type === "favorites" && left.collectionId === right.collectionId;
+      return right.type === "favorites";
     case "search":
       return right.type === "search" && left.query === right.query;
     case "popular":
@@ -158,7 +161,7 @@ export const usePlaybackStore = create<PlaybackStore>((set) => ({
       const order = state.isShuffle && state.shuffleOrder.length > 0
         ? state.shuffleOrder
         : state.queue.map((track) => track.id);
-      if (order.length === 0) return {};
+      if (order.length === 0) return { pause: true };
 
       const currentIndex = order.indexOf(state.active.id);
       const nextId = order[currentIndex === -1 ? 0 : (currentIndex + 1) % order.length];
@@ -177,7 +180,7 @@ export const usePlaybackStore = create<PlaybackStore>((set) => ({
       const order = state.isShuffle && state.shuffleOrder.length > 0
         ? state.shuffleOrder
         : state.queue.map((track) => track.id);
-      if (order.length === 0) return {};
+      if (order.length === 0) return { pause: true };
 
       const currentIndex = order.indexOf(state.active.id);
       const previousId = order[

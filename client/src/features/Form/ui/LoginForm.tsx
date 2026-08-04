@@ -12,6 +12,26 @@ import { LoaderCircle } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
+import { isAxiosError } from "axios";
+
+const getLoginErrorMessage = (cause: unknown) => {
+  if (!isAxiosError(cause)) {
+    return "Не удалось выполнить вход. Попробуйте ещё раз.";
+  }
+  if (!cause.response) {
+    return "Сервер недоступен. Проверьте подключение и попробуйте ещё раз.";
+  }
+  if (cause.response.status === 400) {
+    return "Проверьте формат email и пароля.";
+  }
+  if (cause.response.status === 401) {
+    return "Неверный email или пароль.";
+  }
+  if (cause.response.status === 429) {
+    return "Слишком много попыток входа. Попробуйте немного позже.";
+  }
+  return "Сервис входа временно недоступен. Попробуйте ещё раз позже.";
+};
 
 const LoginForm = () => {
   const login = AuthStore((state) => state.login);
@@ -22,8 +42,8 @@ const LoginForm = () => {
   const onSubmit = async (data: TFormLoginValues) => {
     try {
       await login({ email: data.email, password: data.password, router });
-    } catch {
-      form.setError("root", { message: "Не удалось выполнить вход. Проверьте данные и попробуйте ещё раз." });
+    } catch (cause) {
+      form.setError("root", { message: getLoginErrorMessage(cause) });
     }
   };
 

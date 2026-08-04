@@ -66,9 +66,9 @@ export class SeedService {
   }
 
   private async ensureAdmin(): Promise<void> {
-    const email = this.config.get<string>('SEED_ADMIN_EMAIL');
+    const email = this.config.get<string>('SEED_ADMIN_EMAIL')?.trim();
     const password = this.config.get<string>('SEED_ADMIN_PASSWORD');
-    if (!email || !password) {
+    if (!email || !password?.trim()) {
       throw new Error(
         'SEED_ADMIN_EMAIL and SEED_ADMIN_PASSWORD are required to run the seed command',
       );

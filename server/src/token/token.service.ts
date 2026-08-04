@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { InjectConnection, InjectModel } from '@nestjs/sequelize';
 import * as bcrypt from 'bcrypt';
+import { randomUUID } from 'crypto';
 import { Sequelize, Transaction } from 'sequelize';
 import { AccessTokenPayload } from 'src/auth/jwt.strategy';
 import { TokenModel } from './model/token.model';
@@ -28,10 +29,13 @@ export class TokenService {
         secret: this.config.getOrThrow<string>('JWT_ACCESS_SECRET'),
         expiresIn: this.config.getOrThrow<string>('EXPIRES_ACCESS_JWT'),
       }),
-      this.jwtService.signAsync(user, {
-        secret: this.config.getOrThrow<string>('JWT_REFRESH_SECRET'),
-        expiresIn: this.config.getOrThrow<string>('EXPIRES_REFRESH_JWT'),
-      }),
+      this.jwtService.signAsync(
+        { jti: randomUUID(), ...user },
+        {
+          secret: this.config.getOrThrow<string>('JWT_REFRESH_SECRET'),
+          expiresIn: this.config.getOrThrow<string>('EXPIRES_REFRESH_JWT'),
+        },
+      ),
     ]);
     return { accessToken, refreshToken };
   }
@@ -103,5 +107,12 @@ export class TokenService {
     if (!token) return 0;
     await token.destroy();
     return 1;
+  }
+
+  async removeAllForUser(
+    userId: number,
+    transaction?: Transaction,
+  ): Promise<number> {
+    return this.tokenRepository.destroy({ where: { userId }, transaction });
   }
 }

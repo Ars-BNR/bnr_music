@@ -32,6 +32,30 @@
 $ yarn install
 ```
 
+## Local database setup
+
+The development server never creates or changes the schema automatically.
+`synchronize` is enabled only in isolated tests, so create the PostgreSQL
+database from `.development.env` and apply migrations before starting NestJS:
+
+```bash
+# from server/
+$ yarn db:migrate
+
+# optional: populate an already migrated local database
+# add non-empty SEED_ADMIN_EMAIL and SEED_ADMIN_PASSWORD to .development.env first
+$ yarn seed
+
+# verify that no migrations are pending
+$ yarn db:migrate:status
+
+# start the API
+$ yarn start:dev
+```
+
+`yarn db:migrate` is safe to run repeatedly. Do not enable automatic seed or
+Sequelize `synchronize` for development or production databases.
+
 ## Running the app
 
 ```bash

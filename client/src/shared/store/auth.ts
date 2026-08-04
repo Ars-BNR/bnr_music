@@ -24,6 +24,7 @@ const AuthStore = create<AuthState>((set) => ({
     try {
       const data = await userService.login(email, password);
       localStorage.setItem("token", data.accessToken);
+      localStorage.removeItem("collection");
       set({ profiles: data, isAuth: true });
       router.replace("/");
     } finally { set({ isLoading: false }); }
@@ -33,6 +34,7 @@ const AuthStore = create<AuthState>((set) => ({
     try {
       const data = await userService.registration(email, password);
       localStorage.setItem("token", data.accessToken);
+      localStorage.removeItem("collection");
       set({ profiles: data, isAuth: true });
       router.replace("/");
     } finally { set({ isLoading: false }); }
@@ -41,6 +43,7 @@ const AuthStore = create<AuthState>((set) => ({
     set({ isLoading: true });
     try { await userService.logout(); } finally {
       localStorage.removeItem("token");
+      localStorage.removeItem("collection");
       set(clearSession());
       set({ isLoading: false });
       router.replace("/login");
@@ -51,10 +54,12 @@ const AuthStore = create<AuthState>((set) => ({
     try {
       const data = await userService.refresh();
       localStorage.setItem("token", data.accessToken);
+      localStorage.removeItem("collection");
       set({ profiles: data, isAuth: true });
       return true;
     } catch {
       localStorage.removeItem("token");
+      localStorage.removeItem("collection");
       set(clearSession());
       router.replace("/login");
       return false;

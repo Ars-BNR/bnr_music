@@ -5,6 +5,9 @@ import { validateEnvironment } from 'src/config/env.validation';
 import { databaseModels } from './models';
 import * as baseline from './migrations/0001-baseline';
 import * as hardening from './migrations/0002-security-and-constraints';
+import * as userProfile from './migrations/0003-user-profile';
+import * as creatorStudio from './migrations/0004-creator-studio';
+import * as creatorStudioHardening from './migrations/0005-creator-studio-hardening';
 
 loadEnvironment({ path: `.${process.env.NODE_ENV ?? 'development'}.env` });
 const env = validateEnvironment(process.env);
@@ -20,7 +23,13 @@ const sequelize = new Sequelize({
 });
 
 const umzug = new Umzug({
-  migrations: [baseline, hardening],
+  migrations: [
+    baseline,
+    hardening,
+    userProfile,
+    creatorStudio,
+    creatorStudioHardening,
+  ],
   context: sequelize.getQueryInterface(),
   storage: new SequelizeStorage({ sequelize }),
   logger: console,

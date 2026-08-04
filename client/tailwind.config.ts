@@ -44,6 +44,11 @@ export default {
 				lilac: 'hsl(var(--bnr-lilac))',
 				bone: 'hsl(var(--bnr-bone))',
 				ash: 'hsl(var(--bnr-ash))'
+				,
+				surface: 'hsl(var(--bnr-surface))',
+				raised: 'hsl(var(--bnr-raised))',
+				line: 'hsl(var(--bnr-line))',
+				glow: 'hsl(var(--bnr-glow))'
 			},
 			sidebar: {
 				canvas: 'hsl(var(--sidebar-canvas))',

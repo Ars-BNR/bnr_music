@@ -13,49 +13,95 @@ export class AlbumService {
     private readonly albumRepository: typeof AlbumModel,
   ) {}
 
+  private mapAlbum(model: AlbumModel) {
+    const album = model.get({ plain: true }) as AlbumModel & {
+      author?: AuthorModel;
+      featuredAuthors?: AuthorModel[];
+    };
+    return {
+      ...album,
+      authorName: album.author?.name ?? '',
+      featuredAuthors:
+        album.featuredAuthors?.map((author) => ({
+          id: author.id,
+          name: author.name,
+          avatar: author.avatar ?? null,
+        })) ?? [],
+    };
+  }
+
   create(dto: CreateAlbumDto): Promise<AlbumModel> {
     return this.albumRepository.create({ ...dto, listens: 0 });
   }
 
-  getTopAlbum(count = 10, offset = 0): Promise<AlbumModel[]> {
-    return this.albumRepository.findAll({
+  async getTopAlbum(count = 10, offset = 0) {
+    const albums = await this.albumRepository.findAll({
       order: [['listens', 'DESC']],
       limit: count,
       offset,
       subQuery: false,
-      attributes: {
-        include: [[Sequelize.literal('"author"."name"'), 'authorName']],
-      },
-      include: [{ model: AuthorModel, attributes: [] }],
-      raw: true,
-      nest: true,
+      include: [
+        {
+          model: AuthorModel,
+          as: 'author',
+          attributes: ['id', 'name', 'avatar'],
+        },
+        {
+          model: AuthorModel,
+          as: 'featuredAuthors',
+          attributes: ['id', 'name', 'avatar'],
+          through: { attributes: ['position'] },
+          required: false,
+        },
+      ],
     });
+    return albums.map((album) => this.mapAlbum(album));
   }
 
-  getAll(count = 10, offset = 0): Promise<AlbumModel[]> {
-    return this.albumRepository.findAll({
+  async getAll(count = 10, offset = 0) {
+    const albums = await this.albumRepository.findAll({
       limit: count,
       offset,
       subQuery: false,
-      attributes: {
-        include: [[Sequelize.literal('"author"."name"'), 'authorName']],
-      },
-      include: [{ model: AuthorModel, attributes: [] }],
+      include: [
+        {
+          model: AuthorModel,
+          as: 'author',
+          attributes: ['id', 'name', 'avatar'],
+        },
+        {
+          model: AuthorModel,
+          as: 'featuredAuthors',
+          attributes: ['id', 'name', 'avatar'],
+          through: { attributes: ['position'] },
+          required: false,
+        },
+      ],
     });
+    return albums.map((album) => this.mapAlbum(album));
   }
 
-  async getOne(id: number): Promise<AlbumModel> {
+  async getOne(id: number) {
     const album = await this.albumRepository.findByPk(id, {
       subQuery: false,
-      attributes: {
-        include: [[Sequelize.literal('"author"."name"'), 'authorName']],
-      },
       include: [
-        { model: AuthorModel, attributes: [] },
+        {
+          model: AuthorModel,
+          as: 'author',
+          attributes: ['id', 'name', 'avatar'],
+        },
+        {
+          model: AuthorModel,
+          as: 'featuredAuthors',
+          attributes: ['id', 'name', 'avatar'],
+          through: { attributes: ['position'] },
+          required: false,
+        },
         {
           model: TrackModel,
+          as: 'tracks',
           through: { attributes: [] },
-          include: [{ model: AuthorModel, attributes: [] }],
+          include: [{ model: AuthorModel, as: 'author', attributes: [] }],
           attributes: {
             include: [
               [
@@ -69,7 +115,7 @@ export class AlbumService {
       ],
     });
     if (!album) throw new NotFoundException('Album not found');
-    return album;
+    return this.mapAlbum(album);
   }
 
   async delete(id: number): Promise<void> {

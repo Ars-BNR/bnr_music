@@ -1,5 +1,5 @@
 import { Player } from "@/features/Player";
-import Profiles from "@/features/Profiles/ui/Profiles";
+import { Profiles } from "@/features/Profiles";
 import Search from "@/features/Search/ui/Search";
 import Sidebar from "@/features/Sidebar/ui/Sidebar";
 import type { Metadata } from "next";

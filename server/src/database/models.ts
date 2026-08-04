@@ -1,6 +1,8 @@
 import { AlbumModel } from 'src/album/model/album.model';
+import { AlbumFeaturedAuthorModel } from 'src/album-featured-author/model/album-featured-author.model';
 import { AlbumTrackModel } from 'src/album-track/model/album-track.model';
 import { AuthorModel } from 'src/author/model/author.model';
+import { AuthorApplicationModel } from 'src/author-application/model/author-application.model';
 import { CollectionModel } from 'src/collection/model/collection.model';
 import { CollectionAlbumModel } from 'src/collection-album/model/collection-album.model';
 import { CollectionPlaylistModel } from 'src/collection-playlist/model/collection-playlist.model';
@@ -11,6 +13,7 @@ import { PlaylistTrackModel } from 'src/playlist-track/model/playlist-track.mode
 import { TokenModel } from 'src/token/model/token.model';
 import { TrackModel } from 'src/track/model/track.model';
 import { TrackGenreModel } from 'src/track-genre/model/track-genre.model';
+import { TrackFeaturedAuthorModel } from 'src/track-featured-author/model/track-featured-author.model';
 import { UserModel } from 'src/user/model/user.model';
 
 export const databaseModels = [
@@ -28,6 +31,9 @@ export const databaseModels = [
   GenreModel,
   TrackGenreModel,
   CollectionTrackModel,
+  AuthorApplicationModel,
+  TrackFeaturedAuthorModel,
+  AlbumFeaturedAuthorModel,
 ];
 
 export const databaseTables = [

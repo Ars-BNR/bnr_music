@@ -43,6 +43,25 @@ export class TrackService {
     return uniqueGenreIds;
   }
 
+  private mapTrack(model: TrackModel) {
+    const track = model.get({ plain: true }) as TrackModel & {
+      author?: AuthorModel;
+      albums?: AlbumModel[];
+      featuredAuthors?: AuthorModel[];
+    };
+    return {
+      ...track,
+      authorName: track.author?.name ?? '',
+      albumId: track.albums?.[0]?.id,
+      featuredAuthors:
+        track.featuredAuthors?.map((author) => ({
+          id: author.id,
+          name: author.name,
+          avatar: author.avatar ?? null,
+        })) ?? [],
+    };
+  }
+
   async create(
     dto: CreateTrackDto,
     picture?: Express.Multer.File,
@@ -86,51 +105,93 @@ export class TrackService {
   }
 
   async getTopTracks(count = 10, offset = 0) {
-    return this.trackRepository.findAll({
+    const tracks = await this.trackRepository.findAll({
       order: [['listens', 'DESC']],
       limit: count,
       offset,
       subQuery: false,
-      attributes: {
-        include: [
-          [Sequelize.literal('"author"."name"'), 'authorName'],
-          [Sequelize.literal('"albums"."id"'), 'albumId'],
-        ],
-      },
       include: [
-        { model: AuthorModel, attributes: [] },
-        { model: AlbumModel, attributes: [], through: { attributes: [] } },
+        {
+          model: AuthorModel,
+          as: 'author',
+          attributes: ['id', 'name', 'avatar'],
+        },
+        {
+          model: AuthorModel,
+          as: 'featuredAuthors',
+          attributes: ['id', 'name', 'avatar'],
+          through: { attributes: ['position'] },
+          required: false,
+        },
+        {
+          model: AlbumModel,
+          as: 'albums',
+          attributes: ['id'],
+          through: { attributes: [] },
+          required: false,
+        },
       ],
-      raw: true,
-      nest: true,
     });
+    return tracks.map((track) => this.mapTrack(track));
   }
 
-  async getAll(count = 10, offset = 0): Promise<TrackModel[]> {
-    return this.trackRepository.findAll({
+  async getAll(count = 10, offset = 0) {
+    const tracks = await this.trackRepository.findAll({
       limit: count,
       offset,
-      attributes: {
-        include: [[Sequelize.literal('"author"."name"'), 'authorName']],
-      },
-      include: [{ model: AuthorModel, attributes: [] }],
+      include: [
+        {
+          model: AuthorModel,
+          as: 'author',
+          attributes: ['id', 'name', 'avatar'],
+        },
+        {
+          model: AuthorModel,
+          as: 'featuredAuthors',
+          attributes: ['id', 'name', 'avatar'],
+          through: { attributes: ['position'] },
+          required: false,
+        },
+        {
+          model: AlbumModel,
+          as: 'albums',
+          attributes: ['id'],
+          through: { attributes: [] },
+          required: false,
+        },
+      ],
+      subQuery: false,
     });
+    return tracks.map((track) => this.mapTrack(track));
   }
 
-  async getOne(id: number): Promise<TrackModel> {
+  async getOne(id: number) {
     const track = await this.trackRepository.findByPk(id, {
       subQuery: false,
-      attributes: {
-        include: [[Sequelize.literal('"albums"."id"'), 'albumId']],
-      },
       include: [
-        { model: AlbumModel, attributes: [], through: { attributes: [] } },
+        {
+          model: AuthorModel,
+          as: 'author',
+          attributes: ['id', 'name', 'avatar'],
+        },
+        {
+          model: AuthorModel,
+          as: 'featuredAuthors',
+          attributes: ['id', 'name', 'avatar'],
+          through: { attributes: ['position'] },
+          required: false,
+        },
+        {
+          model: AlbumModel,
+          as: 'albums',
+          attributes: ['id'],
+          through: { attributes: [] },
+          required: false,
+        },
       ],
-      raw: true,
-      nest: true,
     });
     if (!track) throw new NotFoundException('Track not found');
-    return track;
+    return this.mapTrack(track);
   }
 
   async listen(id: number): Promise<{ listens: number }> {
@@ -144,7 +205,7 @@ export class TrackService {
     return { listens: track!.listens };
   }
 
-  async search(query: string, page = 1, limit = 5): Promise<TrackModel[]> {
+  async search(query: string, page = 1, limit = 5) {
     const normalizedQuery = query?.trim();
     if (!normalizedQuery)
       throw new BadRequestException('Search query is required');
@@ -158,11 +219,18 @@ export class TrackService {
       throw new BadRequestException('Invalid search pagination');
     }
 
-    return this.trackRepository.findAll({
+    const tracks = await this.trackRepository.findAll({
       subQuery: false,
       include: [
-        { model: AuthorModel, required: true },
-        { model: AlbumModel, required: true },
+        { model: AuthorModel, as: 'author', required: true },
+        { model: AlbumModel, as: 'albums', required: false },
+        {
+          model: AuthorModel,
+          as: 'featuredAuthors',
+          attributes: ['id', 'name', 'avatar'],
+          through: { attributes: ['position'] },
+          required: false,
+        },
       ],
       where: {
         [Op.or]: [
@@ -174,6 +242,7 @@ export class TrackService {
       limit,
       offset: (page - 1) * limit,
     });
+    return tracks.map((track) => this.mapTrack(track));
   }
 
   async delete(id: number): Promise<void> {

@@ -8,6 +8,7 @@ import type { ITrack } from "@/shared/types/track";
 import { Alert, AlertDescription } from "@/shared/ui/alert";
 import { Button } from "@/shared/ui/button";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/shared/ui/empty";
+import { LoadingReveal } from "@/shared/ui/heraldic-loader";
 import { SectionHeading } from "@/shared/ui/section-heading";
 import { Skeleton } from "@/shared/ui/skeleton";
 import Link from "next/link";
@@ -84,7 +85,7 @@ export function GenreTracksPage({ genreId }: { genreId: number }) {
       <SectionHeading description={genre ? `${total} ${total === 1 ? "трек" : "треков"}` : undefined}><span id="genre-title">{genre?.name ?? "Жанр"}</span></SectionHeading>
       {error ? <Alert variant="destructive" className="mb-4"><AlertDescription>{error}</AlertDescription><Button variant="brandLink" size="sm" onClick={() => void loadTracks(0, true)}>Повторить</Button></Alert> : null}
       {loading ? (
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">{Array.from({ length: 10 }, (_, index) => <Skeleton key={index} className="aspect-[3/4]" />)}</div>
+        <LoadingReveal loading label="Открываем архив жанра"><div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">{Array.from({ length: 10 }, (_, index) => <Skeleton key={index} className="aspect-[3/4]" />)}</div></LoadingReveal>
       ) : !error && tracks.length === 0 ? (
         <Empty className="min-h-[260px]"><EmptyHeader><EmptyTitle>В этом жанре пока нет треков</EmptyTitle><EmptyDescription>Новые композиции появятся здесь после пополнения каталога.</EmptyDescription></EmptyHeader></Empty>
       ) : (

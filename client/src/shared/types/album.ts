@@ -7,6 +7,7 @@ export interface IAlbum {
   authorId: number;
   authorName: string;
   picture: string;
+  featuredAuthors?: Array<{ id: number; name: string; avatar: string | null }>;
 }
 export interface ISelectedAlbum extends IAlbum {
   tracks: ITrack[];

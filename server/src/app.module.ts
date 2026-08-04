@@ -23,6 +23,7 @@ import { SeedModule } from './seed/seed.module';
 import { TrackModule } from './track/track.module';
 import { TrackGenreModule } from './track-genre/track-genre.module';
 import { UserModule } from './user/user.module';
+import { CreatorModule } from './creator/creator.module';
 import { AlbumModel } from './album/model/album.model';
 import { AlbumTrackModel } from './album-track/model/album-track.model';
 import { AuthorModel } from './author/model/author.model';
@@ -37,6 +38,9 @@ import { TokenModel } from './token/model/token.model';
 import { TrackModel } from './track/model/track.model';
 import { TrackGenreModel } from './track-genre/model/track-genre.model';
 import { UserModel } from './user/model/user.model';
+import { AuthorApplicationModel } from './author-application/model/author-application.model';
+import { TrackFeaturedAuthorModel } from './track-featured-author/model/track-featured-author.model';
+import { AlbumFeaturedAuthorModel } from './album-featured-author/model/album-featured-author.model';
 
 const models = [
   UserModel,
@@ -53,6 +57,9 @@ const models = [
   GenreModel,
   TrackGenreModel,
   CollectionTrackModel,
+  AuthorApplicationModel,
+  TrackFeaturedAuthorModel,
+  AlbumFeaturedAuthorModel,
 ];
 
 @Module({
@@ -97,6 +104,7 @@ const models = [
     GenreModule,
     TrackGenreModule,
     SeedModule,
+    CreatorModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })

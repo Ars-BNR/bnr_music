@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -12,10 +13,16 @@ import { Sequelize, Transaction } from 'sequelize';
 import * as uuid from 'uuid';
 import { AccessTokenPayload } from 'src/auth/jwt.strategy';
 import { CollectionModel } from 'src/collection/model/collection.model';
+import { FileService, FileType } from 'src/file/file.service';
 import { MailService } from 'src/mail/mail.service';
 import { TokenPair, TokenService } from 'src/token/token.service';
 import { CreateUserDto } from './dto/create-user.dto';
+import { LoginDto } from './dto/login.dto';
+import { ChangeEmailDto } from './dto/change-email.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
+import { UpdateProfileDto } from './dto/update-profile.dto';
 import { UserModel } from './model/user.model';
+import { UserProfileResponse } from './response/user-profile-response';
 
 export interface AuthResponse extends Pick<TokenPair, 'accessToken'> {
   user: AccessTokenPayload;
@@ -34,11 +41,44 @@ export class UserService {
     @InjectConnection() private readonly sequelize: Sequelize,
     private readonly tokenService: TokenService,
     private readonly mailService: MailService,
+    private readonly fileService: FileService,
     private readonly config: ConfigService,
   ) {}
 
   private toPayload(user: UserModel): AccessTokenPayload {
     return { sub: user.id, email: user.email, role: user.role };
+  }
+
+  private toProfile(user: UserModel): UserProfileResponse {
+    return {
+      id: user.id,
+      email: user.email,
+      displayName: user.displayName,
+      bio: user.bio ?? '',
+      avatar: user.avatar ?? null,
+      role: user.role,
+      isActivated: user.isActivated,
+    };
+  }
+
+  private async getRequiredUser(userId: number): Promise<UserModel> {
+    const user = await this.userRepository.findByPk(userId);
+    if (!user) throw new NotFoundException('User not found');
+    return user;
+  }
+
+  private validateAvatar(
+    file: Express.Multer.File | undefined,
+  ): asserts file is Express.Multer.File {
+    if (!file) throw new BadRequestException('Avatar file is required');
+    if (file.size > 2 * 1024 * 1024) {
+      throw new BadRequestException('Avatar must be 2 MiB or smaller');
+    }
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.mimetype)) {
+      throw new BadRequestException(
+        'Avatar must be a JPEG, PNG, or WebP image',
+      );
+    }
   }
 
   private async createSession(
@@ -94,6 +134,7 @@ export class UserService {
           email: dto.email,
           password: await bcrypt.hash(dto.password, 10),
           activationLink,
+          displayName: dto.email.split('@')[0] || 'BNR',
         },
         { transaction },
       );
@@ -120,7 +161,7 @@ export class UserService {
     await user.save();
   }
 
-  async login(dto: CreateUserDto): Promise<AuthSession> {
+  async login(dto: LoginDto): Promise<AuthSession> {
     const user = await this.userRepository.findOne({
       where: { email: dto.email },
     });
@@ -162,6 +203,102 @@ export class UserService {
   async getAllUsers(): Promise<UserModel[]> {
     return this.userRepository.findAll({
       attributes: { exclude: ['password'] },
+    });
+  }
+
+  async getProfile(userId: number): Promise<UserProfileResponse> {
+    return this.toProfile(await this.getRequiredUser(userId));
+  }
+
+  async updateProfile(
+    userId: number,
+    dto: UpdateProfileDto,
+  ): Promise<UserProfileResponse> {
+    const user = await this.getRequiredUser(userId);
+    if (dto.displayName !== undefined && !dto.displayName) {
+      throw new BadRequestException('Display name cannot be empty');
+    }
+    Object.assign(user, dto);
+    await user.save();
+    return this.toProfile(user);
+  }
+
+  async replaceAvatar(
+    userId: number,
+    file: Express.Multer.File | undefined,
+  ): Promise<UserProfileResponse> {
+    this.validateAvatar(file);
+    const user = await this.getRequiredUser(userId);
+    const previousAvatar = user.avatar;
+    let avatar: string | undefined;
+
+    try {
+      avatar = this.fileService.createFile(FileType.IMAGE, file);
+      await this.sequelize.transaction(async (transaction) => {
+        user.avatar = avatar!;
+        await user.save({ transaction });
+      });
+    } catch (error) {
+      if (avatar) this.fileService.deleteFile(avatar);
+      throw error;
+    }
+
+    if (previousAvatar) this.fileService.deleteFile(previousAvatar);
+    return this.toProfile(user);
+  }
+
+  async removeAvatar(userId: number): Promise<UserProfileResponse> {
+    const user = await this.getRequiredUser(userId);
+    const previousAvatar = user.avatar;
+    user.avatar = null;
+    await user.save();
+    if (previousAvatar) this.fileService.deleteFile(previousAvatar);
+    return this.toProfile(user);
+  }
+
+  async changeEmail(userId: number, dto: ChangeEmailDto): Promise<void> {
+    const user = await this.getRequiredUser(userId);
+    if (!(await bcrypt.compare(dto.currentPassword, user.password))) {
+      throw new UnauthorizedException('Current password is incorrect');
+    }
+
+    const existing = await this.userRepository.findOne({
+      where: { email: dto.newEmail },
+    });
+    if (existing && existing.id !== user.id) {
+      throw new ConflictException('Email is already in use');
+    }
+
+    const activationLink = uuid.v4();
+    await this.sequelize.transaction(async (transaction) => {
+      user.email = dto.newEmail;
+      user.activationLink = activationLink;
+      user.isActivated = false;
+      await user.save({ transaction });
+      await this.tokenService.removeAllForUser(user.id, transaction);
+    });
+
+    await this.mailService.sendActivationMail(
+      dto.newEmail,
+      `${this.config.getOrThrow<string>('API_URL')}/activate/${activationLink}`,
+    );
+  }
+
+  async changePassword(userId: number, dto: ChangePasswordDto): Promise<void> {
+    const user = await this.getRequiredUser(userId);
+    if (!(await bcrypt.compare(dto.currentPassword, user.password))) {
+      throw new UnauthorizedException('Current password is incorrect');
+    }
+    if (dto.currentPassword === dto.newPassword) {
+      throw new BadRequestException(
+        'New password must differ from the current password',
+      );
+    }
+
+    await this.sequelize.transaction(async (transaction) => {
+      user.password = await bcrypt.hash(dto.newPassword, 10);
+      await user.save({ transaction });
+      await this.tokenService.removeAllForUser(user.id, transaction);
     });
   }
 }

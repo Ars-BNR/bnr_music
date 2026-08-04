@@ -15,6 +15,7 @@ import { AuthorModel } from 'src/author/model/author.model';
 import { CollectionAlbumModel } from 'src/collection-album/model/collection-album.model';
 import { CollectionModel } from 'src/collection/model/collection.model';
 import { TrackModel } from 'src/track/model/track.model';
+import { AlbumFeaturedAuthorModel } from 'src/album-featured-author/model/album-featured-author.model';
 
 @Table({ tableName: 'albums', timestamps: false })
 export class AlbumModel extends Model {
@@ -60,4 +61,12 @@ export class AlbumModel extends Model {
 
   @BelongsToMany(() => CollectionModel, () => CollectionAlbumModel)
   collections: CollectionModel[];
+
+  @BelongsToMany(
+    () => AuthorModel,
+    () => AlbumFeaturedAuthorModel,
+    'albumId',
+    'authorId',
+  )
+  featuredAuthors: AuthorModel[];
 }

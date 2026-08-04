@@ -16,6 +16,8 @@ import {
   EmptyTitle,
 } from "@/shared/ui/empty";
 import { Skeleton } from "@/shared/ui/skeleton";
+import { SectionHeading } from "@/shared/ui/section-heading";
+import { LoadingReveal } from "@/shared/ui/heraldic-loader";
 
 const AUTOPLAY_DELAY = 5_000;
 
@@ -107,7 +109,7 @@ export default function Carousel() {
     if (!event.currentTarget.contains(event.relatedTarget)) setIsInteracting(false);
   };
 
-  if (loading) return <Skeleton className={stl.skeleton} />;
+  if (loading) return <LoadingReveal loading label="Открываем популярные альбомы"><Skeleton className={stl.skeleton} /></LoadingReveal>;
 
   if (!albums.length) {
     return (
@@ -135,6 +137,7 @@ export default function Carousel() {
       onPointerEnter={() => setIsInteracting(true)}
       onPointerLeave={() => setIsInteracting(false)}
     >
+      <SectionHeading className={stl.heading} description="Избранные релизы из музыкального архива BNR.">Популярные альбомы</SectionHeading>
       <div className={stl.viewport}>
         {visibleAlbums.map(({ album, offset }) => {
           const isActive = offset === 0;
@@ -163,6 +166,7 @@ export default function Carousel() {
                   {image}
                   <div className={stl.info}>
                     <div className={stl.text}>
+                      <p className={stl.catalog}>ARCHIVE ALBUM</p>
                       <p className={stl.name}>{album.name}</p>
                       <p className={stl.author}>{album.authorName}</p>
                     </div>
@@ -208,7 +212,7 @@ export default function Carousel() {
           </Button>
         )}
         <p aria-live="off" className={stl.status}>
-          {activeIndex + 1} / {albums.length}
+          Альбом {activeIndex + 1} из {albums.length}
         </p>
         <Button
           aria-label="Next album"

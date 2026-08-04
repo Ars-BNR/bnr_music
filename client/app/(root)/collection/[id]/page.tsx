@@ -1,5 +1,5 @@
-import { CollectionPage } from "@/_pages/CollectionPage";
+import { redirect } from "next/navigation";
 
 export default async function Collection() {
-  return <CollectionPage />;
+  redirect("/profile");
 }

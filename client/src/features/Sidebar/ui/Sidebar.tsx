@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   Grid2X2,
   House,
@@ -33,7 +33,11 @@ import {
   PopoverTrigger,
 } from "@/shared/ui/popover";
 import AuthStore from "@/shared/store/auth";
-import useCollectionStore from "@/shared/store/collection";
+import {
+  PLAYLISTS_CHANGED_EVENT,
+  playlistApi,
+  type PlaylistSummary,
+} from "@/entities/playlist";
 import { FleurDeLis } from "@/shared/ui/brand";
 import stl from "../styles/Sidebar.module.scss";
 
@@ -52,23 +56,27 @@ export const Sidebar = () => {
   const pathname = usePathname();
   const router = useRouter();
   const logout = AuthStore((state) => state.logout);
-  const { userPlaylist, getUserPlaylists } = useCollectionStore();
-  const [collectionId, setCollectionId] = useState<number | null>(null);
+  const [userPlaylists, setUserPlaylists] = useState<PlaylistSummary[]>([]);
   const [playlistsOpen, setPlaylistsOpen] = useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isRailPlaylistOpen, setIsRailPlaylistOpen] = useState(false);
   const isPlaylistRoute = pathname.startsWith("/playlist/");
 
-  useEffect(() => {
-    const value = Number(localStorage.getItem("collection"));
-    setCollectionId(Number.isInteger(value) && value > 0 ? value : null);
+  const loadPlaylists = useCallback(async () => {
+    try {
+      const data = await playlistApi.getMine(4, 0);
+      setUserPlaylists(data.items);
+    } catch {
+      setUserPlaylists([]);
+    }
   }, []);
 
   useEffect(() => {
-    if (collectionId !== null && userPlaylist.length === 0) {
-      void getUserPlaylists(collectionId, { limit: 4, offset: 0 });
-    }
-  }, [collectionId, getUserPlaylists, userPlaylist.length]);
+    void loadPlaylists();
+    const handleChange = () => void loadPlaylists();
+    window.addEventListener(PLAYLISTS_CHANGED_EVENT, handleChange);
+    return () => window.removeEventListener(PLAYLISTS_CHANGED_EVENT, handleChange);
+  }, [loadPlaylists]);
 
   useEffect(() => {
     if (isPlaylistRoute) setPlaylistsOpen(true);
@@ -100,9 +108,9 @@ export const Sidebar = () => {
 
   const renderPlaylistLinks = (onNavigate?: () => void, className = stl.playlistLinks) => (
     <ul className={className}>
-      {userPlaylist.length > 0 ? (
+      {userPlaylists.length > 0 ? (
         <>
-          {userPlaylist.map((playlist) => {
+          {userPlaylists.map((playlist) => {
             const isActive = pathname === `/playlist/${playlist.id}`;
             return (
               <li key={playlist.id}>

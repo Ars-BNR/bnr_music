@@ -13,6 +13,8 @@ export interface Environment {
   CLIENT_URL: string;
   API_URL: string;
   REFRESH_COOKIE_MAX_AGE: number;
+  SEED_ADMIN_EMAIL?: string;
+  SEED_ADMIN_PASSWORD?: string;
 }
 
 const required = (value: string | undefined, key: string): string => {
@@ -31,6 +33,9 @@ const asNumber = (
   }
   return parsed;
 };
+
+const optionalNonEmpty = (value: string | undefined): string | undefined =>
+  value?.trim() ? value : undefined;
 
 export const validateEnvironment = (
   config: Record<string, string | undefined>,
@@ -63,5 +68,7 @@ export const validateEnvironment = (
       'REFRESH_COOKIE_MAX_AGE',
       2592000000,
     ),
+    SEED_ADMIN_EMAIL: optionalNonEmpty(config.SEED_ADMIN_EMAIL),
+    SEED_ADMIN_PASSWORD: optionalNonEmpty(config.SEED_ADMIN_PASSWORD),
   };
 };

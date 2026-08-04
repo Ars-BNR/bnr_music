@@ -2,12 +2,17 @@ import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { Sequelize } from 'sequelize-typescript';
 import cookieParser from 'cookie-parser';
+import * as bcrypt from 'bcrypt';
 import request from 'supertest';
+import { AlbumModel } from '../src/album/model/album.model';
 import { AuthorModel } from '../src/author/model/author.model';
+import { CollectionAlbumModel } from '../src/collection-album/model/collection-album.model';
 import { GenreModel } from '../src/genre/model/genre.model';
 import { FileService } from '../src/file/file.service';
+import { PlaylistTrackModel } from '../src/playlist-track/model/playlist-track.model';
 import { TrackModel } from '../src/track/model/track.model';
 import { TrackGenreModel } from '../src/track-genre/model/track-genre.model';
+import { TokenModel } from '../src/token/model/token.model';
 import { UserModel } from '../src/user/model/user.model';
 
 const requiredDatabaseVariables = [
@@ -76,15 +81,15 @@ describeE2e('BNR Music API (e2e)', () => {
     );
     await app.init();
     sequelize = app.get(Sequelize);
-  });
+  }, 30_000);
 
   beforeEach(async () => {
     await sequelize.sync({ force: true });
-  });
+  }, 30_000);
 
   afterAll(async () => {
     await app?.close();
-  });
+  }, 30_000);
 
   const register = async (suffix: string) => {
     const agent = request.agent(app.getHttpServer());
@@ -116,6 +121,31 @@ describeE2e('BNR Music API (e2e)', () => {
     await request(app.getHttpServer()).get('/tracks?offset=-1').expect(400);
     await request(app.getHttpServer()).get('/tracks/not-a-number').expect(400);
     await request(app.getHttpServer()).get('/tracks/999999').expect(404);
+  });
+
+  it('allows an activated admin to log in with a 20-character seed password', async () => {
+    const password = '12345678901234567890';
+    await UserModel.create({
+      email: 'seed-admin@example.test',
+      password: await bcrypt.hash(password, 10),
+      role: 'admin',
+      isActivated: true,
+      activationLink: 'seed-admin-activation',
+      displayName: 'Seed Admin',
+      bio: '',
+      avatar: null,
+    });
+
+    const response = await request(app.getHttpServer())
+      .post('/login')
+      .send({ email: 'seed-admin@example.test', password })
+      .expect(201);
+    expect(response.body.accessToken).toEqual(expect.any(String));
+
+    await request(app.getHttpServer())
+      .post('/login')
+      .send({ email: 'seed-admin@example.test', password: 'wrong-password' })
+      .expect(401);
   });
 
   it('serves a public, paginated genre queue and validates its pagination', async () => {
@@ -165,6 +195,16 @@ describeE2e('BNR Music API (e2e)', () => {
     const oldCookie = refreshCookieFrom(response.headers['set-cookie']);
     const refresh = await agent.post('/refresh').expect(201);
     expect(refresh.body.refreshToken).toBeUndefined();
+    const nextCookie = refreshCookieFrom(refresh.headers['set-cookie']);
+    expect(nextCookie).not.toBe(oldCookie);
+    const sessions = await TokenModel.findAll();
+    expect(sessions).toHaveLength(1);
+    const oldToken = decodeURIComponent(
+      oldCookie.slice(oldCookie.indexOf('=') + 1),
+    );
+    await expect(
+      bcrypt.compare(oldToken, sessions[0].refreshToken),
+    ).resolves.toBe(false);
 
     await request(app.getHttpServer())
       .post('/refresh')
@@ -172,6 +212,106 @@ describeE2e('BNR Music API (e2e)', () => {
       .expect(401);
     await agent.post('/logout').expect(201);
     await agent.post('/refresh').expect(401);
+  });
+
+  it('returns favorite albums and only the authenticated user playlists', async () => {
+    const first = await register('library-first');
+    const second = await register('library-second');
+    const firstToken = first.response.body.accessToken as string;
+    const firstUserId = first.response.body.user.sub as number;
+    const secondToken = second.response.body.accessToken as string;
+    const firstCollection = await first.agent
+      .get(`/collection/user/${firstUserId}`)
+      .set('Authorization', `Bearer ${firstToken}`)
+      .expect(200);
+    const author = await AuthorModel.create({ name: 'Library author' });
+    const album = await AlbumModel.create({
+      name: 'Library album',
+      picture: 'image/library.jpg',
+      listens: 5,
+      authorId: author.id,
+    });
+    await CollectionAlbumModel.create({
+      collectionId: firstCollection.body.id,
+      albumId: album.id,
+    });
+    const track = await TrackModel.create({
+      name: 'Library track',
+      picture: 'image/library-track.jpg',
+      text: '',
+      audio: 'audio/library-track.mp3',
+      authorId: author.id,
+      listens: 0,
+    });
+    const firstPlaylist = await first.agent
+      .post('/playlist')
+      .set('Authorization', `Bearer ${firstToken}`)
+      .send({ name: 'First personal playlist' })
+      .expect(201);
+    await PlaylistTrackModel.create({
+      playlistId: firstPlaylist.body.id,
+      trackId: track.id,
+    });
+    await second.agent
+      .post('/playlist')
+      .set('Authorization', `Bearer ${secondToken}`)
+      .send({ name: 'Second personal playlist' })
+      .expect(201);
+
+    const albums = await first.agent
+      .get('/collection/me/albums?count=20&offset=0')
+      .set('Authorization', `Bearer ${firstToken}`)
+      .expect(200);
+    expect(albums.body).toEqual({
+      items: [
+        expect.objectContaining({
+          id: album.id,
+          authorId: author.id,
+          authorName: 'Library author',
+        }),
+      ],
+      total: 1,
+    });
+
+    const playlists = await first.agent
+      .get('/playlist/mine?count=20&offset=0')
+      .set('Authorization', `Bearer ${firstToken}`)
+      .expect(200);
+    expect(playlists.body).toEqual({
+      items: [
+        expect.objectContaining({
+          id: firstPlaylist.body.id,
+          trackCount: 1,
+        }),
+      ],
+      total: 1,
+    });
+
+    const playlistDetail = await first.agent
+      .get(`/playlist/${firstPlaylist.body.id}?count=20&offset=0`)
+      .set('Authorization', `Bearer ${firstToken}`)
+      .expect(200);
+    expect(playlistDetail.body).toEqual(
+      expect.objectContaining({
+        id: firstPlaylist.body.id,
+        total: 1,
+        tracks: [
+          expect.objectContaining({
+            id: track.id,
+            authorName: 'Library author',
+            featuredAuthors: [],
+          }),
+        ],
+      }),
+    );
+    await second.agent
+      .get(`/playlist/${firstPlaylist.body.id}?count=20&offset=0`)
+      .set('Authorization', `Bearer ${secondToken}`)
+      .expect(403);
+    await first.agent
+      .get('/playlist/999999?count=20&offset=0')
+      .set('Authorization', `Bearer ${firstToken}`)
+      .expect(404);
   });
 
   it('enforces roles, collection ownership, relation conflicts and atomic listens', async () => {
@@ -190,6 +330,9 @@ describeE2e('BNR Music API (e2e)', () => {
       .set('Authorization', `Bearer ${secondToken}`)
       .expect(403);
     await request(app.getHttpServer()).delete('/tracks/1').expect(401);
+    await request(app.getHttpServer())
+      .get('/collection/me/tracks?count=20&offset=0')
+      .expect(401);
     await first.agent
       .delete('/tracks/1')
       .set('Authorization', `Bearer ${firstToken}`)
@@ -208,6 +351,57 @@ describeE2e('BNR Music API (e2e)', () => {
       collectionId: firstCollection.body.id,
       trackId: track.id,
     };
+    await first.agent
+      .get(`/collection/me/tracks/${track.id}/status`)
+      .set('Authorization', `Bearer ${firstToken}`)
+      .expect(200)
+      .expect({ isFavorite: false });
+    await first.agent
+      .put(`/collection/me/tracks/${track.id}`)
+      .set('Authorization', `Bearer ${firstToken}`)
+      .expect(200)
+      .expect({ isFavorite: true });
+    await first.agent
+      .put(`/collection/me/tracks/${track.id}`)
+      .set('Authorization', `Bearer ${firstToken}`)
+      .expect(200)
+      .expect({ isFavorite: true });
+    await first.agent
+      .get(`/collection/me/tracks/${track.id}/status`)
+      .set('Authorization', `Bearer ${firstToken}`)
+      .expect(200)
+      .expect({ isFavorite: true });
+    await second.agent
+      .get(`/collection/me/tracks/${track.id}/status`)
+      .set('Authorization', `Bearer ${secondToken}`)
+      .expect(200)
+      .expect({ isFavorite: false });
+    await first.agent
+      .get('/collection/me/tracks?count=20&offset=0')
+      .set('Authorization', `Bearer ${firstToken}`)
+      .expect(200)
+      .expect((response) => {
+        expect(response.body.total).toBe(1);
+        expect(response.body.items).toHaveLength(1);
+        expect(response.body.items[0]).toEqual(
+          expect.objectContaining({
+            id: track.id,
+            name: 'E2E track',
+            authorName: 'E2E author',
+            featuredAuthors: [],
+          }),
+        );
+      });
+    await first.agent
+      .delete(`/collection/me/tracks/${track.id}`)
+      .set('Authorization', `Bearer ${firstToken}`)
+      .expect(200)
+      .expect({ isFavorite: false });
+    await first.agent
+      .delete(`/collection/me/tracks/${track.id}`)
+      .set('Authorization', `Bearer ${firstToken}`)
+      .expect(200)
+      .expect({ isFavorite: false });
     await first.agent
       .post('/collection_track')
       .set('Authorization', `Bearer ${firstToken}`)

@@ -1,12 +1,19 @@
 .carousel {
-  margin-bottom: 50px;
+  margin-bottom: 56px;
   outline: none;
+}
+
+.heading {
+  margin-bottom: 18px;
 }
 
 .viewport {
   position: relative;
   height: clamp(220px, 38vw, 338px);
   overflow: hidden;
+  border-top: 1px solid hsl(var(--bnr-line) / 0.65);
+  border-bottom: 1px solid hsl(var(--bnr-line) / 0.65);
+  background: linear-gradient(90deg, hsl(var(--bnr-abyss) / 0.4), transparent 25%, transparent 75%, hsl(var(--bnr-abyss) / 0.4));
 }
 
 .slide {
@@ -65,7 +72,12 @@
   width: 100%;
   height: 100%;
   overflow: hidden;
-  border-radius: 28px;
+  border: 1px solid hsl(var(--bnr-line) / 0.8);
+  background: hsl(var(--bnr-abyss));
+}
+
+.activeSlide {
+  box-shadow: 0 0 0 4px hsl(var(--bnr-abyss)), 0 0 0 5px hsl(var(--bnr-lilac) / 0.45), 0 20px 45px hsl(var(--bnr-abyss) / 0.55);
 }
 
 .slideButton {
@@ -97,15 +109,22 @@
   max-width: 100%;
   padding: 8px;
   overflow: hidden;
-  border: 1px solid hsl(var(--border));
-  border-radius: 5px;
-  background: hsl(var(--background) / 0.72);
+  border: 1px solid hsl(var(--bnr-lilac) / 0.35);
+  background: hsl(var(--bnr-abyss) / 0.82);
+}
+
+.catalog {
+  margin-bottom: 3px;
+  color: hsl(var(--bnr-lilac));
+  font-family: var(--font-cinzel), serif;
+  font-size: 9px;
+  letter-spacing: 0.15em;
 }
 
 .name,
 .author {
   overflow: hidden;
-  color: hsl(var(--foreground));
+  color: hsl(var(--bnr-bone));
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -117,6 +136,7 @@
 
 .author {
   font-size: 12px;
+  color: hsl(var(--bnr-ash));
 }
 
 .controls {
@@ -128,8 +148,8 @@
 }
 
 .status {
-  min-width: 42px;
-  color: hsl(var(--muted-foreground));
+  min-width: 104px;
+  color: hsl(var(--bnr-ash));
   font-variant-numeric: tabular-nums;
   text-align: center;
 }

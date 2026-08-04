@@ -17,6 +17,7 @@ import { GenreModel } from 'src/genre/model/genre.model';
 import { PlaylistTrackModel } from 'src/playlist-track/model/playlist-track.model';
 import { PlaylistModel } from 'src/playlist/model/playlist.model';
 import { TrackGenreModel } from 'src/track-genre/model/track-genre.model';
+import { TrackFeaturedAuthorModel } from 'src/track-featured-author/model/track-featured-author.model';
 
 @Table({ tableName: 'tracks', timestamps: false })
 export class TrackModel extends Model {
@@ -77,4 +78,12 @@ export class TrackModel extends Model {
 
   @BelongsToMany(() => GenreModel, () => TrackGenreModel)
   genres: GenreModel[];
+
+  @BelongsToMany(
+    () => AuthorModel,
+    () => TrackFeaturedAuthorModel,
+    'trackId',
+    'authorId',
+  )
+  featuredAuthors: AuthorModel[];
 }

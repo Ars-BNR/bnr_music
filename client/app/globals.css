@@ -179,6 +179,10 @@ body::-webkit-scrollbar {
     --bnr-lilac: 263 100% 77%;
     --bnr-bone: 275 33% 96%;
     --bnr-ash: 270 10% 62%;
+    --bnr-surface: 255 19% 10%;
+    --bnr-raised: 255 17% 14%;
+    --bnr-line: 262 20% 26%;
+    --bnr-glow: 263 100% 50%;
     --sidebar-canvas: var(--bnr-abyss);
     --sidebar-surface: var(--bnr-gunmetal);
     --sidebar-accent: var(--bnr-violet);
@@ -220,6 +224,10 @@ body::-webkit-scrollbar {
     --bnr-lilac: 263 100% 77%;
     --bnr-bone: 275 33% 96%;
     --bnr-ash: 270 10% 62%;
+    --bnr-surface: 255 19% 10%;
+    --bnr-raised: 255 17% 14%;
+    --bnr-line: 262 20% 26%;
+    --bnr-glow: 263 100% 50%;
     --sidebar-canvas: var(--bnr-abyss);
     --sidebar-surface: var(--bnr-gunmetal);
     --sidebar-accent: var(--bnr-violet);
@@ -232,6 +240,22 @@ body::-webkit-scrollbar {
     --chart-4: 280 65% 60%;
     --chart-5: 340 75% 55%;
   }
+}
+
+@keyframes heraldic-seal-pulse {
+  0%, 100% { transform: scale(.82); opacity: .2; }
+  50% { transform: scale(1.14); opacity: .72; }
+}
+
+.heraldic-loader__seal {
+  border: 1px solid hsl(var(--bnr-line));
+  box-shadow: inset 0 0 0 3px hsl(var(--bnr-abyss)), 0 0 26px hsl(var(--bnr-glow) / .35);
+  clip-path: polygon(12% 0, 88% 0, 100% 12%, 100% 88%, 88% 100%, 12% 100%, 0 88%, 0 12%);
+}
+.heraldic-loader__echo { animation: heraldic-seal-pulse 1.4s ease-in-out infinite; }
+.heraldic-loader__echo--late { animation-delay: .45s; }
+@media (prefers-reduced-motion: reduce) {
+  .heraldic-loader__echo { animation: none; opacity: .25; }
 }
 
 /* @media screen and (prefers-reduced-motion: reduce) {

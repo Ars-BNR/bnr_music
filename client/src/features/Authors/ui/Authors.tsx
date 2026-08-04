@@ -44,7 +44,7 @@ const Authors = () => {
       ) : <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
         {loading
           ? Array.from({ length: 8 }, (_, index) => <Skeleton key={index} className="aspect-[4/5]" />)
-          : authors.map((author) => <CardItem key={author.id} variant="author" title={author.name} />)}
+          : authors.map((author) => <CardItem key={author.id} variant="author" title={author.name} href={`/authors/${author.id}`} ariaLabel={`Открыть автора ${author.name}`} />)}
       </div>}
     </section>
   );
