@@ -1,6 +1,6 @@
 "use client";
 
-import { useParams, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import React from "react";
 import CardItem from "@/shared/components/common/CardItem/CardItem";
 import Album from "../../../../public/assets/icons/Album";
@@ -8,7 +8,6 @@ import PlaylistIcon from "../../../../public/assets/icons/Playlist";
 import LoveIcon from "../../../../public/assets/icons/Love";
 
 const Collection = () => {
-  const params = useParams();
   const router = useRouter();
 
   return (

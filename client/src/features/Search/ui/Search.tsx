@@ -1,110 +1,105 @@
 "use client";
 
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { usePlaybackStore } from "@/entities/playback";
 import trackService from "@/entities/track-service";
-import { Input } from "@/shared/components/ui/input";
 import { debounce } from "@/shared/constants/debounce";
-import usePlayerStore from "@/shared/store/player";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import { ITrack } from "@/shared/types/track";
+import { Input } from "@/shared/ui/input";
+
+const SEARCH_RESULTS_ID = "track-search-results";
 
 const Search = () => {
-  const { playTrack, setActiveTrack } = usePlayerStore();
-
+  const playFromQueue = usePlaybackStore((state) => state.playFromQueue);
   const [searchQuery, setSearchQuery] = useState("");
-  const [data, setData] = useState<any[]>([]);
-  const [focused, setFocused] = React.useState(false);
+  const [tracks, setTracks] = useState<ITrack[]>([]);
+  const [isOpen, setIsOpen] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const latestQueryRef = useRef("");
 
-  const ref = useRef<HTMLDivElement>(null);
-
-  // Обработка кликов вне области поиска
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (ref.current && !ref.current.contains(event.target as Node)) {
-        setFocused(false);
-      }
-    };
-
-    // Добавляем обработчик при монтировании
-    document.addEventListener("mousedown", handleClickOutside);
-
-    // Удаляем обработчик при размонтировании
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
+  const closeSearch = useCallback(() => {
+    setIsOpen(false);
+    inputRef.current?.blur();
   }, []);
 
-  const searchData = async (query: string) => {
-    if (query) {
-      try {
-        console.log("Отправка запроса с запросом:", query);
-        const resultQuery = await trackService.searchTracks(query);
-        setData(resultQuery);
-      } catch (error) {
-        console.log(error);
-      }
-    } else {
-      setData([]);
+  const searchData = useCallback(async (query: string) => {
+    if (!query.trim()) {
+      setTracks([]);
+      return;
     }
-  };
-  useEffect(() => {
-    console.log("Данные, полученные от API:", data);
-  }, [data]);
 
-  // Создаем debounced версию функции поиска
-  const debouncedSearchTracks = useCallback(
-    debounce((query: string) => searchData(query), 300),
-    []
-  );
+    try {
+      const nextTracks = await trackService.searchTracks(query);
+      if (latestQueryRef.current === query) setTracks(nextTracks);
+    } catch {
+      if (latestQueryRef.current === query) setTracks([]);
+    }
+  }, []);
+  const debouncedSearch = useMemo(() => debounce(searchData, 300), [searchData]);
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const query = e.target.value;
+  useEffect(() => () => debouncedSearch.cancel(), [debouncedSearch]);
+
+  const handleSearchChange = (query: string) => {
     setSearchQuery(query);
-    debouncedSearchTracks(query); // Вызываем debounced функцию
-  };
-  const play = (e: React.MouseEvent, track) => {
-    e.stopPropagation();
-    setActiveTrack(track);
-    playTrack();
-    console.log("track_of_Search", track);
+    latestQueryRef.current = query;
+    setIsOpen(true);
+
+    if (!query.trim()) {
+      debouncedSearch.cancel();
+      setTracks([]);
+      return;
+    }
+
+    debouncedSearch(query);
   };
 
   return (
     <>
-      {focused && (
-        <div className="fixed top-0 left-0 bottom-0 right-0 bg-black/50 z-30" />
+      {isOpen && (
+        <div
+          aria-hidden="true"
+          className="fixed inset-0 z-30 bg-black/50"
+          data-testid="search-backdrop"
+          onPointerDown={closeSearch}
+        />
       )}
-      <div
-        ref={ref}
-        style={{
-          width: "100%",
-        }}
-        className="relative max-w-[486px] z-40"
-      >
-        {/* Поле ввода для поиска */}
+      <div className="relative z-40 w-full max-w-[486px]">
         <Input
+          ref={inputRef}
           className="max-w-[486px]"
           placeholder="Search song"
           value={searchQuery}
-          onChange={handleInputChange}
-          onFocus={() => setFocused(true)}
+          aria-autocomplete="list"
+          aria-controls={SEARCH_RESULTS_ID}
+          aria-expanded={isOpen && tracks.length > 0}
+          onChange={(event) => handleSearchChange(event.target.value)}
+          onFocus={() => setIsOpen(true)}
+          onKeyDown={(event) => {
+            if (event.key === "Escape") closeSearch();
+          }}
         />
-        {/* Отображение результатов поиска */}
-        {data.length > 0 && (
-          <div className="absolute w-full bg-white rounded-md shadow-lg mt-1 z-50">
-            {data.map((track) => (
-              <div
+        {isOpen && tracks.length > 0 && (
+          <div
+            id={SEARCH_RESULTS_ID}
+            role="list"
+            aria-label="Track search results"
+            className="absolute mt-1 flex w-full flex-col rounded-md bg-popover p-1 text-popover-foreground shadow-md"
+          >
+            {tracks.map((track) => (
+              <button
                 key={track.id}
-                className="p-2 hover:bg-gray-100 cursor-pointer"
-                onClick={(e) => play(e, track)}
+                type="button"
+                className="flex flex-col gap-1 rounded-sm px-3 py-2 text-left hover:bg-accent"
+                onClick={() => {
+                  playFromQueue(track, tracks, { type: "search", query: searchQuery });
+                  closeSearch();
+                }}
               >
-                <div className="flex items-center gap-3">
-                  <div>
-                    <p className="font-medium">{track.name}</p>
-                    <p className="text-sm text-gray-500">
-                      {track.author?.name} • {track.album?.name}
-                    </p>
-                  </div>
-                </div>
-              </div>
+                <span className="font-medium">{track.name}</span>
+                <span className="text-sm text-muted-foreground">
+                  {track.authorName}{track.albumId ? ` В· Album #${track.albumId}` : ""}
+                </span>
+              </button>
             ))}
           </div>
         )}

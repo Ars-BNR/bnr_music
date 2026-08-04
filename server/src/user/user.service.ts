@@ -1,179 +1,167 @@
-import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
-import { UserModel } from './model/user.model';
-import { InjectModel } from '@nestjs/sequelize';
-import { CreateUserDto, UserJWTData } from './dto/create-user.dto';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { InjectConnection, InjectModel } from '@nestjs/sequelize';
 import * as bcrypt from 'bcrypt';
-import * as uuid from 'uuid';
 import { Response } from 'express';
-import { TokenService } from 'src/token/token.service';
+import { Sequelize, Transaction } from 'sequelize';
+import * as uuid from 'uuid';
+import { AccessTokenPayload } from 'src/auth/jwt.strategy';
+import { CollectionModel } from 'src/collection/model/collection.model';
 import { MailService } from 'src/mail/mail.service';
-import { CollectionService } from 'src/collection/collection.service';
+import { TokenPair, TokenService } from 'src/token/token.service';
+import { CreateUserDto } from './dto/create-user.dto';
+import { UserModel } from './model/user.model';
+
+export interface AuthResponse extends Pick<TokenPair, 'accessToken'> {
+  user: AccessTokenPayload;
+}
+
+export interface AuthSession extends AuthResponse {
+  refreshToken: string;
+}
+
 @Injectable()
 export class UserService {
   constructor(
-    @InjectModel(UserModel) private userRepository: typeof UserModel,
+    @InjectModel(UserModel) private readonly userRepository: typeof UserModel,
+    @InjectModel(CollectionModel)
+    private readonly collectionRepository: typeof CollectionModel,
+    @InjectConnection() private readonly sequelize: Sequelize,
     private readonly tokenService: TokenService,
     private readonly mailService: MailService,
-    private readonly collectionService: CollectionService,
+    private readonly config: ConfigService,
   ) {}
 
-  async hashPassword(password: string): Promise<string> {
-    try {
-      return bcrypt.hash(password, 10);
-    } catch (error) {
-      throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
-    }
-  }
-  async findUserByEmail(email: string): Promise<UserModel> {
-    try {
-      return this.userRepository.findOne({ where: { email } });
-    } catch (error) {
-      throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
-    }
+  private toPayload(user: UserModel): AccessTokenPayload {
+    return { sub: user.id, email: user.email, role: user.role };
   }
 
-  async generateAndSaveTokens(userDTO: UserJWTData) {
-    try {
-      const tokens = await this.tokenService.generateTokens(userDTO);
-      await this.tokenService.saveToken(userDTO.id, tokens.refreshToken);
-      return { ...tokens, user: userDTO };
-    } catch (error) {
-      throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
-    }
+  private async createSession(
+    user: UserModel,
+    transaction?: Transaction,
+  ): Promise<AuthSession> {
+    const payload = this.toPayload(user);
+    const tokens = await this.tokenService.generateTokens(payload);
+    await this.tokenService.saveToken(
+      user.id,
+      tokens.refreshToken,
+      transaction,
+    );
+    return {
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+      user: payload,
+    };
   }
 
-  async setRefreshTokenCookie(res: Response, refreshToken: string) {
-    try {
-      res.cookie('refreshToken', refreshToken, {
-        maxAge: 30 * 24 * 60 * 60 * 1000, // 30 дней
-        httpOnly: true,
-      });
-    } catch (error) {
-      throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
-    }
+  async setRefreshTokenCookie(
+    response: Response,
+    refreshToken: string,
+  ): Promise<void> {
+    response.cookie('refreshToken', refreshToken, {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: this.config.get<string>('NODE_ENV') === 'production',
+      maxAge: this.config.getOrThrow<number>('REFRESH_COOKIE_MAX_AGE'),
+      path: '/',
+    });
   }
 
-  async registration(dto: CreateUserDto) {
-    try {
-      const candidate = await this.findUserByEmail(dto.email);
-      if (candidate) {
-        throw new HttpException(
-          'Пользователь уже существует',
-          HttpStatus.BAD_REQUEST,
-        );
-      }
-      const hashPassword = await this.hashPassword(dto.password);
-      const activationLink = uuid.v4();
-      const user = await this.userRepository.create({
-        email: dto.email,
-        password: hashPassword,
-        activationLink,
-      });
-
-      await this.mailService.sendActivationMail(
-        dto.email,
-        `${process.env.API_URL}/activate/${activationLink}`,
-      );
-
-      const userDto = new UserJWTData(user);
-      const prepareUser = this.generateAndSaveTokens(userDto);
-      await this.collectionService.create({ userId: userDto.id });
-      console.log('prepareUser', prepareUser);
-      return prepareUser;
-    } catch (error) {
-      throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
-    }
+  clearRefreshTokenCookie(response: Response): void {
+    response.clearCookie('refreshToken', {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: this.config.get<string>('NODE_ENV') === 'production',
+      path: '/',
+    });
   }
 
-  async activate(activationLink: string) {
-    try {
-      console.log('activationLink', activationLink);
-      const user = await UserModel.findOne({ where: { activationLink } });
-      if (!user) {
-        throw new HttpException(
-          'Некорректная ссылка активации',
-          HttpStatus.BAD_REQUEST,
-        );
-      }
-      user.isActivated = true;
-      await user.save();
-    } catch (error) {
-      throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
-    }
-  }
+  async registration(dto: CreateUserDto): Promise<AuthSession> {
+    const existing = await this.userRepository.findOne({
+      where: { email: dto.email },
+    });
+    if (existing) throw new ConflictException('User already exists');
 
-  async login(dto: CreateUserDto) {
-    try {
-      const user = await this.findUserByEmail(dto.email);
-      if (!user) {
-        throw new HttpException(
-          'Пользователь не найден',
-          HttpStatus.BAD_REQUEST,
-        );
-      }
-      const isPassEqual = await bcrypt.compare(dto.password, user.password);
-      if (!isPassEqual) {
-        throw new HttpException('Неверный пароль', HttpStatus.BAD_REQUEST);
-      }
-      const userDto = new UserJWTData(user);
-      return this.generateAndSaveTokens(userDto);
-    } catch (error) {
-      throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
-    }
-  }
-
-  async logout(refreshToken: string): Promise<Number> {
-    try {
-      const token = await this.tokenService.removeToken(refreshToken);
-      return token;
-    } catch (error) {
-      throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
-    }
-  }
-
-  async refresh(refreshToken: string) {
-    try {
-      if (!refreshToken) {
-        throw new HttpException(
-          'Пользователь не авторизован',
-          HttpStatus.BAD_REQUEST,
-        );
-      }
-      const validToken =
-        await this.tokenService.validateRefreshToken(refreshToken);
-      const tokenFromDB = await this.tokenService.findToken(refreshToken);
-      if (!validToken || !tokenFromDB) {
-        throw new HttpException(
-          'Пользователь не авторизован',
-          HttpStatus.BAD_REQUEST,
-        );
-      }
-      const user = await this.userRepository.findOne({
-        where: {
-          id: validToken.user.id,
+    const activationLink = uuid.v4();
+    const session = await this.sequelize.transaction(async (transaction) => {
+      const createdUser = await this.userRepository.create(
+        {
+          email: dto.email,
+          password: await bcrypt.hash(dto.password, 10),
+          activationLink,
         },
-      });
-      if (!user) {
-        throw new HttpException(
-          'Ошибка при создании пользователя',
-          HttpStatus.BAD_REQUEST,
-        );
-      }
-      const userDto = new UserJWTData(user);
-      return this.generateAndSaveTokens(userDto);
-    } catch (error) {
-      throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
-    }
+        { transaction },
+      );
+      await this.collectionRepository.create(
+        { userId: createdUser.id },
+        { transaction },
+      );
+      return this.createSession(createdUser, transaction);
+    });
+
+    await this.mailService.sendActivationMail(
+      session.user.email,
+      `${this.config.getOrThrow<string>('API_URL')}/activate/${activationLink}`,
+    );
+    return session;
   }
 
-  async getAllUsers() {
-    try {
-      const users = await this.userRepository.findAll({
-        // include: { all: true },
-      });
-      return users;
-    } catch (error) {
-      throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
+  async activate(activationLink: string): Promise<void> {
+    const user = await this.userRepository.findOne({
+      where: { activationLink },
+    });
+    if (!user) throw new BadRequestException('Invalid activation link');
+    user.isActivated = true;
+    await user.save();
+  }
+
+  async login(dto: CreateUserDto): Promise<AuthSession> {
+    const user = await this.userRepository.findOne({
+      where: { email: dto.email },
+    });
+    if (!user || !(await bcrypt.compare(dto.password, user.password))) {
+      throw new UnauthorizedException('Invalid email or password');
     }
+    return this.createSession(user);
+  }
+
+  async logout(refreshToken: string | undefined): Promise<void> {
+    if (!refreshToken)
+      throw new UnauthorizedException('Refresh token not found');
+    const payload = await this.tokenService.validateRefreshToken(refreshToken);
+    await this.tokenService.removeToken(payload.sub, refreshToken);
+  }
+
+  async refresh(refreshToken: string | undefined): Promise<AuthSession> {
+    if (!refreshToken)
+      throw new UnauthorizedException('Refresh token not found');
+    const payload = await this.tokenService.validateRefreshToken(refreshToken);
+    const user = await this.userRepository.findByPk(payload.sub);
+    if (!user) throw new UnauthorizedException('User no longer exists');
+
+    const nextTokens = await this.tokenService.generateTokens(
+      this.toPayload(user),
+    );
+    await this.tokenService.rotateToken(
+      user.id,
+      refreshToken,
+      nextTokens.refreshToken,
+    );
+    return {
+      accessToken: nextTokens.accessToken,
+      refreshToken: nextTokens.refreshToken,
+      user: this.toPayload(user),
+    };
+  }
+
+  async getAllUsers(): Promise<UserModel[]> {
+    return this.userRepository.findAll({
+      attributes: { exclude: ['password'] },
+    });
   }
 }

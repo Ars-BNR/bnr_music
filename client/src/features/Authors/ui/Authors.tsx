@@ -3,20 +3,19 @@
 import React, { useEffect, useState } from "react";
 import authorService from "@/entities/author-service";
 import AuthorIcon from "../../../../public/assets/icons/Artist";
-import { Skeleton } from "@/shared/components/ui/skeleton";
+import { Skeleton } from "@/shared/ui/skeleton";
 import CardItem from "@/shared/components/common/CardItem/CardItem";
 
+interface Author { id: number; name: string; }
+
 const Authors = () => {
-  const [authors, setAuthors] = useState<any[]>([]);
+  const [authors, setAuthors] = useState<Author[]>([]);
   const [loading, setLoading] = useState(false);
   const fetchAuthors = async (params = { count: 5, offset: 0 }) => {
     try {
       setLoading(true);
       const response = await authorService.getAll(params);
       setAuthors(response);
-      console.log("authors", authors);
-    } catch (error) {
-      console.log(error);
     } finally {
       setLoading(false);
     }

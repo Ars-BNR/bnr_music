@@ -1,18 +1,14 @@
-import { Controller, Get, Param, Query } from '@nestjs/common';
+import { Controller, Get, Param, ParseIntPipe, Query } from '@nestjs/common';
+import { PaginationQueryDto } from 'src/common/dto/pagination-query.dto';
 import { AuthorService } from './author.service';
 
-// @UseGuards(JwtAuthGuard)
 @Controller('authors')
 export class AuthorController {
-  constructor(private authorService: AuthorService) {}
-
-  @Get(':id')
-  getOne(@Param('id') id: number) {
-    return this.authorService.getOne(id);
+  constructor(private readonly authorService: AuthorService) {}
+  @Get() getAll(@Query() pagination: PaginationQueryDto) {
+    return this.authorService.getAll(pagination.count, pagination.offset);
   }
-
-  @Get()
-  getAll(@Query('count') count: number, @Query('offset') offset: number) {
-    return this.authorService.getAll(count, offset);
+  @Get(':id') getOne(@Param('id', ParseIntPipe) id: number) {
+    return this.authorService.getOne(id);
   }
 }

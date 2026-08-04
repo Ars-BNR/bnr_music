@@ -4,6 +4,7 @@ import {
   Delete,
   Get,
   Param,
+  ParseIntPipe,
   Patch,
   Post,
   Query,
@@ -11,63 +12,80 @@ import {
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
-import { TrackService } from './track.service';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
+import { Roles } from 'src/decorators/roles-auth.decorator';
+import { PaginationQueryDto } from 'src/common/dto/pagination-query.dto';
+import { JwtAuthGuard } from 'src/guards/jwt-auth.guard';
+import { RolesGuard } from 'src/guards/roles.guard';
 import { CreateTrackDto } from './dto/create-track.dto';
 import { searchDto } from './dto/search-dto';
 import { UpdateTrackDto } from './dto/update-track.dto';
-import { JwtAuthGuard } from 'src/guards/jwt-auth.guard';
+import { TrackService } from './track.service';
 
-// @UseGuards(JwtAuthGuard)
-@Controller('/tracks')
+@Controller('tracks')
 export class TrackController {
-  constructor(private trackService: TrackService) {}
+  constructor(private readonly trackService: TrackService) {}
 
   @Post()
+  @Roles('admin')
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @UseInterceptors(
     FileFieldsInterceptor([
       { name: 'picture', maxCount: 1 },
       { name: 'audio', maxCount: 1 },
     ]),
   )
-  create(@UploadedFiles() files, @Body() dto: CreateTrackDto) {
-    const { picture, audio } = files;
-    return this.trackService.create(dto, picture[0], audio[0]);
+  create(
+    @UploadedFiles()
+    files: { picture?: Express.Multer.File[]; audio?: Express.Multer.File[] },
+    @Body() dto: CreateTrackDto,
+  ) {
+    return this.trackService.create(
+      dto,
+      files?.picture?.[0],
+      files?.audio?.[0],
+    );
   }
 
   @Get()
-  getAll(@Query('count') count: number, @Query('offset') offset: number) {
-    return this.trackService.getAll(count, offset);
+  getAll(@Query() pagination: PaginationQueryDto) {
+    return this.trackService.getAll(pagination.count, pagination.offset);
   }
 
-  @Get('/popular')
-  getTopTracks(@Query('count') count: number, @Query('offset') offset: number) {
-    return this.trackService.getTopTracks(count, offset);
+  @Get('popular')
+  getTopTracks(@Query() pagination: PaginationQueryDto) {
+    return this.trackService.getTopTracks(pagination.count, pagination.offset);
   }
 
-  @Post('/listen/:id')
-  listen(@Param('id') id: number) {
+  @Post('listen/:id')
+  listen(@Param('id', ParseIntPipe) id: number) {
     return this.trackService.listen(id);
   }
 
-  @Get('/search')
+  @Get('search')
   search(@Query() dto: searchDto) {
-    console.log(dto);
-    return this.trackService.search(dto.query);
+    return this.trackService.search(dto.query, dto.page, dto.limit);
   }
 
   @Get(':id')
-  getOne(@Param('id') id: number) {
+  getOne(@Param('id', ParseIntPipe) id: number) {
     return this.trackService.getOne(id);
   }
 
   @Delete(':id')
-  delete(@Param('id') id: number) {
+  @Roles('admin')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  delete(@Param('id', ParseIntPipe) id: number) {
     return this.trackService.delete(id);
   }
 
   @Patch('change/:id')
-  change(@Param('id') id: number, @Body() updateData: UpdateTrackDto) {
+  @Roles('admin')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  change(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() updateData: UpdateTrackDto,
+  ) {
     return this.trackService.change(id, updateData);
   }
 }

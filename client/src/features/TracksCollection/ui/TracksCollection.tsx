@@ -1,41 +1,44 @@
 "use client";
 
+import React, { useEffect, useState } from "react";
+import { usePlaybackStore } from "@/entities/playback";
 import CardItem from "@/shared/components/common/CardItem/CardItem";
 import { BASE_URL } from "@/shared/config/config";
 import useCollectionStore from "@/shared/store/collection";
-import usePlayerStore from "@/shared/store/player";
 import { ITrack } from "@/shared/types/track";
-import React, { useEffect } from "react";
 
 const TracksCollection = () => {
-  const collection = Number(localStorage.getItem("collection"));
+  const [collectionId, setCollectionId] = useState<number | null>(null);
   const { getUserTracks, userTracks } = useCollectionStore();
-  useEffect(() => {
-    if (collection !== null) {
-      getUserTracks(collection);
-    }
-  }, []);
-  // useEffect(() => {
-  //   console.log("userTracks", userTracks);
-  // }, [userTracks]);
-  const { playTrack, setActiveTrack } = usePlayerStore();
+  const playFromQueue = usePlaybackStore((state) => state.playFromQueue);
 
-  const play = (e: React.MouseEvent, track: ITrack) => {
-    e.stopPropagation();
-    setActiveTrack(track);
-    playTrack();
+  useEffect(() => {
+    const value = Number(localStorage.getItem("collection"));
+    setCollectionId(Number.isInteger(value) && value > 0 ? value : null);
+  }, []);
+
+  useEffect(() => {
+    if (collectionId !== null) void getUserTracks(collectionId);
+  }, [collectionId, getUserTracks]);
+
+  const play = (event: React.MouseEvent, track: ITrack) => {
+    event.stopPropagation();
+    if (collectionId === null) return;
+
+    playFromQueue(track, userTracks, { type: "favorites", collectionId });
   };
+
   return (
     <div>
-      <h1 className="bg-black text-white text-[18px] mb-3">Любимые треки</h1>
-      <div className="flex justify-stretch flex-wrap gap-2">
+      <h1 className="mb-3 bg-black text-[18px] text-white">Р›СЋР±РёРјС‹Рµ С‚СЂРµРєРё</h1>
+      <div className="flex flex-wrap justify-stretch gap-2">
         {userTracks.map((track) => (
           <CardItem
             key={track.id}
             title={track.name}
             subtitle={track.authorName}
             imageUrl={`${BASE_URL}${track.picture}`}
-            onClick={(e) => play(e, track)}
+            onClick={(event) => play(event, track)}
           />
         ))}
       </div>

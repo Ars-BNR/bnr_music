@@ -1,129 +1,100 @@
-import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
+import {
+  ConflictException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/sequelize';
-import { CollectionTrackModel } from './model/collection-track.model';
-import { CreateCollectionTrackDto } from './dto/create-collectionTrack.dto';
-import { TrackModel } from 'src/track/model/track.model';
 import { Sequelize } from 'sequelize';
-import { AuthorModel } from 'src/author/model/author.model';
+import { AccessTokenPayload } from 'src/auth/jwt.strategy';
 import { AlbumModel } from 'src/album/model/album.model';
+import { AuthorModel } from 'src/author/model/author.model';
+import { CollectionModel } from 'src/collection/model/collection.model';
+import { TrackModel } from 'src/track/model/track.model';
+import { CreateCollectionTrackDto } from './dto/create-collectionTrack.dto';
+import { CollectionTrackModel } from './model/collection-track.model';
 
 @Injectable()
 export class CollectionTrackService {
   constructor(
     @InjectModel(CollectionTrackModel)
-    private collectionTrackModelRepository: typeof CollectionTrackModel,
+    private readonly relationRepository: typeof CollectionTrackModel,
+    @InjectModel(CollectionModel)
+    private readonly collectionRepository: typeof CollectionModel,
   ) {}
 
-  async create(dto: CreateCollectionTrackDto) {
-    try {
-      if (!dto) {
-        throw new HttpException(
-          'Не указаны все данные',
-          HttpStatus.BAD_REQUEST,
-        );
-      }
-      console.log('dto', dto);
-      console.log('typeof(dto.collectionId)', typeof dto.collectionId);
-      const candidate = await this.collectionTrackModelRepository.findOne({
-        where: {
-          collectionId: dto.collectionId,
-          trackId: dto.trackId,
-        },
-      });
-      if (candidate) {
-        throw new HttpException(
-          'Данный трек  уже привязан к коллекции',
-          HttpStatus.BAD_REQUEST,
-        );
-      }
-      const collectionPlaylist =
-        await this.collectionTrackModelRepository.create({
-          ...dto,
-        });
-      return collectionPlaylist;
-    } catch (error) {
-      throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
+  private async assertOwner(
+    collectionId: number,
+    requester: AccessTokenPayload,
+  ): Promise<void> {
+    const collection = await this.collectionRepository.findByPk(collectionId);
+    if (!collection) throw new NotFoundException('Collection not found');
+    if (requester.role !== 'admin' && collection.userId !== requester.sub) {
+      throw new ForbiddenException('You can only change your own collection');
     }
   }
 
-  async delete(dto: CreateCollectionTrackDto) {
-    try {
-      if (!dto) {
-        throw new HttpException(
-          'Не указаны все данные',
-          HttpStatus.BAD_REQUEST,
-        );
-      }
-      const collectionPlaylist =
-        await this.collectionTrackModelRepository.destroy({
-          where: {
-            collectionId: dto.collectionId,
-            trackId: dto.trackId,
-          },
-        });
+  async create(
+    dto: CreateCollectionTrackDto,
+    requester: AccessTokenPayload,
+  ): Promise<CollectionTrackModel> {
+    await this.assertOwner(dto.collectionId, requester);
+    const relation = { collectionId: dto.collectionId, trackId: dto.trackId };
+    const candidate = await this.relationRepository.findOne({
+      where: relation,
+    });
+    if (candidate)
+      throw new ConflictException('Track is already in this collection');
+    return this.relationRepository.create(relation);
+  }
 
-      if (collectionPlaylist === 0) {
-        throw new HttpException('Запись не найдена', HttpStatus.NOT_FOUND);
-      }
-
-      return collectionPlaylist;
-    } catch (error) {
-      throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
-    }
+  async delete(
+    dto: CreateCollectionTrackDto,
+    requester: AccessTokenPayload,
+  ): Promise<void> {
+    await this.assertOwner(dto.collectionId, requester);
+    const affected = await this.relationRepository.destroy({
+      where: { collectionId: dto.collectionId, trackId: dto.trackId },
+    });
+    if (!affected)
+      throw new NotFoundException('Collection track relation not found');
   }
 
   async getTracksByCollectionId(
     collectionId: number,
-    limit: number = 10,
-    offset: number = 0,
+    requester: AccessTokenPayload,
+    limit = 10,
+    offset = 0,
   ) {
-    try {
-      if (!limit || !offset) {
-        throw new HttpException(
-          'Не указаны все данные',
-          HttpStatus.BAD_REQUEST,
-        );
-      }
-
-      const collectionTracks = await CollectionTrackModel.findAll({
-        where: { collectionId },
-        include: [
-          {
-            model: TrackModel,
-            attributes: [
-              'id',
-              'name',
-              'picture',
-              'text',
-              'listens',
-              'audio',
-              'authorId',
-              [Sequelize.literal('"track->author"."name"'), 'authorName'],
-              [Sequelize.literal('"track->albums"."id"'), 'albumId'],
-            ],
-            include: [
-              {
-                model: AuthorModel,
-                attributes: [],
-              },
-              {
-                model: AlbumModel,
-                attributes: [],
-                through: { attributes: [] },
-              },
-            ],
-          },
-        ],
-        limit: Number(limit),
-        offset: Number(offset),
-        subQuery: false,
-        raw: true,
-        nest: true,
-      });
-
-      return collectionTracks.map((ct) => ct.track);
-    } catch (error) {
-      throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
-    }
+    await this.assertOwner(collectionId, requester);
+    const collectionTracks = await this.relationRepository.findAll({
+      where: { collectionId },
+      include: [
+        {
+          model: TrackModel,
+          attributes: [
+            'id',
+            'name',
+            'picture',
+            'text',
+            'listens',
+            'audio',
+            'authorId',
+            [Sequelize.literal('"track->author"."name"'), 'authorName'],
+            [Sequelize.literal('"track->albums"."id"'), 'albumId'],
+          ],
+          include: [
+            { model: AuthorModel, attributes: [] },
+            { model: AlbumModel, attributes: [], through: { attributes: [] } },
+          ],
+        },
+      ],
+      limit,
+      offset,
+      subQuery: false,
+      raw: true,
+      nest: true,
+    });
+    return collectionTracks.map((relation) => relation.track);
   }
 }

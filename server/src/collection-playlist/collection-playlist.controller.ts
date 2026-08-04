@@ -4,49 +4,63 @@ import {
   Delete,
   Get,
   Param,
+  ParseIntPipe,
   Patch,
   Post,
   Query,
+  Req,
   UseGuards,
 } from '@nestjs/common';
+import { Request } from 'express';
+import { AccessTokenPayload } from 'src/auth/jwt.strategy';
+import { OffsetLimitQueryDto } from 'src/common/dto/offset-limit-query.dto';
+import { JwtAuthGuard } from 'src/guards/jwt-auth.guard';
 import { CollectionPlaylistService } from './collection-playlist.service';
 import { CreateCollectionPlaylistDto } from './dto/create-collectionPlaylist.dto';
 import { UpdateCollectionPlaylistDto } from './dto/update-collectionPlaylist.dto';
-import { JwtAuthGuard } from 'src/guards/jwt-auth.guard';
 
-// @UseGuards(JwtAuthGuard)
+type AuthenticatedRequest = Request & { user: AccessTokenPayload };
+
 @Controller('collection_playlist')
+@UseGuards(JwtAuthGuard)
 export class CollectionPlaylistController {
-  constructor(private collectionPlaylistService: CollectionPlaylistService) {}
+  constructor(
+    private readonly collectionPlaylistService: CollectionPlaylistService,
+  ) {}
 
   @Post()
-  create(@Body() dto: CreateCollectionPlaylistDto) {
-    return this.collectionPlaylistService.create(dto);
+  create(
+    @Body() dto: CreateCollectionPlaylistDto,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    return this.collectionPlaylistService.create(dto, request.user);
   }
-
   @Delete('delete/:id')
-  delete(@Param('id') id: number) {
-    return this.collectionPlaylistService.delete(id);
+  delete(
+    @Param('id', ParseIntPipe) id: number,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    return this.collectionPlaylistService.delete(id, request.user);
   }
-
   @Patch('change/:id')
   change(
-    @Param('id') id: number,
-    @Body() updateData: UpdateCollectionPlaylistDto,
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateCollectionPlaylistDto,
+    @Req() request: AuthenticatedRequest,
   ) {
-    return this.collectionPlaylistService.change(id, updateData);
+    return this.collectionPlaylistService.change(id, dto, request.user);
   }
-
   @Get(':collectionId')
   getPlaylistsByCollectionId(
-    @Param('collectionId') collectionId: number,
-    @Query('limit') limit: number = 10,
-    @Query('offset') offset: number = 0,
+    @Param('collectionId', ParseIntPipe) collectionId: number,
+    @Query() pagination: OffsetLimitQueryDto,
+    @Req() request: AuthenticatedRequest,
   ) {
     return this.collectionPlaylistService.getPlaylistsByCollectionId(
       collectionId,
-      limit,
-      offset,
+      request.user,
+      pagination.limit,
+      pagination.offset,
     );
   }
 }

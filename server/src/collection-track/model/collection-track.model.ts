@@ -2,7 +2,6 @@ import { ApiProperty } from '@nestjs/swagger';
 import {
   AutoIncrement,
   BelongsTo,
-  BelongsToMany,
   Column,
   DataType,
   ForeignKey,

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import ArtistIcon from "../../../../public/assets/icons/Artist";
 import LoveIcon from "../../../../public/assets/icons/Love";
 import SettingsIcon from "../../../../public/assets/icons/Settings";
@@ -9,10 +9,10 @@ import AuthStore from "@/shared/store/auth";
 import collectionService from "@/entities/collection-service";
 
 const Profiles = () => {
-  const userId = AuthStore((state) => state.profiles.user.id);
+  const userId = AuthStore((state) => state.profiles?.user.sub);
   const [collectionId, setCollectionId] = useState<number | null>(null);
 
-  const fetchCollectionId = async () => {
+  const fetchCollectionId = useCallback(async () => {
     if (!userId) return;
 
     const savedCollectionId =
@@ -31,13 +31,11 @@ const Profiles = () => {
         setCollectionId(newCollectionId);
         collectionService.saveCollectionIdToLocalStorage(newCollectionId);
       }
-    } catch (error) {
-      console.error("Ошибка при получении id коллекции:", error);
-    }
-  };
+    } catch {}
+  }, [userId]);
   useEffect(() => {
-    fetchCollectionId();
-  }, []);
+    void fetchCollectionId();
+  }, [fetchCollectionId]);
 
   return (
     <div className="flex px-8 py-4 gap-[32px] bg-[#23262D] rounded-[12px]">

@@ -1,80 +1,107 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
-import { InjectModel } from '@nestjs/sequelize';
+import { InjectConnection, InjectModel } from '@nestjs/sequelize';
+import * as bcrypt from 'bcrypt';
+import { Sequelize, Transaction } from 'sequelize';
+import { AccessTokenPayload } from 'src/auth/jwt.strategy';
 import { TokenModel } from './model/token.model';
-import { UserJWTData } from 'src/user/dto/create-user.dto';
-import { CreateTokenResponse } from './response/token-response';
+
+export interface TokenPair {
+  accessToken: string;
+  refreshToken: string;
+}
 
 @Injectable()
 export class TokenService {
-  private readonly JWT_ACCESS_SECRET: string;
-  private readonly JWT_REFRESH_SECRET: string;
-  private readonly EXPIRES_ACCESS_JWT: string;
-  private readonly EXPIRES_REFRESH_JWT: string;
-
   constructor(
     private readonly jwtService: JwtService,
+    private readonly config: ConfigService,
+    @InjectConnection() private readonly sequelize: Sequelize,
     @InjectModel(TokenModel)
     private readonly tokenRepository: typeof TokenModel,
   ) {}
 
-  async generateTokens(user: UserJWTData): Promise<CreateTokenResponse> {
+  async generateTokens(user: AccessTokenPayload): Promise<TokenPair> {
+    const [accessToken, refreshToken] = await Promise.all([
+      this.jwtService.signAsync(user, {
+        secret: this.config.getOrThrow<string>('JWT_ACCESS_SECRET'),
+        expiresIn: this.config.getOrThrow<string>('EXPIRES_ACCESS_JWT'),
+      }),
+      this.jwtService.signAsync(user, {
+        secret: this.config.getOrThrow<string>('JWT_REFRESH_SECRET'),
+        expiresIn: this.config.getOrThrow<string>('EXPIRES_REFRESH_JWT'),
+      }),
+    ]);
+    return { accessToken, refreshToken };
+  }
+
+  async validateRefreshToken(token: string): Promise<AccessTokenPayload> {
     try {
-      const payload = { user };
-      const accessToken = this.jwtService.sign(payload, {
-        secret: process.env.JWT_ACCESS_SECRET,
-        expiresIn: process.env.EXPIRES_ACCESS_JWT,
+      return await this.jwtService.verifyAsync<AccessTokenPayload>(token, {
+        secret: this.config.getOrThrow<string>('JWT_REFRESH_SECRET'),
       });
-      const refreshToken = this.jwtService.sign(payload, {
-        secret: process.env.JWT_REFRESH_SECRET,
-        expiresIn: process.env.EXPIRES_REFRESH_JWT,
-      });
-      return { accessToken, refreshToken };
-    } catch (error) {
-      throw new Error(error);
+    } catch {
+      throw new UnauthorizedException('Invalid or expired refresh token');
     }
   }
 
-  async validateAccessToken(token: string) {
-    try {
-      const userData = this.jwtService.verify(token, {
-        secret: process.env.JWT_ACCESS_SECRET,
-      });
-      return userData;
-    } catch (error) {
-      throw new Error(error);
+  async saveToken(
+    userId: number,
+    refreshToken: string,
+    transaction?: Transaction,
+  ): Promise<TokenModel> {
+    const sessions = await this.tokenRepository.findAll({
+      where: { userId },
+      order: [['createdAt', 'ASC']],
+      transaction,
+      lock: transaction?.LOCK.UPDATE,
+    });
+    if (sessions.length >= 2) {
+      await sessions[0].destroy({ transaction });
     }
+    return this.tokenRepository.create(
+      { userId, refreshToken: await bcrypt.hash(refreshToken, 10) },
+      { transaction },
+    );
   }
 
-  async validateRefreshToken(token: string) {
-    try {
-      const userData = this.jwtService.verify(token, {
-        secret: process.env.JWT_REFRESH_SECRET,
-      });
-      return userData;
-    } catch (error) {
-      throw new Error(error);
+  async findTokenForUser(
+    userId: number,
+    refreshToken: string,
+    transaction?: Transaction,
+  ): Promise<TokenModel | null> {
+    const tokens = await this.tokenRepository.findAll({
+      where: { userId },
+      transaction,
+    });
+    for (const token of tokens) {
+      if (await bcrypt.compare(refreshToken, token.refreshToken)) return token;
     }
+    return null;
   }
 
-  async saveToken(userId: number, refreshToken: string) {
-    const tokensCount = await this.tokenRepository.count({ where: { userId } });
-    if (tokensCount >= 2) {
-      const oldestToken = await this.tokenRepository.findOne({
-        where: { userId },
-        order: [['createdAt', 'ASC']],
-      });
-      await oldestToken.destroy();
-    }
-
-    return this.tokenRepository.create({ userId, refreshToken });
+  async rotateToken(
+    userId: number,
+    currentRefreshToken: string,
+    nextRefreshToken: string,
+  ): Promise<void> {
+    await this.sequelize.transaction(async (transaction) => {
+      const token = await this.findTokenForUser(
+        userId,
+        currentRefreshToken,
+        transaction,
+      );
+      if (!token) throw new UnauthorizedException('Refresh session not found');
+      await token.destroy({ transaction });
+      await this.saveToken(userId, nextRefreshToken, transaction);
+    });
   }
 
-  async removeToken(refreshToken: string): Promise<Number> {
-    return this.tokenRepository.destroy({ where: { refreshToken } });
-  }
-
-  async findToken(refreshToken: string): Promise<TokenModel> {
-    return this.tokenRepository.findOne({ where: { refreshToken } });
+  async removeToken(userId: number, refreshToken: string): Promise<number> {
+    const token = await this.findTokenForUser(userId, refreshToken);
+    if (!token) return 0;
+    await token.destroy();
+    return 1;
   }
 }

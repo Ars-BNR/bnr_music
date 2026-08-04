@@ -1,12 +1,9 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsInt, IsString } from 'class-validator';
+import { IsString, Length } from 'class-validator';
 
 export class CreatePlaylistDto {
-  @ApiProperty({ example: 'Phonk', description: 'Название плейлиста' })
-  @IsString({ message: 'Должно быть строкой' })
+  @ApiProperty({ example: 'Phonk' })
+  @IsString()
+  @Length(1, 120)
   name: string;
-
-  @ApiProperty({ example: '1', description: 'Id пользователя' })
-  @IsInt({ message: 'Должно быть целым числом' })
-  userId: string;
 }

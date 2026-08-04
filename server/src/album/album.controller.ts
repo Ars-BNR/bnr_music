@@ -4,48 +4,56 @@ import {
   Delete,
   Get,
   Param,
+  ParseIntPipe,
   Patch,
   Post,
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { AlbumService } from './album.service';
-import { CreateAlbumDto } from './dto/create-album.dto';
+import { PaginationQueryDto } from 'src/common/dto/pagination-query.dto';
+import { Roles } from 'src/decorators/roles-auth.decorator';
 import { JwtAuthGuard } from 'src/guards/jwt-auth.guard';
+import { RolesGuard } from 'src/guards/roles.guard';
+import { CreateAlbumDto } from './dto/create-album.dto';
+import { AlbumService } from './album.service';
 
-// @UseGuards(JwtAuthGuard)
 @Controller('albums')
 export class AlbumController {
-  constructor(private albumService: AlbumService) {}
+  constructor(private readonly albumService: AlbumService) {}
 
   @Post()
+  @Roles('admin')
+  @UseGuards(JwtAuthGuard, RolesGuard)
   create(@Body() dto: CreateAlbumDto) {
-    const album = this.albumService.create(dto);
-    return album;
+    return this.albumService.create(dto);
   }
 
   @Get()
-  getAll(@Query('count') count: number, @Query('offset') offset: number) {
-    return this.albumService.getAll(count, offset);
+  getAll(@Query() pagination: PaginationQueryDto) {
+    return this.albumService.getAll(pagination.count, pagination.offset);
   }
 
-  @Get('/popular')
-  getTopTracks(@Query('count') count: number, @Query('offset') offset: number) {
-    return this.albumService.getTopAlbum(count, offset);
+  @Get('popular')
+  getTopAlbums(@Query() pagination: PaginationQueryDto) {
+    return this.albumService.getTopAlbum(pagination.count, pagination.offset);
   }
 
   @Get(':id')
-  getOne(@Param('id') id: number) {
+  getOne(@Param('id', ParseIntPipe) id: number) {
     return this.albumService.getOne(id);
   }
 
   @Delete('delete/:id')
-  delete(@Param('id') id: number) {
+  @Roles('admin')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  delete(@Param('id', ParseIntPipe) id: number) {
     return this.albumService.delete(id);
   }
 
   @Patch('change/:id')
-  change(@Param('id') id: number, @Body() updateData: CreateAlbumDto) {
-    return this.albumService.change(id, updateData);
+  @Roles('admin')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  change(@Param('id', ParseIntPipe) id: number, @Body() dto: CreateAlbumDto) {
+    return this.albumService.change(id, dto);
   }
 }

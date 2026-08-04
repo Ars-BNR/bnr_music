@@ -4,20 +4,21 @@ import CardItem from "@/shared/components/common/CardItem/CardItem";
 import { BASE_URL } from "@/shared/config/config";
 import useCollectionStore from "@/shared/store/collection";
 import { useRouter } from "next/navigation";
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 
 const AlbumsCollection = () => {
   const router = useRouter();
-  const collection = Number(localStorage.getItem("collection"));
+  const [collectionId, setCollectionId] = useState<number | null>(null);
   const { getUserAlbums, userAlbums } = useCollectionStore();
+
   useEffect(() => {
-    if (collection !== null) {
-      getUserAlbums(collection);
-    }
+    const value = Number(localStorage.getItem("collection"));
+    setCollectionId(Number.isInteger(value) && value > 0 ? value : null);
   }, []);
+
   useEffect(() => {
-    console.log("userAlbums", userAlbums);
-  }, [userAlbums]);
+    if (collectionId !== null) void getUserAlbums(collectionId);
+  }, [collectionId, getUserAlbums]);
   return (
     <div>
       <h1 className="bg-black text-white text-[18px] mb-3">Альбомы</h1>

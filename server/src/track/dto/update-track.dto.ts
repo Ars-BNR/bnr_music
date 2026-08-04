@@ -1,5 +1,6 @@
+import { Type } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
-import { IsInt,  IsOptional, IsString } from 'class-validator';
+import { IsInt, IsOptional, IsString } from 'class-validator';
 
 export class UpdateTrackDto {
   @ApiProperty({
@@ -44,6 +45,7 @@ export class UpdateTrackDto {
     required: false,
   })
   @IsOptional()
+  @Type(() => Number)
   @IsInt()
   listens?: number;
 

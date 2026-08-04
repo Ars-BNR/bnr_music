@@ -18,7 +18,6 @@ const useCategoryStore = create<CategoryStore>((set) => ({
     try {
       set({ loading: true });
       const data = await categoryService.getAll(params);
-      console.log("dataAlbums", data);
       set({ categories: data, error: "" });
     } catch {
       set({ error: "Произошла ошибка при загрузке треков" });

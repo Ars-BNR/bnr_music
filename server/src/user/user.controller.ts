@@ -6,103 +6,99 @@ import {
   Post,
   Req,
   Res,
-  UnauthorizedException,
   UseGuards,
 } from '@nestjs/common';
-import { UserService } from './user.service';
-import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
-import { CreateUserDto } from './dto/create-user.dto';
+import {
+  ApiBearerAuth,
+  ApiOperation,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
+import { ConfigService } from '@nestjs/config';
+import { Throttle } from '@nestjs/throttler';
 import { Request, Response } from 'express';
-import { ActivateDto } from './dto/check-link.dto';
+import { Roles } from 'src/decorators/roles-auth.decorator';
 import { JwtAuthGuard } from 'src/guards/jwt-auth.guard';
 import { RolesGuard } from 'src/guards/roles.guard';
-import { Roles } from 'src/decorators/roles-auth.decorator';
+import { ActivateDto } from './dto/check-link.dto';
+import { CreateUserDto } from './dto/create-user.dto';
 import { UserResponse } from './response/user-response';
-import { UserModel } from './model/user.model';
-import { Throttle } from '@nestjs/throttler';
+import { UserService } from './user.service';
 
-@ApiTags('Пользователи')
+@ApiTags('Users')
 @Controller()
 export class UserController {
-  constructor(private userService: UserService) {}
+  constructor(
+    private readonly userService: UserService,
+    private readonly config: ConfigService,
+  ) {}
 
-  @ApiOperation({ summary: 'Создание пользователя' })
-  @ApiResponse({ status: 201, type: UserResponse })
   @Post('registration')
-  async registartion(
-    @Body() userDto: CreateUserDto,
-    @Res({ passthrough: true }) res: Response,
+  @ApiOperation({ summary: 'Register a user' })
+  @ApiResponse({ status: 201, type: UserResponse })
+  async registration(
+    @Body() dto: CreateUserDto,
+    @Res({ passthrough: true }) response: Response,
   ) {
-    const userData = await this.userService.registration(userDto);
-    await this.userService.setRefreshTokenCookie(res, userData.refreshToken);
-    return userData;
+    const session = await this.userService.registration(dto);
+    await this.userService.setRefreshTokenCookie(
+      response,
+      session.refreshToken,
+    );
+    return { accessToken: session.accessToken, user: session.user };
   }
 
-  @ApiOperation({ summary: 'Вход в учетную запись пользователя' })
-  @ApiResponse({ status: 200, type: UserResponse })
-  @Throttle({ default: { limit: 3, ttl: 50000 } })
   @Post('login')
+  @Throttle({ default: { limit: 3, ttl: 50000 } })
+  @ApiOperation({ summary: 'Log in' })
+  @ApiResponse({ status: 200, type: UserResponse })
   async login(
-    @Body() userDto: CreateUserDto,
-    @Res({ passthrough: true }) res: Response,
+    @Body() dto: CreateUserDto,
+    @Res({ passthrough: true }) response: Response,
   ) {
-    const userData = await this.userService.login(userDto);
-    await this.userService.setRefreshTokenCookie(res, userData.refreshToken);
-    return userData;
+    const session = await this.userService.login(dto);
+    await this.userService.setRefreshTokenCookie(
+      response,
+      session.refreshToken,
+    );
+    return { accessToken: session.accessToken, user: session.user };
   }
 
-  @ApiOperation({ summary: 'Выход из учетной записи пользователя' })
-  @ApiResponse({
-    status: 200,
-    description: 'Успешный выход',
-    schema: {
-      type: 'number',
-      example: 1,
-    },
-  })
   @Post('logout')
-  logout(
-    @Req() req: Request,
-    @Res({ passthrough: true }) res: Response,
-  ): Promise<Number> {
-    const { refreshToken } = req.cookies;
-    if (!refreshToken) {
-      throw new UnauthorizedException('Refresh token not found');
-    }
-    const token = this.userService.logout(refreshToken);
-    res.clearCookie('refreshToken');
-    return token;
+  async logout(
+    @Req() request: Request,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    await this.userService.logout(request.cookies?.refreshToken);
+    this.userService.clearRefreshTokenCookie(response);
+    return { success: true };
+  }
+
+  @Post('refresh')
+  async refresh(
+    @Req() request: Request,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const session = await this.userService.refresh(
+      request.cookies?.refreshToken,
+    );
+    await this.userService.setRefreshTokenCookie(
+      response,
+      session.refreshToken,
+    );
+    return { accessToken: session.accessToken, user: session.user };
   }
 
   @Get('activate/:link')
-  async activate(@Param() params: ActivateDto, @Res() res: Response) {
-    console.log('activationLink', params);
+  async activate(@Param() params: ActivateDto, @Res() response: Response) {
     await this.userService.activate(params.link);
-    return res.redirect(process.env.CLIENT_URL);
+    return response.redirect(this.config.getOrThrow<string>('CLIENT_URL'));
   }
 
-  @ApiOperation({ summary: 'Обновление токенов пользователя' })
-  @ApiResponse({
-    status: 200,
-    description: 'Токены успешно обновлены',
-    type: UserResponse,
-  })
-  @Get('refresh')
-  async refresh(
-    @Req() req: Request,
-    @Res({ passthrough: true }) res: Response,
-  ) {
-    const { refreshToken } = req.cookies;
-    const userData = await this.userService.refresh(refreshToken);
-    await this.userService.setRefreshTokenCookie(res, userData.refreshToken);
-    return userData;
-  }
-
-  @ApiOperation({ summary: 'Получение всех пользователей' })
-  @ApiResponse({ status: 200, type: [UserModel] })
+  @Get('users')
+  @ApiBearerAuth()
   @Roles('admin')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Get('users')
   getAll() {
     return this.userService.getAllUsers();
   }

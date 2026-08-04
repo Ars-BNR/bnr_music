@@ -1,33 +1,40 @@
+import { ValidationPipe } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
-import { AppModule } from './app.module';
-import cookieParser from 'cookie-parser';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
-import { SeedService } from './seed/seed.service';
-import { ValidationPipe } from './pipes/validation.pipe';
-async function start() {
-  const PORT = process.env.PORT || 8341;
+import cookieParser from 'cookie-parser';
+import { AppModule } from './app.module';
+
+async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  const config = app.get(ConfigService);
 
   app.use(cookieParser());
   app.enableCors({
-    origin: process.env.CLIENT_URL,
+    origin: config.getOrThrow<string>('CLIENT_URL'),
     credentials: true,
   });
+  app.useGlobalPipes(
+    new ValidationPipe({
+      transform: true,
+      whitelist: true,
+      forbidNonWhitelisted: true,
+      transformOptions: { enableImplicitConversion: false },
+    }),
+  );
 
-  const config = new DocumentBuilder()
-    .setTitle('Документация по серверу BNR-MUSIC')
-    .setDescription('Документация по роутам для BNR')
-    .setVersion('1.0')
-    .build();
-
-  const document = SwaggerModule.createDocument(app, config);
+  const document = SwaggerModule.createDocument(
+    app,
+    new DocumentBuilder()
+      .setTitle('BNR Music API')
+      .setDescription('BNR Music server API')
+      .setVersion('2.0')
+      .addBearerAuth()
+      .build(),
+  );
   SwaggerModule.setup('/api/docs', app, document);
 
-  const seeder = app.get(SeedService);
-  await seeder.seed();
-
-  app.useGlobalPipes(new ValidationPipe());
-
-  await app.listen(PORT, () => console.log(`Server started on port ${PORT}`));
+  await app.listen(config.getOrThrow<number>('PORT'));
 }
-start();
+
+void bootstrap();

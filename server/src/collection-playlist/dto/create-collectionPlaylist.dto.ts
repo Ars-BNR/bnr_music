@@ -1,20 +1,15 @@
+import { Type } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
-import { IsInt } from 'class-validator';
-
+import { IsInt, Min } from 'class-validator';
 export class CreateCollectionPlaylistDto {
-  @ApiProperty({
-    example: 1,
-    description: 'id колекции',
-    type: Number,
-  })
+  @ApiProperty({ example: 1 })
+  @Type(() => Number)
   @IsInt()
+  @Min(1)
   collectionId: number;
-
-  @ApiProperty({
-    example: 1,
-    description: 'id плейлиста',
-    type: Number,
-  })
-  @IsInt({ message: 'Должен быть целым числом' })
+  @ApiProperty({ example: 1 })
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
   playlistId: number;
 }

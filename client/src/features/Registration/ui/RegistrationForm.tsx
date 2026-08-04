@@ -11,15 +11,17 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from "@/shared/components/ui/form";
-import { Input } from "@/shared/components/ui/input";
+} from "@/shared/ui/form";
+import { Input } from "@/shared/ui/input";
 import { zodResolver } from "@hookform/resolvers/zod";
 import React from "react";
 import { useForm } from "react-hook-form";
 import styles from "../styles/RegistrationForm.module.scss";
-import { Button } from "@/shared/components/ui/button";
+import { Button } from "@/shared/ui/button";
 import { useRouter } from "next/navigation";
 import AuthStore from "@/shared/store/auth";
+import { Field, FieldGroup } from "@/shared/ui/field";
+import { Alert, AlertDescription } from "@/shared/ui/alert";
 
 export const RegistrationForm = () => {
   const registration = AuthStore((state) => state.registration);
@@ -34,11 +36,9 @@ export const RegistrationForm = () => {
   });
   const onSubmit = async (data: TFormRegisterValues) => {
     try {
-      registration({ email: data.email, password: data.password, router });
-    } catch (error) {
-      if (error instanceof Error) {
-        console.log(error);
-      }
+      await registration({ email: data.email, password: data.password, router });
+    } catch {
+      form.setError("root", { message: "Не удалось зарегистрировать аккаунт." });
     }
   };
   return (
@@ -46,25 +46,31 @@ export const RegistrationForm = () => {
       <div className={styles.RegForm__block}>
         <div className={styles.RegForm__title}>Регистрация</div>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-8">
+            {form.formState.errors.root?.message && (
+              <Alert variant="destructive">
+                <AlertDescription>{form.formState.errors.root.message}</AlertDescription>
+              </Alert>
+            )}
+            <FieldGroup>
             <FormField
               control={form.control}
               name="email"
               render={({ field }) => (
-                <FormItem>
+                <Field data-invalid={!!form.formState.errors.email}><FormItem>
                   <FormLabel className="text-white">Email</FormLabel>
                   <FormControl>
                     <Input placeholder="Введите email" {...field} />
                   </FormControl>
                   <FormMessage />
-                </FormItem>
+                </FormItem></Field>
               )}
             />
             <FormField
               control={form.control}
               name="password"
               render={({ field }) => (
-                <FormItem>
+                <Field data-invalid={!!form.formState.errors.password}><FormItem>
                   <FormLabel className="text-white">Пароль</FormLabel>
                   <FormControl>
                     <Input
@@ -74,14 +80,14 @@ export const RegistrationForm = () => {
                     />
                   </FormControl>
                   <FormMessage />
-                </FormItem>
+                </FormItem></Field>
               )}
             />
             <FormField
               control={form.control}
               name="confirmPassword"
               render={({ field }) => (
-                <FormItem>
+                <Field data-invalid={!!form.formState.errors.confirmPassword}><FormItem>
                   <FormLabel className="text-white">
                     Подтверждение пароля
                   </FormLabel>
@@ -93,9 +99,9 @@ export const RegistrationForm = () => {
                     />
                   </FormControl>
                   <FormMessage />
-                </FormItem>
+                </FormItem></Field>
               )}
-            />
+            /></FieldGroup>
             <div className={styles.Buttons}>
               <Button className="max-w-[204px]" type="submit">
                 Зарегистрироваться

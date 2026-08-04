@@ -1,19 +1,19 @@
+import { Type } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString } from 'class-validator';
+import { IsInt, IsString, Min } from 'class-validator';
 
 export class CreateTrackDto {
-  @ApiProperty({ example: 'Escape', description: 'Название трека' })
-  @IsString({ message: 'Должно быть строкой' })
+  @ApiProperty({ example: 'Escape' })
+  @IsString()
   readonly name: string;
 
-  @ApiProperty({ example: 'Bryan Tyler', description: 'Автор трека' })
-  @IsString({ message: 'Должно быть строкой' })
-  readonly author: string;
+  @ApiProperty({ example: 1 })
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  readonly authorId: number;
 
-  @ApiProperty({
-    example: 'something text music',
-    description: 'текст песни',
-  })
-  @IsString({ message: 'Должно быть строкой' })
+  @ApiProperty({ example: 'Song lyrics' })
+  @IsString()
   readonly text: string;
 }

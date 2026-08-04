@@ -20,7 +20,6 @@ const useAlbumStore = create<AlbumStore>((set) => ({
     try {
       set({ loading: true });
       const data = await albumService.getTopAlbums(params);
-      console.log("dataAlbums", data);
       set({ albums: data, error: "" });
     } catch {
       set({ error: "Произошла ошибка при загрузке треков" });
@@ -33,9 +32,8 @@ const useAlbumStore = create<AlbumStore>((set) => ({
     try {
       set({ loading: true });
       const data = await albumService.getOne(id);
-      console.log("TracksAlbum", data);
       set({ selectedAlbumTracks: data, error: "" });
-    } catch (error) {
+    } catch {
       set({ error: "Произошла ошибка при загрузке треков из Альбома" });
     } finally {
       set({ loading: false });

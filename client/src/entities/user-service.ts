@@ -23,7 +23,7 @@ const userService = {
     return data;
   },
   refresh: async () => {
-    const { data } = await $api.get(refreshEndpoint);
+    const { data } = await $api.post(refreshEndpoint);
     return data;
   },
   getUsers: async () => {

@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import Image from "next/image";
 
 interface CardItemProps {
   imageUrl?: string;
@@ -6,7 +7,7 @@ interface CardItemProps {
   subtitle?: string;
   icon?: React.ReactNode;
   active?: boolean;
-  onClick?: (e: any) => void;
+  onClick?: (e: React.MouseEvent<HTMLDivElement>) => void;
   className?: string;
 }
 
@@ -47,7 +48,14 @@ const CardItem = ({
     >
       <div className="rounded-[4px] flex justify-center items-center min-h-[170px]">
         {imageUrl ? (
-          <img src={imageUrl} alt={title} className="rounded-[4px]" />
+          <Image
+            src={imageUrl}
+            alt={title}
+            width={170}
+            height={170}
+            unoptimized
+            className="rounded-[4px]"
+          />
         ) : (
           icon
         )}

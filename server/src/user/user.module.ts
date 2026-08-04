@@ -1,21 +1,18 @@
 import { Module } from '@nestjs/common';
+import { SequelizeModule } from '@nestjs/sequelize';
+import { CollectionModel } from 'src/collection/model/collection.model';
+import { MailModule } from 'src/mail/mail.module';
+import { UserModel } from './model/user.model';
 import { UserController } from './user.controller';
 import { UserService } from './user.service';
-import { TokenModule } from 'src/token/token.module';
-import { SequelizeModule } from '@nestjs/sequelize';
-import { UserModel } from './model/user.model';
-import { MailModule } from 'src/mail/mail.module';
-import { JwtService } from '@nestjs/jwt';
-import { CollectionModule } from 'src/collection/collection.module';
 
 @Module({
   imports: [
-    TokenModule,
-    CollectionModule,
     MailModule,
-    SequelizeModule.forFeature([UserModel]),
+    SequelizeModule.forFeature([UserModel, CollectionModel]),
   ],
   controllers: [UserController],
-  providers: [UserService, JwtService],
+  providers: [UserService],
+  exports: [UserService],
 })
 export class UserModule {}

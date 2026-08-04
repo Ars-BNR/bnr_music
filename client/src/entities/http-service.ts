@@ -1,58 +1,39 @@
-import axios from "axios";
+import axios, { InternalAxiosRequestConfig } from "axios";
 
-export const API_URL = `http://localhost:8340`;
+export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8340";
 
-const $api = axios.create({
-  withCredentials: true,
-  baseURL: API_URL,
+const $api = axios.create({ withCredentials: true, baseURL: API_URL });
+
+$api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
+  if (typeof window !== "undefined") {
+    const token = localStorage.getItem("token");
+    if (token) config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
 });
 
-// $api.interceptors.request.use((config) => {
-//   config.headers.Authorization = `Bearer ${localStorage.getItem("token")}`;
-//   return config;
-// });
-
-// $api.interceptors.response.use(
-//   (config) => {
-//     console.log("2");
-//     // console.log(config, "config");
-//     return config;
-//   },
-//   async (error) => {
-//     console.log("2");
-//     // console.log(error, "error");
-//     const orifinalRequest = error.config;
-//     if (
-//       error.response.status == 401 &&
-//       error.config &&
-//       !error.config._isRetry
-//     ) {
-//       // console.log("Retrying request:", orifinalRequest);
-//       orifinalRequest._isRetry = true;
-//       try {
-//         const response = await refreshService.refresh();
-//         localStorage.setItem("token", response.accessToken);
-//         return $api.request(orifinalRequest);
-//       } catch (error) {
-//         console.log("Refresh error:", error);
-//       }
-//     }
-//     throw error;
-//   }
-// );
+let refreshRequest: Promise<string> | null = null;
 $api.interceptors.response.use(
-  function (response) {
-    // Если все хорошо, просто возвращаем ответ
-    return response;
+  (response) => response,
+  async (error) => {
+    const request = error.config as (InternalAxiosRequestConfig & { _retry?: boolean }) | undefined;
+    if (!request || error.response?.status !== 401 || request._retry || request.url?.includes("/refresh")) {
+      return Promise.reject(error);
+    }
+    request._retry = true;
+    refreshRequest ??= axios.post<{ accessToken: string }>(`${API_URL}/refresh`, undefined, { withCredentials: true })
+      .then((response) => response.data.accessToken)
+      .finally(() => { refreshRequest = null; });
+    try {
+      const token = await refreshRequest;
+      localStorage.setItem("token", token);
+      request.headers.Authorization = `Bearer ${token}`;
+      return $api.request(request);
+    } catch (refreshError) {
+      localStorage.removeItem("token");
+      return Promise.reject(refreshError);
+    }
   },
-  function (error) {
-    console.log(error);
-    // Если сервер вернул ошибку 401, делаем редирект на страницу входа
-    // if (error.response && error.response.status === 401) {
-    //   window.location.href = '/login'; // Или используйте свой механизм роутинга
-    // }
-    return Promise.reject(error);
-  }
 );
 
 export default $api;

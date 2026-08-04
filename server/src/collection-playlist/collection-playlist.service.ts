@@ -1,139 +1,87 @@
-import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
-import { CollectionPlaylistModel } from './model/collection-playlist.model';
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/sequelize';
+import { Sequelize } from 'sequelize';
+import { AccessTokenPayload } from 'src/auth/jwt.strategy';
+import { OwnershipService } from 'src/auth/ownership.service';
+import { PlaylistModel } from 'src/playlist/model/playlist.model';
 import { CreateCollectionPlaylistDto } from './dto/create-collectionPlaylist.dto';
 import { UpdateCollectionPlaylistDto } from './dto/update-collectionPlaylist.dto';
-import { PlaylistModel } from 'src/playlist/model/playlist.model';
-import { Sequelize } from 'sequelize';
+import { CollectionPlaylistModel } from './model/collection-playlist.model';
 
 @Injectable()
 export class CollectionPlaylistService {
   constructor(
     @InjectModel(CollectionPlaylistModel)
-    private collectionPlaylistModelRepository: typeof CollectionPlaylistModel,
+    private readonly relationRepository: typeof CollectionPlaylistModel,
+    private readonly ownership: OwnershipService,
   ) {}
 
-  async create(dto: CreateCollectionPlaylistDto) {
-    try {
-      if (!dto) {
-        throw new HttpException(
-          'Не указаны все данные',
-          HttpStatus.BAD_REQUEST,
-        );
-      }
-      console.log('dto', dto);
-      console.log('typeof(dto.collectionId)', typeof dto.collectionId);
-      const candidate = await this.collectionPlaylistModelRepository.findOne({
-        where: {
-          collectionId: dto.collectionId,
-          playlistId: dto.playlistId,
-        },
-      });
-      if (candidate) {
-        throw new HttpException(
-          'Данный плейлист  уже привязан к коллекции',
-          HttpStatus.BAD_REQUEST,
-        );
-      }
-      const collectionPlaylist =
-        await this.collectionPlaylistModelRepository.create({
-          ...dto,
-        });
-      return collectionPlaylist;
-    } catch (error) {
-      throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
-    }
+  async create(
+    dto: CreateCollectionPlaylistDto,
+    user: AccessTokenPayload,
+  ): Promise<CollectionPlaylistModel> {
+    await this.ownership.ensureCollectionOwner(dto.collectionId, user);
+    await this.ownership.ensurePlaylistOwner(dto.playlistId, user);
+    const relation = {
+      collectionId: dto.collectionId,
+      playlistId: dto.playlistId,
+    };
+    if (await this.relationRepository.findOne({ where: relation }))
+      throw new ConflictException('Playlist is already in this collection');
+    return this.relationRepository.create(relation);
   }
 
-  async delete(id: number) {
-    try {
-      if (!id) {
-        throw new HttpException(
-          'Не указаны все данные',
-          HttpStatus.BAD_REQUEST,
-        );
-      }
-      const collectionPlaylist =
-        await this.collectionPlaylistModelRepository.destroy({
-          where: {
-            id,
-          },
-        });
-
-      if (collectionPlaylist === 0) {
-        throw new HttpException('Запись не найдена', HttpStatus.NOT_FOUND);
-      }
-
-      return collectionPlaylist;
-    } catch (error) {
-      throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
-    }
+  async delete(id: number, user: AccessTokenPayload): Promise<void> {
+    const relation = await this.relationRepository.findByPk(id);
+    if (!relation)
+      throw new NotFoundException('Collection playlist relation not found');
+    await this.ownership.ensureCollectionOwner(relation.collectionId, user);
+    await relation.destroy();
   }
 
-  async change(id: number, updatedData: UpdateCollectionPlaylistDto) {
-    try {
-      if (!id) {
-        throw new HttpException(
-          'Не указаны все данные',
-          HttpStatus.BAD_REQUEST,
-        );
-      }
-
-      const idExists =
-        await this.collectionPlaylistModelRepository.findByPk(id);
-      if (!idExists) {
-        throw new HttpException(
-          'Нет такого плейлиста в коллекции',
-          HttpStatus.BAD_REQUEST,
-        );
-      }
-
-      const newData = await this.collectionPlaylistModelRepository.update(
-        updatedData,
-        {
-          where: {
-            id: id,
-          },
-        },
-      );
-      return newData;
-    } catch (error) {
-      throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
-    }
+  async change(
+    id: number,
+    dto: UpdateCollectionPlaylistDto,
+    user: AccessTokenPayload,
+  ): Promise<CollectionPlaylistModel> {
+    const relation = await this.relationRepository.findByPk(id);
+    if (!relation)
+      throw new NotFoundException('Collection playlist relation not found');
+    await this.ownership.ensureCollectionOwner(relation.collectionId, user);
+    const collectionId = dto.collectionId ?? relation.collectionId;
+    const playlistId = dto.playlistId ?? relation.playlistId;
+    await this.ownership.ensureCollectionOwner(collectionId, user);
+    await this.ownership.ensurePlaylistOwner(playlistId, user);
+    const duplicate = await this.relationRepository.findOne({
+      where: { collectionId, playlistId },
+    });
+    if (duplicate && duplicate.id !== relation.id)
+      throw new ConflictException('Playlist is already in this collection');
+    relation.collectionId = collectionId;
+    relation.playlistId = playlistId;
+    return relation.save();
   }
 
   async getPlaylistsByCollectionId(
     collectionId: number,
-    limit: number = 10,
-    offset: number = 0,
+    user: AccessTokenPayload,
+    limit = 10,
+    offset = 0,
   ) {
-    try {
-      if (!limit || !offset) {
-        throw new HttpException(
-          'Не указаны все данные',
-          HttpStatus.BAD_REQUEST,
-        );
-      }
-
-      const collectionPlaylists = await CollectionPlaylistModel.findAll({
-        where: { collectionId },
-        include: [
-          {
-            model: PlaylistModel,
-            attributes: [],
-          },
-        ],
-        attributes: ['id', [Sequelize.literal('playlist.name'), 'name']],
-        limit: Number(limit),
-        offset: Number(offset),
-        subQuery: false,
-        raw: true,
-        nest: true,
-      });
-
-      return collectionPlaylists;
-    } catch (error) {
-      throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
-    }
+    await this.ownership.ensureCollectionOwner(collectionId, user);
+    return this.relationRepository.findAll({
+      where: { collectionId },
+      include: [{ model: PlaylistModel, attributes: [] }],
+      attributes: ['id', [Sequelize.literal('playlist.name'), 'name']],
+      limit,
+      offset,
+      subQuery: false,
+      raw: true,
+      nest: true,
+    });
   }
 }

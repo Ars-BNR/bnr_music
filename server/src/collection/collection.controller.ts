@@ -1,54 +1,70 @@
 import {
-  Body,
   Controller,
   Delete,
   Get,
   Param,
-  Patch,
+  ParseIntPipe,
   Post,
   Query,
+  Req,
   UseGuards,
 } from '@nestjs/common';
-import { CollectionService } from './collection.service';
-import { CreateCollectionDto } from './dto/create-collection.dto';
+import { Request } from 'express';
+import { AccessTokenPayload } from 'src/auth/jwt.strategy';
+import { PaginationQueryDto } from 'src/common/dto/pagination-query.dto';
+import { Roles } from 'src/decorators/roles-auth.decorator';
 import { JwtAuthGuard } from 'src/guards/jwt-auth.guard';
+import { RolesGuard } from 'src/guards/roles.guard';
+import { CollectionService } from './collection.service';
 
-// @UseGuards(JwtAuthGuard)
+type AuthenticatedRequest = Request & { user: AccessTokenPayload };
+
 @Controller('collection')
+@UseGuards(JwtAuthGuard)
 export class CollectionController {
-  constructor(private collectionService: CollectionService) {}
+  constructor(private readonly collectionService: CollectionService) {}
 
   @Post()
-  create(@Body() dto: CreateCollectionDto) {
-    return this.collectionService.create(dto);
+  create(@Req() request: AuthenticatedRequest) {
+    return this.collectionService.createForUser(request.user.sub);
   }
 
   @Get()
-  getAll(@Query('count') count: number, @Query('offset') offset: number) {
-    return this.collectionService.getAll(count, offset);
-  }
-
-  @Get(':id')
-  getOne(@Param('id') id: number) {
-    return this.collectionService.getOne(id);
+  @Roles('admin')
+  @UseGuards(RolesGuard)
+  getAll(@Query() pagination: PaginationQueryDto) {
+    return this.collectionService.getAll(pagination.count, pagination.offset);
   }
 
   @Get('user/:userId')
-  getByUserId(@Param('userId') userId: number) {
-    return this.collectionService.getByUserId(userId);
+  getByUserId(
+    @Param('userId', ParseIntPipe) userId: number,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    return this.collectionService.getByUserId(userId, request.user);
+  }
+
+  @Get('summary/:userId')
+  getCollectionSummary(
+    @Param('userId', ParseIntPipe) userId: number,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    return this.collectionService.getCollectionSummary(userId, request.user);
+  }
+
+  @Get(':id')
+  getOne(
+    @Param('id', ParseIntPipe) id: number,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    return this.collectionService.getOne(id, request.user);
   }
 
   @Delete('delete/:id')
-  delete(@Param('id') id: number) {
-    return this.collectionService.delete(id);
-  }
-
-  @Patch('change/:id')
-  change(@Param('id') id: number, @Body() updateData: CreateCollectionDto) {
-    return this.collectionService.change(id, updateData);
-  }
-  @Get('summary/:userId')
-  async getCollectionSummary(@Param('userId') userId: number) {
-    return this.collectionService.getCollectionSummary(userId);
+  delete(
+    @Param('id', ParseIntPipe) id: number,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    return this.collectionService.delete(id, request.user);
   }
 }

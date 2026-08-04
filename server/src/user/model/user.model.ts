@@ -41,7 +41,7 @@ export class UserModel extends Model {
 
   @ApiProperty({ example: 'false', description: 'Активирован ли пользователь' })
   @Default(false)
-  @Column(DataType.STRING)
+  @Column(DataType.BOOLEAN)
   isActivated: boolean;
 
   @ApiProperty({

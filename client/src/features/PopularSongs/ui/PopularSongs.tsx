@@ -3,10 +3,10 @@
 import React, { useEffect } from "react";
 import CardSongs from "@/features/CardSongs/CardSongs";
 import useTrackStore from "@/shared/store/track";
-import { Skeleton } from "@/shared/components/ui/skeleton";
+import { Skeleton } from "@/shared/ui/skeleton";
 
 const PopularSongs = () => {
-  const { tracks, error, fetchTopTracks, loading } = useTrackStore();
+  const { tracks, fetchTopTracks, loading } = useTrackStore();
 
   useEffect(() => {
     fetchTopTracks({ count: 10, offset: 0 });
@@ -24,7 +24,9 @@ const PopularSongs = () => {
               .map((_, index) => (
                 <Skeleton key={index} className="h-[250px] w-[172px]" />
               ))
-          : tracks.map((track) => <CardSongs key={track.id} track={track} />)}
+          : tracks.map((track) => (
+              <CardSongs key={track.id} track={track} queue={tracks} context={{ type: "popular" }} />
+            ))}
       </div>
     </div>
   );

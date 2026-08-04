@@ -4,36 +4,55 @@ import {
   Delete,
   Get,
   Param,
+  ParseIntPipe,
   Post,
   Query,
+  Req,
+  UseGuards,
 } from '@nestjs/common';
-import { CollectionTrackService } from './collection-track.service';
+import { Request } from 'express';
+import { AccessTokenPayload } from 'src/auth/jwt.strategy';
+import { OffsetLimitQueryDto } from 'src/common/dto/offset-limit-query.dto';
+import { JwtAuthGuard } from 'src/guards/jwt-auth.guard';
 import { CreateCollectionTrackDto } from './dto/create-collectionTrack.dto';
+import { CollectionTrackService } from './collection-track.service';
+
+type AuthenticatedRequest = Request & { user: AccessTokenPayload };
 
 @Controller('collection_track')
+@UseGuards(JwtAuthGuard)
 export class CollectionTrackController {
-  constructor(private collectionTrackService: CollectionTrackService) {}
+  constructor(
+    private readonly collectionTrackService: CollectionTrackService,
+  ) {}
 
   @Post()
-  create(@Body() dto: CreateCollectionTrackDto) {
-    return this.collectionTrackService.create(dto);
+  create(
+    @Body() dto: CreateCollectionTrackDto,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    return this.collectionTrackService.create(dto, request.user);
   }
 
   @Delete('delete')
-  delete(@Body() dto: CreateCollectionTrackDto) {
-    return this.collectionTrackService.delete(dto);
+  delete(
+    @Body() dto: CreateCollectionTrackDto,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    return this.collectionTrackService.delete(dto, request.user);
   }
 
   @Get(':collectionId')
   getTracksByCollectionId(
-    @Param('collectionId') collectionId: number,
-    @Query('limit') limit: number = 10,
-    @Query('offset') offset: number = 0,
+    @Param('collectionId', ParseIntPipe) collectionId: number,
+    @Query() pagination: OffsetLimitQueryDto,
+    @Req() request: AuthenticatedRequest,
   ) {
     return this.collectionTrackService.getTracksByCollectionId(
       collectionId,
-      limit,
-      offset,
+      request.user,
+      pagination.limit,
+      pagination.offset,
     );
   }
 }

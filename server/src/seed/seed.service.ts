@@ -1,76 +1,109 @@
 import { Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { InjectModel } from '@nestjs/sequelize';
+import * as bcrypt from 'bcrypt';
 import { AlbumTrackModel } from 'src/album-track/model/album-track.model';
 import { AlbumModel } from 'src/album/model/album.model';
-import { TrackModel } from 'src/track/model/track.model';
-import tracks from './data/track-seed';
-import albums from './data/album-seed';
-import album_tracks from './data/album_track-seed';
-import { UserModel } from 'src/user/model/user.model';
-import users from './data/user-seed';
 import { AuthorModel } from 'src/author/model/author.model';
-import { GenreModel } from 'src/genre/model/genre.model';
-import authors from './data/authors-seed';
-import genres from './data/genre-seed';
 import { CollectionModel } from 'src/collection/model/collection.model';
 import { CollectionAlbumModel } from 'src/collection-album/model/collection-album.model';
+import { CollectionPlaylistModel } from 'src/collection-playlist/model/collection-playlist.model';
 import { CollectionTrackModel } from 'src/collection-track/model/collection-track.model';
+import { GenreModel } from 'src/genre/model/genre.model';
 import { PlaylistModel } from 'src/playlist/model/playlist.model';
 import { PlaylistTrackModel } from 'src/playlist-track/model/playlist-track.model';
+import { TrackModel } from 'src/track/model/track.model';
+import { UserModel } from 'src/user/model/user.model';
+import albumTracks from './data/album_track-seed';
+import albums from './data/album-seed';
+import authors from './data/authors-seed';
+import collectionAlbums from './data/collection_album-seed';
+import collectionPlaylists from './data/collection_playlist-seed';
+import collectionTracks from './data/collection_track-seed';
 import collections from './data/collection-seed';
+import genres from './data/genre-seed';
 import playlists from './data/playlist-seed';
-import playlist_tracks from './data/playlist_track-seed';
-import collection_albums from './data/collection_album-seed';
-import collection_tracks from './data/collection_track-seed';
-import { CollectionPlaylistModel } from 'src/collection-playlist/model/collection-playlist.model';
-import collection_playlists from './data/collection_playlist-seed';
+import playlistTracks from './data/playlist_track-seed';
+import tracks from './data/track-seed';
 
 @Injectable()
 export class SeedService {
   constructor(
-    @InjectModel(TrackModel) private trackModel: typeof TrackModel,
-    @InjectModel(AlbumModel) private albumModel: typeof AlbumModel,
-    @InjectModel(UserModel) private userModel: typeof UserModel,
-    @InjectModel(AuthorModel) private authorModel: typeof AuthorModel,
-    @InjectModel(GenreModel) private genreModel: typeof GenreModel,
+    @InjectModel(TrackModel) private readonly trackModel: typeof TrackModel,
+    @InjectModel(AlbumModel) private readonly albumModel: typeof AlbumModel,
+    @InjectModel(UserModel) private readonly userModel: typeof UserModel,
+    @InjectModel(AuthorModel) private readonly authorModel: typeof AuthorModel,
+    @InjectModel(GenreModel) private readonly genreModel: typeof GenreModel,
     @InjectModel(AlbumTrackModel)
-    private albumTrackModel: typeof AlbumTrackModel,
+    private readonly albumTrackModel: typeof AlbumTrackModel,
     @InjectModel(CollectionModel)
-    private collectionModel: typeof CollectionModel,
+    private readonly collectionModel: typeof CollectionModel,
     @InjectModel(CollectionAlbumModel)
-    private collectionAlbumModel: typeof CollectionAlbumModel,
+    private readonly collectionAlbumModel: typeof CollectionAlbumModel,
     @InjectModel(CollectionTrackModel)
-    private collectionTrackModel: typeof CollectionTrackModel,
+    private readonly collectionTrackModel: typeof CollectionTrackModel,
     @InjectModel(PlaylistModel)
-    private playlistModel: typeof PlaylistModel,
+    private readonly playlistModel: typeof PlaylistModel,
     @InjectModel(PlaylistTrackModel)
-    private playlistTrackModel: typeof PlaylistTrackModel,
+    private readonly playlistTrackModel: typeof PlaylistTrackModel,
     @InjectModel(CollectionPlaylistModel)
-    private playlistPlaylistModel: typeof CollectionPlaylistModel,
+    private readonly collectionPlaylistModel: typeof CollectionPlaylistModel,
+    private readonly config: ConfigService,
   ) {}
 
-  private async autoInsert(model: any, seedData: object[]) {
-    const count = await model.count();
-    if (count === 0) {
-      await model.bulkCreate(seedData);
-      console.log(`✅ Данные добавлены в ${model.name}`);
-    }
+  private async insertWhenEmpty(
+    model: {
+      count: () => Promise<number>;
+      bulkCreate: (data: any[]) => Promise<unknown>;
+    },
+    data: any[],
+  ): Promise<void> {
+    if ((await model.count()) === 0) await model.bulkCreate(data);
   }
 
-  // Функция для запуска всех сидов
-  async seed() {
-    await this.autoInsert(this.authorModel, authors);
-    await this.autoInsert(this.trackModel, tracks);
-    await this.autoInsert(this.albumModel, albums);
-    await this.autoInsert(this.albumTrackModel, album_tracks);
-    await this.autoInsert(this.genreModel, genres);
-    await this.autoInsert(this.userModel, users);
-    await this.autoInsert(this.collectionModel, collections);
-    await this.autoInsert(this.playlistModel, playlists);
-    await this.autoInsert(this.playlistTrackModel, playlist_tracks);
-    await this.autoInsert(this.collectionAlbumModel, collection_albums);
-    await this.autoInsert(this.collectionTrackModel, collection_tracks);
-    await this.autoInsert(this.playlistPlaylistModel, collection_playlists);
-    console.log('✅ Все сиды успешно добавлены!');
+  private async ensureAdmin(): Promise<void> {
+    const email = this.config.get<string>('SEED_ADMIN_EMAIL');
+    const password = this.config.get<string>('SEED_ADMIN_PASSWORD');
+    if (!email || !password) {
+      throw new Error(
+        'SEED_ADMIN_EMAIL and SEED_ADMIN_PASSWORD are required to run the seed command',
+      );
+    }
+    const [admin, created] = await this.userModel.findOrCreate({
+      where: { email },
+      defaults: {
+        email,
+        password: await bcrypt.hash(password, 10),
+        role: 'admin',
+        isActivated: true,
+        activationLink: null,
+      },
+    });
+    if (!created && admin.role !== 'admin') {
+      admin.role = 'admin';
+      await admin.save();
+    }
+    await this.collectionModel.findOrCreate({
+      where: { userId: admin.id },
+      defaults: { userId: admin.id },
+    });
+  }
+
+  async seed(): Promise<void> {
+    await this.ensureAdmin();
+    await this.insertWhenEmpty(this.authorModel, authors);
+    await this.insertWhenEmpty(this.trackModel, tracks);
+    await this.insertWhenEmpty(this.albumModel, albums);
+    await this.insertWhenEmpty(this.albumTrackModel, albumTracks);
+    await this.insertWhenEmpty(this.genreModel, genres);
+    await this.insertWhenEmpty(this.collectionModel, collections);
+    await this.insertWhenEmpty(this.playlistModel, playlists);
+    await this.insertWhenEmpty(this.playlistTrackModel, playlistTracks);
+    await this.insertWhenEmpty(this.collectionAlbumModel, collectionAlbums);
+    await this.insertWhenEmpty(this.collectionTrackModel, collectionTracks);
+    await this.insertWhenEmpty(
+      this.collectionPlaylistModel,
+      collectionPlaylists,
+    );
   }
 }

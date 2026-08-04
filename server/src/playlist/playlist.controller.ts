@@ -4,43 +4,67 @@ import {
   Delete,
   Get,
   Param,
+  ParseIntPipe,
   Patch,
   Post,
   Query,
+  Req,
   UseGuards,
 } from '@nestjs/common';
-import { PlaylistService } from './playlist.service';
+import { Request } from 'express';
+import { AccessTokenPayload } from 'src/auth/jwt.strategy';
+import { PaginationQueryDto } from 'src/common/dto/pagination-query.dto';
+import { JwtAuthGuard } from 'src/guards/jwt-auth.guard';
 import { CreatePlaylistDto } from './dto/create-playlist.dto';
 import { UpdatePlaylistDto } from './dto/update-playlist.dto';
-import { JwtAuthGuard } from 'src/guards/jwt-auth.guard';
+import { PlaylistService } from './playlist.service';
 
-// @UseGuards(JwtAuthGuard)
+type AuthenticatedRequest = Request & { user: AccessTokenPayload };
+
 @Controller('playlist')
+@UseGuards(JwtAuthGuard)
 export class PlaylistController {
-  constructor(private playlistService: PlaylistService) {}
+  constructor(private readonly playlistService: PlaylistService) {}
 
   @Post()
-  create(@Body() dto: CreatePlaylistDto) {
-    return this.playlistService.create(dto);
+  create(@Body() dto: CreatePlaylistDto, @Req() request: AuthenticatedRequest) {
+    return this.playlistService.create(dto, request.user);
   }
 
   @Get()
-  getAll(@Query('count') count: number, @Query('offset') offset: number) {
-    return this.playlistService.getAll(count, offset);
+  getAll(
+    @Query() pagination: PaginationQueryDto,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    return this.playlistService.getAll(
+      request.user,
+      pagination.count,
+      pagination.offset,
+    );
   }
 
   @Get(':id')
-  getOne(@Param('id') id: number) {
-    return this.playlistService.getOne(id);
+  getOne(
+    @Param('id', ParseIntPipe) id: number,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    return this.playlistService.getOne(id, request.user);
   }
 
   @Delete('delete/:id')
-  delete(@Param('id') id: number) {
-    return this.playlistService.delete(id);
+  delete(
+    @Param('id', ParseIntPipe) id: number,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    return this.playlistService.delete(id, request.user);
   }
 
   @Patch('change/:id')
-  change(@Param('id') id: number, @Body() updateData: UpdatePlaylistDto) {
-    return this.playlistService.change(id, updateData);
+  change(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdatePlaylistDto,
+    @Req() request: AuthenticatedRequest,
+  ) {
+    return this.playlistService.change(id, dto, request.user);
   }
 }

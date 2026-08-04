@@ -11,15 +11,18 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from "@/shared/components/ui/form";
-import { Input } from "@/shared/components/ui/input";
+} from "@/shared/ui/form";
+import { Input } from "@/shared/ui/input";
 import { zodResolver } from "@hookform/resolvers/zod";
-import React, { FormEvent } from "react";
+import React from "react";
 import { useForm } from "react-hook-form";
 import styles from "../styles/LoginForm.module.scss";
-import { Button } from "@/shared/components/ui/button";
+import { Button } from "@/shared/ui/button";
 import { useRouter } from "next/navigation";
 import AuthStore from "@/shared/store/auth";
+import { LoaderCircle } from "lucide-react";
+import { Field, FieldGroup } from "@/shared/ui/field";
+import { Alert, AlertDescription } from "@/shared/ui/alert";
 
 const LoginForm = () => {
   const login = AuthStore((state) => state.login);
@@ -35,11 +38,9 @@ const LoginForm = () => {
 
   const onSubmit = async (data: TFormLoginValues) => {
     try {
-      login({ email: data.email, password: data.password, router });
-    } catch (error) {
-      if (error instanceof Error) {
-        console.log(error);
-      }
+      await login({ email: data.email, password: data.password, router });
+    } catch {
+      form.setError("root", { message: "Не удалось выполнить вход. Проверьте данные." });
     }
   };
 
@@ -48,25 +49,30 @@ const LoginForm = () => {
       <div className={styles.LoginForm__block}>
         <div className={styles.LoginForm__title}>Вход</div>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-            <FormField
+          <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-8">
+            {form.formState.errors.root?.message && (
+              <Alert variant="destructive">
+                <AlertDescription>{form.formState.errors.root.message}</AlertDescription>
+              </Alert>
+            )}
+            <FieldGroup><FormField
               control={form.control}
               name="email"
               render={({ field }) => (
-                <FormItem>
+                <Field data-invalid={!!form.formState.errors.email}><FormItem>
                   <FormLabel className="text-white">Email</FormLabel>
                   <FormControl>
                     <Input placeholder="Введите email" {...field} />
                   </FormControl>
                   <FormMessage />
-                </FormItem>
+                </FormItem></Field>
               )}
             />
             <FormField
               control={form.control}
               name="password"
               render={({ field }) => (
-                <FormItem>
+                <Field data-invalid={!!form.formState.errors.password}><FormItem>
                   <FormLabel className="text-white">Пароль</FormLabel>
                   <FormControl>
                     <Input
@@ -76,11 +82,12 @@ const LoginForm = () => {
                     />
                   </FormControl>
                   <FormMessage />
-                </FormItem>
+                </FormItem></Field>
               )}
-            />
+            /></FieldGroup>
             <div className={styles.Buttons}>
-              <Button loading={loading} className="max-w-[204px]" type="submit">
+              <Button disabled={loading} className="max-w-[204px]" type="submit">
+                {loading && <LoaderCircle data-icon="inline-start" className="animate-spin" />}
                 Войти
               </Button>
               <Button

@@ -1,126 +1,93 @@
-import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/sequelize';
-import { PlaylistModel } from './model/playlist.model';
-import { CreatePlaylistDto } from './dto/create-playlist.dto';
-import { TrackModel } from 'src/track/model/track.model';
-import { UpdatePlaylistDto } from './dto/update-playlist.dto';
-import { AuthorModel } from 'src/author/model/author.model';
-import { AlbumModel } from 'src/album/model/album.model';
 import { Sequelize } from 'sequelize';
+import { AccessTokenPayload } from 'src/auth/jwt.strategy';
+import { AlbumModel } from 'src/album/model/album.model';
+import { AuthorModel } from 'src/author/model/author.model';
+import { TrackModel } from 'src/track/model/track.model';
+import { CreatePlaylistDto } from './dto/create-playlist.dto';
+import { UpdatePlaylistDto } from './dto/update-playlist.dto';
+import { PlaylistModel } from './model/playlist.model';
 
 @Injectable()
 export class PlaylistService {
   constructor(
     @InjectModel(PlaylistModel)
-    private playlistrepository: typeof PlaylistModel,
+    private readonly playlistRepository: typeof PlaylistModel,
   ) {}
 
-  async create(dto: CreatePlaylistDto) {
-    try {
-      if (!dto) {
-        throw new HttpException(
-          'Не указаны все данные',
-          HttpStatus.BAD_REQUEST,
-        );
-      }
-      const playlist = await this.playlistrepository.create({ ...dto });
-      return playlist;
-    } catch (error) {
-      throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
-    }
+  create(
+    dto: CreatePlaylistDto,
+    owner: AccessTokenPayload,
+  ): Promise<PlaylistModel> {
+    return this.playlistRepository.create({ ...dto, userId: owner.sub });
   }
 
-  async getAll(count = 10, offset = 0) {
-    try {
-      if (!count || !offset) {
-        throw new HttpException(
-          'Не указаны все данные',
-          HttpStatus.BAD_REQUEST,
-        );
-      }
-      const playlist = await this.playlistrepository.findAll({
-        limit: Number(count),
-        offset: Number(offset),
-      });
-      return playlist;
-    } catch (error) {
-      throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
-    }
+  getAll(
+    owner: AccessTokenPayload,
+    count = 10,
+    offset = 0,
+  ): Promise<PlaylistModel[]> {
+    return this.playlistRepository.findAll({
+      where: owner.role === 'admin' ? undefined : { userId: owner.sub },
+      limit: count,
+      offset,
+    });
   }
 
-  async getOne(id: number) {
-    try {
-      if (!id) {
-        throw new HttpException(
-          'Не указаны все данные',
-          HttpStatus.BAD_REQUEST,
-        );
-      }
-      const playlist = await this.playlistrepository.findByPk(id, {
-        subQuery: false,
-
-        include: [
-          {
-            model: TrackModel,
-            through: { attributes: [] },
-            attributes: {
-              include: [
-                [Sequelize.literal('"tracks->author"."name"'), 'authorName'],
-                [Sequelize.literal('"tracks->albums"."id"'), 'albumId'],
-              ],
-            },
+  async getOne(
+    id: number,
+    requester: AccessTokenPayload,
+  ): Promise<PlaylistModel> {
+    const playlist = await this.playlistRepository.findByPk(id, {
+      subQuery: false,
+      include: [
+        {
+          model: TrackModel,
+          through: { attributes: [] },
+          attributes: {
             include: [
-              {
-                model: AuthorModel,
-                attributes: [],
-              },
-              {
-                model: AlbumModel,
-                attributes: [],
-                through: { attributes: [] },
-              },
+              [Sequelize.literal('"tracks->author"."name"'), 'authorName'],
+              [Sequelize.literal('"tracks->albums"."id"'), 'albumId'],
             ],
           },
-        ],
-      });
-      return playlist;
-    } catch (error) {
-      throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
-    }
+          include: [
+            { model: AuthorModel, attributes: [] },
+            { model: AlbumModel, attributes: [], through: { attributes: [] } },
+          ],
+        },
+      ],
+    });
+    if (!playlist) throw new NotFoundException('Playlist not found');
+    this.assertOwner(playlist, requester);
+    return playlist;
   }
 
-  async delete(id: number) {
-    try {
-      if (!id) {
-        throw new HttpException(
-          'Не указаны все данные',
-          HttpStatus.BAD_REQUEST,
-        );
-      }
-      const album = await this.playlistrepository.destroy({ where: { id } });
-      return album;
-    } catch (error) {
-      throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
-    }
+  async delete(id: number, requester: AccessTokenPayload): Promise<void> {
+    const playlist = await this.getOne(id, requester);
+    await playlist.destroy();
   }
 
-  async change(id: number, updateData: UpdatePlaylistDto) {
-    try {
-      if (!id || !updateData) {
-        throw new HttpException(
-          'Не указаны все данные',
-          HttpStatus.BAD_REQUEST,
-        );
-      }
-      const playlist = await this.playlistrepository.findByPk(id);
+  async change(
+    id: number,
+    dto: UpdatePlaylistDto,
+    requester: AccessTokenPayload,
+  ): Promise<PlaylistModel> {
+    const playlist = await this.getOne(id, requester);
+    Object.assign(playlist, dto);
+    return playlist.save();
+  }
 
-      Object.assign(playlist, updateData);
-
-      await playlist.save();
-
-      return playlist;
-    } catch (error) {
-      throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
+  private assertOwner(
+    playlist: PlaylistModel,
+    requester: AccessTokenPayload,
+  ): void {
+    if (requester.role !== 'admin' && playlist.userId !== requester.sub) {
+      throw new ForbiddenException('You can only access your own playlists');
     }
   }
 }

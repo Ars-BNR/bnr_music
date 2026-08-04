@@ -1,22 +1,10 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsInt, IsOptional, IsString } from 'class-validator';
+import { IsOptional, IsString, Length } from 'class-validator';
 
 export class UpdatePlaylistDto {
-  @ApiProperty({
-    example: 'Sample',
-    description: 'Новое имя плейлиста',
-    required: false,
-  })
+  @ApiProperty({ example: 'New playlist name', required: false })
   @IsOptional()
   @IsString()
+  @Length(1, 120)
   name?: string;
-
-  @ApiProperty({
-    example: '1',
-    description: 'Id пользователя',
-    required: false,
-  })
-  @IsOptional()
-  @IsInt({ message: 'Должно быть целым числом' })
-  userId: string;
 }

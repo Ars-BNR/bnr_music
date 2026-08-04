@@ -9,7 +9,7 @@ const Category = () => {
 
   useEffect(() => {
     fetchCategories();
-  }, []);
+  }, [fetchCategories]);
 
   return (
     <div className="bg-black">

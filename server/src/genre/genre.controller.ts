@@ -1,17 +1,14 @@
-import { Controller, Get, Param, Query } from '@nestjs/common';
+import { Controller, Get, Param, ParseIntPipe, Query } from '@nestjs/common';
+import { PaginationQueryDto } from 'src/common/dto/pagination-query.dto';
 import { GenreService } from './genre.service';
-// / @UseGuards(JwtAuthGuard)
+
 @Controller('genres')
 export class GenreController {
-  constructor(private genreService: GenreService) {}
-
-  @Get(':id')
-  getOne(@Param('id') id: number) {
-    return this.genreService.getOne(id);
+  constructor(private readonly genreService: GenreService) {}
+  @Get() getAll(@Query() pagination: PaginationQueryDto) {
+    return this.genreService.getAll(pagination.count, pagination.offset);
   }
-
-  @Get()
-  getAll(@Query('count') count: number, @Query('offset') offset: number) {
-    return this.genreService.getAll(count, offset);
+  @Get(':id') getOne(@Param('id', ParseIntPipe) id: number) {
+    return this.genreService.getOne(id);
   }
 }

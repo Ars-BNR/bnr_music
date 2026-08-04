@@ -1,7 +1,7 @@
 "use client";
 
-import { badgeVariants } from "@/shared/components/ui/badge";
-import { Skeleton } from "@/shared/components/ui/skeleton";
+import { badgeVariants } from "@/shared/ui/badge";
+import { Skeleton } from "@/shared/ui/skeleton";
 import Link from "next/link";
 import React from "react";
 

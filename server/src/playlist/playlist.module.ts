@@ -4,11 +4,10 @@ import { PlaylistService } from './playlist.service';
 import { SequelizeModule } from '@nestjs/sequelize';
 import { PlaylistModel } from './model/playlist.model';
 import { TrackModel } from 'src/track/model/track.model';
-import { JwtService } from '@nestjs/jwt';
 
 @Module({
-  imports: [SequelizeModule.forFeature([PlaylistModel,TrackModel])],
+  imports: [SequelizeModule.forFeature([PlaylistModel, TrackModel])],
   controllers: [PlaylistController],
-  providers: [PlaylistService,JwtService],
+  providers: [PlaylistService],
 })
 export class PlaylistModule {}

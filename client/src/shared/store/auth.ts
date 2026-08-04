@@ -1,92 +1,64 @@
 import { AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
-import { user } from "../types/auth";
 import { create } from "zustand";
 import userService from "@/entities/user-service";
+import { user } from "../types/auth";
 
-export interface ArgsForAction {
-  email: string;
-  password: string;
-  router: AppRouterInstance;
-}
+export interface ArgsForAction { email: string; password: string; router: AppRouterInstance; }
 export interface AuthState {
-  profiles: user;
+  profiles: user | null;
   isAuth: boolean;
   isLoading: boolean;
   login: (args: ArgsForAction) => Promise<void>;
   registration: (args: ArgsForAction) => Promise<void>;
   logout: (router: AppRouterInstance) => Promise<void>;
-  checkAuth: (router: AppRouterInstance) => Promise<void>;
+  checkAuth: (router: AppRouterInstance) => Promise<boolean>;
 }
 
-const AuthStore = create<AuthState>((set) => ({
-  profiles: {
-    accessToken: "",
-    user: {},
-    refreshToken: "",
-  },
-  isAuth: false,
-  isLoading: false,
+const clearSession = () => ({ profiles: null, isAuth: false });
 
+const AuthStore = create<AuthState>((set) => ({
+  ...clearSession(),
+  isLoading: false,
   login: async ({ email, password, router }) => {
+    set({ isLoading: true });
     try {
-      set({ isLoading: true });
       const data = await userService.login(email, password);
       localStorage.setItem("token", data.accessToken);
       set({ profiles: data, isAuth: true });
       router.replace("/");
-    } catch (error) {
-      console.error(error);
-    } finally {
-      set({ isLoading: false });
-    }
+    } finally { set({ isLoading: false }); }
   },
   registration: async ({ email, password, router }) => {
+    set({ isLoading: true });
     try {
-      set({ isLoading: true });
       const data = await userService.registration(email, password);
       localStorage.setItem("token", data.accessToken);
       set({ profiles: data, isAuth: true });
       router.replace("/");
-    } catch (error) {
-      console.error(error);
-    } finally {
-      set({ isLoading: false });
-    }
+    } finally { set({ isLoading: false }); }
   },
   logout: async (router) => {
-    try {
-      set({ isLoading: true });
-      await userService.logout();
+    set({ isLoading: true });
+    try { await userService.logout(); } finally {
       localStorage.removeItem("token");
-      set({
-        profiles: {
-          accessToken: "",
-          user: {},
-          refreshToken: "",
-        },
-        isAuth: false,
-      });
-      router.replace("/login");
-    } catch (error) {
-      console.log("error", error);
-    } finally {
+      set(clearSession());
       set({ isLoading: false });
+      router.replace("/login");
     }
   },
   checkAuth: async (router) => {
+    set({ isLoading: true });
     try {
-      set({ isLoading: true });
       const data = await userService.refresh();
       localStorage.setItem("token", data.accessToken);
       set({ profiles: data, isAuth: true });
-      if (!data) {
-        router.replace("/login");
-      }
-    } catch (error) {
-      console.log("error", error);
-    } finally {
-      set({ isLoading: false });
-    }
+      return true;
+    } catch {
+      localStorage.removeItem("token");
+      set(clearSession());
+      router.replace("/login");
+      return false;
+    } finally { set({ isLoading: false }); }
   },
 }));
 export default AuthStore;

@@ -20,7 +20,6 @@ const useTrackStore = create<TrackStore>((set) => ({
     try {
       set({ loading: true });
       const data = await trackService.getTopTracks(params);
-      console.log("data", data);
       set({ tracks: data, error: "" });
     } catch {
       set({ error: "Произошла ошибка при загрузке треков" });

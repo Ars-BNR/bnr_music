@@ -4,6 +4,7 @@ export default {
   darkMode: ["class"],
   content: [
     "./src/**/*.{js,jsx,ts,tsx}",
+    "./app/**/*.{js,jsx,ts,tsx}",
   ],
   theme: {
   	extend: {
@@ -26,11 +27,22 @@ export default {
   				DEFAULT: 'hsl(var(--popover))',
   				foreground: 'hsl(var(--popover-foreground))'
   			},
-  			primary: {
-  				DEFAULT: 'hsl(var(--primary))',
-  				foreground: 'hsl(var(--primary-foreground))'
-  			},
-  			secondary: {
+			primary: {
+				DEFAULT: 'hsl(var(--primary))',
+				foreground: 'hsl(var(--primary-foreground))'
+			},
+			player: {
+				accent: 'hsl(var(--player-accent))'
+			},
+			sidebar: {
+				canvas: 'hsl(var(--sidebar-canvas))',
+				surface: 'hsl(var(--sidebar-surface))',
+				accent: 'hsl(var(--sidebar-accent))',
+				lilac: 'hsl(var(--sidebar-lilac))',
+				foreground: 'hsl(var(--sidebar-foreground))',
+				muted: 'hsl(var(--sidebar-muted))'
+			},
+			secondary: {
   				DEFAULT: 'hsl(var(--secondary))',
   				foreground: 'hsl(var(--secondary-foreground))'
   			},

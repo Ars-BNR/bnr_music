@@ -1,33 +1,17 @@
 import { create } from "zustand";
-import { CollectionState } from "../types/collection";
 import collectionService from "@/entities/collection-service";
-import useTrackStore from "./track";
+import { ITrack } from "@/shared/types/track";
+import { CollectionState } from "../types/collection";
+
+const errorMessage = (error: unknown) => (error instanceof Error ? error.message : "Request failed");
 
 interface CollectionStore extends CollectionState {
-  getUserAlbums: (
-    id: number,
-    params?: { limit?: number; offset?: number }
-  ) => Promise<void>;
-  getUserPlaylists: (
-    id: number,
-    params?: { limit?: number; offset?: number }
-  ) => Promise<void>;
-  getUserTracks: (
-    id: number,
-    params?: { limit?: number; offset?: number }
-  ) => Promise<void>;
-  getUserTracksFromPlaylist: (
-    idPlaylist: number,
-    params?: { limit?: number; offset?: number }
-  ) => Promise<void>;
-  addTrackToCollection: (
-    collectionId: number,
-    trackId: number
-  ) => Promise<void>;
-  removeTrackFromCollection: (
-    collectionId: number,
-    trackId: number
-  ) => Promise<void>;
+  getUserAlbums: (id: number, params?: { limit?: number; offset?: number }) => Promise<void>;
+  getUserPlaylists: (id: number, params?: { limit?: number; offset?: number }) => Promise<void>;
+  getUserTracks: (id: number, params?: { limit?: number; offset?: number }) => Promise<void>;
+  getUserTracksFromPlaylist: (idPlaylist: number, params?: { limit?: number; offset?: number }) => Promise<void>;
+  addTrackToCollection: (collectionId: number, track: ITrack) => Promise<void>;
+  removeTrackFromCollection: (collectionId: number, trackId: number) => Promise<void>;
 }
 
 const useCollectionStore = create<CollectionStore>((set) => ({
@@ -48,8 +32,8 @@ const useCollectionStore = create<CollectionStore>((set) => ({
     try {
       const data = await collectionService.getAlbums(id, params);
       set({ userAlbums: data, loading: false });
-    } catch (error: any) {
-      set({ error: error.message, loading: false });
+    } catch (error: unknown) {
+      set({ error: errorMessage(error), loading: false });
     }
   },
 
@@ -58,8 +42,8 @@ const useCollectionStore = create<CollectionStore>((set) => ({
     try {
       const data = await collectionService.getPlaylists(id, params);
       set({ userPlaylist: data, loading: false });
-    } catch (error: any) {
-      set({ error: error.message, loading: false });
+    } catch (error: unknown) {
+      set({ error: errorMessage(error), loading: false });
     }
   },
 
@@ -68,45 +52,33 @@ const useCollectionStore = create<CollectionStore>((set) => ({
     try {
       const data = await collectionService.getTracks(id, params);
       set({ userTracks: data, loading: false });
-    } catch (error: any) {
-      set({ error: error.message, loading: false });
+    } catch (error: unknown) {
+      set({ error: errorMessage(error), loading: false });
     }
   },
-  getUserTracksFromPlaylist: async (
-    idPlaylist,
-    params = { limit: 10, offset: 0 }
-  ) => {
+
+  getUserTracksFromPlaylist: async (idPlaylist, params = { limit: 10, offset: 0 }) => {
     set({ loading: true, error: "" });
     try {
-      const data = await collectionService.getTracksFromPlaylist(
-        idPlaylist,
-        params
-      );
+      const data = await collectionService.getTracksFromPlaylist(idPlaylist, params);
       set({ userTracksFromPlaylist: data, loading: false });
-    } catch (error: any) {
-      set({ error: error.message, loading: false });
+    } catch (error: unknown) {
+      set({ error: errorMessage(error), loading: false });
     }
   },
 
-  addTrackToCollection: async (collectionId, trackId) => {
+  addTrackToCollection: async (collectionId, track) => {
     set({ loading: true, error: "" });
     try {
-      await collectionService.addTrackToCollection(collectionId, trackId);
-
-      const track = useTrackStore
-        .getState()
-        .tracks.find((t) => t.id === trackId);
-
-      if (!track) {
-        throw new Error("Трек не найден");
-      }
-
+      await collectionService.addTrackToCollection(collectionId, track.id);
       set((state) => ({
-        userTracks: [...state.userTracks, track],
+        userTracks: state.userTracks.some((userTrack) => userTrack.id === track.id)
+          ? state.userTracks
+          : [...state.userTracks, track],
         loading: false,
       }));
-    } catch (error: any) {
-      set({ error: error.message, loading: false });
+    } catch (error: unknown) {
+      set({ error: errorMessage(error), loading: false });
     }
   },
 
@@ -118,8 +90,8 @@ const useCollectionStore = create<CollectionStore>((set) => ({
         userTracks: state.userTracks.filter((track) => track.id !== trackId),
         loading: false,
       }));
-    } catch (error: any) {
-      set({ error: error.message, loading: false });
+    } catch (error: unknown) {
+      set({ error: errorMessage(error), loading: false });
     }
   },
 }));

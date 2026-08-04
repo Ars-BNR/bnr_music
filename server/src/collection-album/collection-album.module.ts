@@ -3,11 +3,10 @@ import { CollectionAlbumController } from './collection-album.controller';
 import { CollectionAlbumService } from './collection-album.service';
 import { SequelizeModule } from '@nestjs/sequelize';
 import { CollectionAlbumModel } from './model/collection-album.model';
-import { JwtService } from '@nestjs/jwt';
 
 @Module({
   imports: [SequelizeModule.forFeature([CollectionAlbumModel])],
   controllers: [CollectionAlbumController],
-  providers: [CollectionAlbumService,JwtService],
+  providers: [CollectionAlbumService],
 })
 export class CollectionAlbumModule {}

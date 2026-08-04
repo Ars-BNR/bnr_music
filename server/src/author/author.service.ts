@@ -1,43 +1,19 @@
-import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/sequelize';
 import { AuthorModel } from './model/author.model';
 
 @Injectable()
 export class AuthorService {
   constructor(
-    @InjectModel(AuthorModel) private AuthorRepository: typeof AuthorModel,
+    @InjectModel(AuthorModel)
+    private readonly authorRepository: typeof AuthorModel,
   ) {}
-
-  async getOne(id: number) {
-    try {
-      if (!id) {
-        throw new HttpException(
-          'Не указаны все данные',
-          HttpStatus.BAD_REQUEST,
-        );
-      }
-      const author = await this.AuthorRepository.findByPk(id);
-      return author;
-    } catch (error) {
-      throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
-    }
+  async getOne(id: number): Promise<AuthorModel> {
+    const author = await this.authorRepository.findByPk(id);
+    if (!author) throw new NotFoundException('Author not found');
+    return author;
   }
-
-  async getAll(count = 10, offset = 0) {
-    try {
-      if (!count || !offset) {
-        throw new HttpException(
-          'Не указаны все данные',
-          HttpStatus.BAD_REQUEST,
-        );
-      }
-      const authors = await this.AuthorRepository.findAll({
-        limit: Number(count),
-        offset: Number(offset),
-      });
-      return authors;
-    } catch (error) {
-      throw new HttpException(error.message, HttpStatus.INTERNAL_SERVER_ERROR);
-    }
+  getAll(count = 10, offset = 0): Promise<AuthorModel[]> {
+    return this.authorRepository.findAll({ limit: count, offset });
   }
 }
