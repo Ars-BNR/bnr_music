@@ -2,12 +2,10 @@
 
 import CardItem from "@/shared/components/common/CardItem/CardItem";
 import useCollectionStore from "@/shared/store/collection";
-import { useRouter } from "next/navigation";
 import React, { useEffect, useState } from "react";
 import PlaylistIcon from "../../../../public/assets/icons/Playlist";
 
 const PlaylistsCollection = () => {
-  const router = useRouter();
   const [collectionId, setCollectionId] = useState<number | null>(null);
   const { getUserPlaylists, userPlaylist } = useCollectionStore();
 
@@ -28,7 +26,7 @@ const PlaylistsCollection = () => {
             key={playlist.id}
             title={playlist.name}
             icon={<PlaylistIcon height="100" width="100" />}
-            onClick={() => router.push(`/playlist/${playlist.id}`)}
+            href={`/playlist/${playlist.id}`}
           />
         ))}
       </div>

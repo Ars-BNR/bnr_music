@@ -8,6 +8,13 @@ export class GenreController {
   @Get() getAll(@Query() pagination: PaginationQueryDto) {
     return this.genreService.getAll(pagination.count, pagination.offset);
   }
+  @Get(':id/tracks')
+  getTracks(
+    @Param('id', ParseIntPipe) id: number,
+    @Query() pagination: PaginationQueryDto,
+  ) {
+    return this.genreService.getTracks(id, pagination);
+  }
   @Get(':id') getOne(@Param('id', ParseIntPipe) id: number) {
     return this.genreService.getOne(id);
   }

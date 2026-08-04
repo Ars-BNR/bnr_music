@@ -34,7 +34,7 @@ import {
 } from "@/shared/ui/popover";
 import AuthStore from "@/shared/store/auth";
 import useCollectionStore from "@/shared/store/collection";
-import { FleurDeLis } from "./FleurDeLis";
+import { FleurDeLis } from "@/shared/ui/brand";
 import stl from "../styles/Sidebar.module.scss";
 
 const primaryLinks = [

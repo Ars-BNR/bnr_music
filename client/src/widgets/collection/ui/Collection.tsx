@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import React from "react";
 import CardItem from "@/shared/components/common/CardItem/CardItem";
 import Album from "../../../../public/assets/icons/Album";
@@ -8,27 +7,25 @@ import PlaylistIcon from "../../../../public/assets/icons/Playlist";
 import LoveIcon from "../../../../public/assets/icons/Love";
 
 const Collection = () => {
-  const router = useRouter();
-
   return (
-    <div className="bg-[#09090B] pb-[24px] mb-16 min-h-[284px] text-yellow-50 flex justify-between">
+    <div className="mb-16 grid min-h-[284px] grid-cols-1 gap-4 text-bnr-bone sm:grid-cols-3">
       <CardItem
-        className="max-w-[30%]"
+        className="min-h-[180px]"
         title="Альбомы"
         icon={<Album height="100" width="100" />}
-        onClick={() => router.push("/collection/albums")}
+        href="/collection/albums"
       />
       <CardItem
-        className="max-w-[30%]"
+        className="min-h-[180px]"
         title="Плейлисты"
         icon={<PlaylistIcon height="100" width="100" />}
-        onClick={() => router.push("/collection/playlist")}
+        href="/collection/playlist"
       />
       <CardItem
-        className="max-w-[30%]"
+        className="min-h-[180px]"
         title="Любимые треки"
         icon={<LoveIcon height="100" width="100" />}
-        onClick={() => router.push("/collection/tracks")}
+        href="/collection/tracks"
       />
     </div>
   );

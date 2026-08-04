@@ -6,7 +6,6 @@ import { usePlaybackStore } from "@/entities/playback";
 import CardItem from "@/shared/components/common/CardItem/CardItem";
 import { BASE_URL } from "@/shared/config/config";
 import useCollectionStore from "@/shared/store/collection";
-import { ITrack } from "@/shared/types/track";
 
 const Playlist = () => {
   const params = useParams();
@@ -18,16 +17,6 @@ const Playlist = () => {
     if (id) void getUserTracksFromPlaylist(Number(id));
   }, [getUserTracksFromPlaylist, id]);
 
-  const play = (event: React.MouseEvent, track: ITrack) => {
-    event.stopPropagation();
-    if (!userTracksFromPlaylist) return;
-
-    playFromQueue(track, userTracksFromPlaylist.tracks, {
-      type: "playlist",
-      id: userTracksFromPlaylist.id,
-    });
-  };
-
   if (userTracksFromPlaylist === null) return null;
 
   return (
@@ -37,10 +26,14 @@ const Playlist = () => {
         {userTracksFromPlaylist.tracks.map((track) => (
           <CardItem
             key={track.id}
+            variant="track"
             title={track.name}
             subtitle={track.authorName}
             imageUrl={`${BASE_URL}${track.picture}`}
-            onClick={(event) => play(event, track)}
+            onAction={() => playFromQueue(track, userTracksFromPlaylist.tracks, {
+              type: "playlist",
+              id: userTracksFromPlaylist.id,
+            })}
           />
         ))}
       </div>

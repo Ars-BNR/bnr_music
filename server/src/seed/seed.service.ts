@@ -13,6 +13,7 @@ import { GenreModel } from 'src/genre/model/genre.model';
 import { PlaylistModel } from 'src/playlist/model/playlist.model';
 import { PlaylistTrackModel } from 'src/playlist-track/model/playlist-track.model';
 import { TrackModel } from 'src/track/model/track.model';
+import { TrackGenreModel } from 'src/track-genre/model/track-genre.model';
 import { UserModel } from 'src/user/model/user.model';
 import albumTracks from './data/album_track-seed';
 import albums from './data/album-seed';
@@ -25,6 +26,7 @@ import genres from './data/genre-seed';
 import playlists from './data/playlist-seed';
 import playlistTracks from './data/playlist_track-seed';
 import tracks from './data/track-seed';
+import trackGenres from './data/track-genre-seed';
 
 @Injectable()
 export class SeedService {
@@ -34,6 +36,8 @@ export class SeedService {
     @InjectModel(UserModel) private readonly userModel: typeof UserModel,
     @InjectModel(AuthorModel) private readonly authorModel: typeof AuthorModel,
     @InjectModel(GenreModel) private readonly genreModel: typeof GenreModel,
+    @InjectModel(TrackGenreModel)
+    private readonly trackGenreModel: typeof TrackGenreModel,
     @InjectModel(AlbumTrackModel)
     private readonly albumTrackModel: typeof AlbumTrackModel,
     @InjectModel(CollectionModel)
@@ -92,10 +96,11 @@ export class SeedService {
   async seed(): Promise<void> {
     await this.ensureAdmin();
     await this.insertWhenEmpty(this.authorModel, authors);
+    await this.insertWhenEmpty(this.genreModel, genres);
     await this.insertWhenEmpty(this.trackModel, tracks);
+    await this.insertWhenEmpty(this.trackGenreModel, trackGenres);
     await this.insertWhenEmpty(this.albumModel, albums);
     await this.insertWhenEmpty(this.albumTrackModel, albumTracks);
-    await this.insertWhenEmpty(this.genreModel, genres);
     await this.insertWhenEmpty(this.collectionModel, collections);
     await this.insertWhenEmpty(this.playlistModel, playlists);
     await this.insertWhenEmpty(this.playlistTrackModel, playlistTracks);

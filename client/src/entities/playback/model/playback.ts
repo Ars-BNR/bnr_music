@@ -6,7 +6,8 @@ export type PlaybackContext =
   | { type: "search"; query: string }
   | { type: "album"; id: number }
   | { type: "favorites"; collectionId: number }
-  | { type: "playlist"; id: number };
+  | { type: "playlist"; id: number }
+  | { type: "genre"; id: number };
 
 export interface PlaybackQueue {
   context: PlaybackContext;
@@ -81,6 +82,8 @@ const isSameContext = (left: PlaybackContext | null, right: PlaybackContext) => 
       return right.type === "album" && left.id === right.id;
     case "playlist":
       return right.type === "playlist" && left.id === right.id;
+    case "genre":
+      return right.type === "genre" && left.id === right.id;
     case "favorites":
       return right.type === "favorites" && left.collectionId === right.collectionId;
     case "search":

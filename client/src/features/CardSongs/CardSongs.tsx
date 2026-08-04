@@ -13,18 +13,14 @@ interface TrackItemProps {
 const CardSongs = ({ track, queue, context, active = false }: TrackItemProps) => {
   const playFromQueue = usePlaybackStore((state) => state.playFromQueue);
 
-  const play = (e: React.MouseEvent<HTMLDivElement>) => {
-    e.stopPropagation();
-    playFromQueue(track, queue, context);
-  };
-
   return (
     <CardItem
+      variant="track"
       imageUrl={BASE_URL + track.picture}
       title={track.name}
       subtitle={track.authorName}
       active={active}
-      onClick={play}
+      onAction={() => playFromQueue(track, queue, context)}
     />
   );
 };

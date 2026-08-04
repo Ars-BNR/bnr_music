@@ -36,6 +36,22 @@ const sidebarPlaylists = [
   { id: 51, name: "Purple Reign" },
   { id: 52, name: "Third Street Saints" },
 ];
+const genres = [
+  { id: 1, name: "Game music" },
+  { id: 2, name: "Hip hop" },
+  { id: 3, name: "Electronic" },
+];
+const genreTracks = Array.from({ length: 21 }, (_, index) => ({
+  id: 401 + index,
+  name: `Genre Track ${index + 1}`,
+  picture: `image/genre-${index + 1}.jpg`,
+  text: "Genre test track",
+  listens: index,
+  audio: `audio/genre-${index + 1}.mp3`,
+  authorName: "Genre Author",
+  authorId: 40,
+  albumId: 4,
+}));
 
 const singleAlbumTrack = {
   id: 101,
@@ -111,7 +127,22 @@ async function mockApi(page: import("@playwright/test").Page) {
   await page.route("**://localhost:8340/tracks/search**", async (route) => route.fulfill({ json: tracks }));
   await page.route("**://localhost:8340/tracks**", async (route) => route.fulfill({ json: tracks }));
   await page.route("**://localhost:8340/albums**", async (route) => route.fulfill({ json: [] }));
-  await page.route("**://localhost:8340/genres**", async (route) => route.fulfill({ json: [] }));
+  await page.route("**://localhost:8340/genres**", async (route) => {
+    const url = new URL(route.request().url());
+    const match = url.pathname.match(/\/genres\/(\d+)\/tracks$/);
+    if (match) {
+      const genreId = Number(match[1]);
+      if (genreId === 404) return route.fulfill({ status: 404, json: { message: "Genre not found" } });
+      const offset = Number(url.searchParams.get("offset") ?? "0");
+      const count = Number(url.searchParams.get("count") ?? "20");
+      return route.fulfill({ json: { genre: genres[0], tracks: genreTracks.slice(offset, offset + count), total: genreTracks.length } });
+    }
+    return route.fulfill({ json: genres });
+  });
+  await page.route("**://localhost:8340/authors**", async (route) => route.fulfill({ json: [
+    { id: 1, name: "Genre Author" },
+    { id: 2, name: "Purple Composer" },
+  ] }));
   await page.route("**://localhost:8340/collection/**", async (route) => route.fulfill({ json: { id: 1 } }));
   await page.route("**://localhost:8340/collection_playlist/**", async (route) => route.fulfill({ json: sidebarPlaylists }));
   await page.route("**://localhost:8340/collection_track/**", async (route) => route.fulfill({ json: [] }));
@@ -124,8 +155,9 @@ test("protected page plays a mocked track and keeps page scroll stable while cha
   await page.evaluate(() => { document.body.style.minHeight = "3000px"; window.scrollTo(0, 300); });
 
   const search = page.getByPlaceholder("Search song");
+  const searchResults = page.getByRole("list", { name: "Track search results" });
   await search.fill("playwright");
-  await page.getByRole("button", { name: /^Playwright Track Test Author/ }).click();
+  await searchResults.getByRole("button", { name: /^Playwright Track Test Author/ }).click();
 
   const volumeButton = page.getByRole("button", { name: /^Volume:/ });
   await expect(volumeButton).toHaveAccessibleName("Volume: 50%");
@@ -159,7 +191,7 @@ test("protected page plays a mocked track and keeps page scroll stable while cha
   await expect(page.getByRole("slider", { name: "Volume" })).toBeHidden();
 
   await search.fill("second");
-  await page.getByRole("button", { name: /^Second Playwright Track Second Test Author/ }).click();
+  await searchResults.getByRole("button", { name: /^Second Playwright Track Second Test Author/ }).click();
   await expect.poll(() => page.locator("audio").evaluate((audio) => (audio as HTMLAudioElement).volume)).toBe(0.45);
 
   await volumeButton.hover();
@@ -202,13 +234,61 @@ test("login route remains reachable without an access token", async ({ page }) =
   await expect(page.locator("button[type=submit]")).toBeVisible();
 });
 
+test("auth shell keeps the heraldic layout, validation, and form transition", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto("/login");
+  await expect(page.getByRole("heading", { name: "Войти в BNR" })).toBeVisible();
+  const headingFont = await page.getByRole("heading", { name: "Войти в BNR" }).evaluate((element) => window.getComputedStyle(element).fontFamily);
+  expect(headingFont.toLowerCase()).toContain("cinzel");
+  await page.getByRole("button", { name: "Войти" }).click();
+  await expect(page.getByLabel("Email")).toHaveAttribute("aria-invalid", "true");
+  await page.getByRole("link", { name: "Зарегистрироваться" }).click();
+  await page.waitForURL("**/registration");
+  await expect(page.getByRole("heading", { name: "Создать аккаунт" })).toBeVisible();
+  const bounds = await page.evaluate(() => ({ scrollWidth: document.documentElement.scrollWidth, clientWidth: document.documentElement.clientWidth }));
+  expect(bounds.scrollWidth).toBeLessThanOrEqual(bounds.clientWidth);
+});
+
+test("genre cards lead to a paginated genre queue that stays inside its context", async ({ page }) => {
+  await mockApi(page);
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto("/category");
+  await expect(page.getByRole("link", { name: "Открыть жанр Game music" })).toHaveAttribute("href", "/category/1");
+
+  await page.goto("/category/1");
+  await expect(page.getByRole("heading", { name: "Game music" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Genre Track/ })).toHaveCount(20);
+  await page.getByRole("button", { name: "Показать ещё" }).click();
+  await expect(page.getByRole("button", { name: /Genre Track/ })).toHaveCount(21);
+
+  await page.getByRole("button", { name: "Genre Track 1 Genre Author", exact: true }).click();
+  await page.getByRole("button", { name: "Shuffle playlist" }).click();
+  await page.getByRole("button", { name: "Next track" }).click();
+  await expect(page.getByRole("region", { name: "Audio player" })).toContainText(/Genre Track/);
+  await expect(page.getByRole("region", { name: "Audio player" })).not.toContainText("Playwright Track");
+
+  await page.goto("/category/404");
+  await expect(page.getByText("Жанр не найден")).toBeVisible();
+  await expect(page.getByRole("link", { name: "Вернуться к жанрам" })).toHaveAttribute("href", "/category");
+});
+
+test("author and track cards adapt without fake imagery", async ({ page }) => {
+  await mockApi(page);
+  await page.setViewportSize({ width: 375, height: 900 });
+  await page.goto("/authors");
+  await expect(page.getByRole("article")).toHaveCount(2);
+  await expect(page.getByText("Genre Author", { exact: true })).toBeVisible();
+  const bounds = await page.evaluate(() => ({ scrollWidth: document.documentElement.scrollWidth, clientWidth: document.documentElement.clientWidth }));
+  expect(bounds.scrollWidth).toBeLessThanOrEqual(bounds.clientWidth);
+});
+
 test("Search closes its backdrop and ignores stale responses", async ({ page }) => {
   await mockApi(page);
   await page.goto("/");
 
   const search = page.getByPlaceholder("Search song");
   const backdrop = page.getByTestId("search-backdrop");
-  const searchResult = page.getByRole("button", { name: /^Playwright Track Test Author/ });
+  const searchResult = page.getByRole("list", { name: "Track search results" }).getByRole("button", { name: /^Playwright Track Test Author/ });
 
   await search.focus();
   await expect(backdrop).toBeVisible();
@@ -441,7 +521,7 @@ test("Player controls use Lucide icons and fit every supported viewport", async 
   await page.goto("/");
 
   await page.getByPlaceholder("Search song").fill("playwright");
-  await page.getByRole("button", { name: /^Playwright Track Test Author/ }).click();
+  await page.getByRole("list", { name: "Track search results" }).getByRole("button", { name: /^Playwright Track Test Author/ }).click();
 
   const player = page.getByRole("region", { name: "Audio player" });
   const playerButtons = [

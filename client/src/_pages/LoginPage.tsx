@@ -1,10 +1,10 @@
-import Login from '@/widgets/login/ui/Login'
-import React from 'react'
+import LoginForm from "@/features/Form/ui/LoginForm";
+import { AuthShell } from "@/shared/ui/auth-shell";
 
-const LoginPage = () => {
-  return (
-     <Login/>
-  )
-}
+const LoginPage = () => (
+  <AuthShell title="Войти в BNR" description="Продолжите слушать музыку и управляйте своей коллекцией.">
+    <LoginForm />
+  </AuthShell>
+);
 
-export default LoginPage
+export default LoginPage;

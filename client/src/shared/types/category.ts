@@ -8,3 +8,9 @@ export interface CategoryState {
   error: string;
   loading: boolean;
 }
+
+export interface GenreTracksResponse {
+  genre: ICategory;
+  tracks: import("@/shared/types/track").ITrack[];
+  total: number;
+}

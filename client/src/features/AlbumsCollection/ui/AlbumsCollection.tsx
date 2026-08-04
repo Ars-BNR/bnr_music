@@ -3,11 +3,9 @@
 import CardItem from "@/shared/components/common/CardItem/CardItem";
 import { BASE_URL } from "@/shared/config/config";
 import useCollectionStore from "@/shared/store/collection";
-import { useRouter } from "next/navigation";
 import React, { useEffect, useState } from "react";
 
 const AlbumsCollection = () => {
-  const router = useRouter();
   const [collectionId, setCollectionId] = useState<number | null>(null);
   const { getUserAlbums, userAlbums } = useCollectionStore();
 
@@ -29,7 +27,7 @@ const AlbumsCollection = () => {
             title={album.Albumname}
             subtitle={album.authorName}
             imageUrl={`${BASE_URL}${album.Albumpicture}`}
-            onClick={() => router.push(`/album/${album.albumId}`)}
+            href={`/album/${album.albumId}`}
           />
         ))}
       </div>

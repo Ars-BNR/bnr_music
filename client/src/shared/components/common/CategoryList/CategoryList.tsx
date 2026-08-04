@@ -1,40 +1,38 @@
 "use client";
 
-import { badgeVariants } from "@/shared/ui/badge";
+import CardItem from "@/shared/components/common/CardItem/CardItem";
+import { cn } from "@/shared/components/lib/utils";
 import { Skeleton } from "@/shared/ui/skeleton";
-import Link from "next/link";
-import React from "react";
 
 interface CategoryListProps {
   categories: { id: number; name: string }[];
   loading: boolean;
-  className?: string; // Кастомные классы для контейнера
-  linkVariant?: "default" | "secondary"; // Варианты стилей для ссылок
+  className?: string;
+  variant?: "rail" | "grid";
 }
 
-export const CategoryList = ({
-  categories,
-  loading,
-  className = "",
-  linkVariant = "default",
-}: CategoryListProps) => {
-  return (
-    <div className={`flex gap-[24px] flex-wrap max-w-[894px] ${className}`}>
-      {loading || !categories || categories.length === 0
-        ? Array(8)
-            .fill(0)
-            .map((_, index) => (
-              <Skeleton key={index} className="h-[32px] w-[57px]" />
-            ))
-        : categories.map((cat) => (
-            <Link
-              key={cat.id}
-              href={"/"}
-              className={badgeVariants({ variant: linkVariant })}
-            >
-              {cat.name}
-            </Link>
-          ))}
-    </div>
-  );
-};
+export const CategoryList = ({ categories, loading, className = "", variant = "grid" }: CategoryListProps) => (
+  <div
+    className={cn(
+      variant === "rail"
+        ? "flex min-w-max gap-4 pb-1"
+        : "grid grid-cols-[repeat(auto-fill,minmax(148px,1fr))] gap-4",
+      className,
+    )}
+  >
+    {loading
+      ? Array.from({ length: 8 }, (_, index) => (
+          <Skeleton key={index} className={variant === "rail" ? "h-[72px] w-[148px] shrink-0" : "h-[92px]"} />
+        ))
+      : categories.map((category) => (
+          <CardItem
+            key={category.id}
+            variant="genre"
+            title={category.name}
+            href={`/category/${category.id}`}
+            ariaLabel={`Открыть жанр ${category.name}`}
+            className={variant === "rail" ? "w-[148px] shrink-0" : "min-h-[92px]"}
+          />
+        ))}
+  </div>
+);

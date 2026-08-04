@@ -2,24 +2,26 @@
 
 import { CategoryList } from "@/shared/components/common/CategoryList/CategoryList";
 import useCategoryStore from "@/shared/store/category";
-import React, { useEffect } from "react";
+import { Alert, AlertDescription } from "@/shared/ui/alert";
+import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/shared/ui/empty";
+import { SectionHeading } from "@/shared/ui/section-heading";
+import { useEffect } from "react";
 
 const Category = () => {
-  const { categories, fetchCategories, loading } = useCategoryStore();
+  const { categories, fetchCategories, loading, error } = useCategoryStore();
 
   useEffect(() => {
-    fetchCategories();
+    void fetchCategories({ count: 100, offset: 0 });
   }, [fetchCategories]);
 
   return (
-    <div className="bg-black">
-      <div className="bg-[#09090B] mb-[70px] overflow-hidden min-h-[72px]">
-        <div className="mb-4 flex items-center max-w-[270px] justify-between">
-          <span className="text-[16px] text-white">Выберите категорию</span>
-        </div>
-        <CategoryList categories={categories} loading={loading} />
-      </div>
-    </div>
+    <section className="mb-16 min-w-0" aria-labelledby="genres-heading">
+      <SectionHeading><span id="genres-heading">Жанры</span></SectionHeading>
+      {error ? <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert> : null}
+      {!loading && !error && categories.length === 0 ? (
+        <Empty className="min-h-[240px]"><EmptyHeader><EmptyTitle>Жанры не найдены</EmptyTitle><EmptyDescription>В каталоге ещё нет жанров.</EmptyDescription></EmptyHeader></Empty>
+      ) : <CategoryList categories={categories} loading={loading} variant="grid" />}
+    </section>
   );
 };
 

@@ -8,6 +8,9 @@ export default {
   ],
   theme: {
   	extend: {
+		fontFamily: {
+			cinzel: ['var(--font-cinzel)', 'serif']
+		},
   		colors: {
   			placeholderColor: {
   				white: '#FFFFFF'
@@ -33,6 +36,14 @@ export default {
 			},
 			player: {
 				accent: 'hsl(var(--player-accent))'
+			},
+			bnr: {
+				abyss: 'hsl(var(--bnr-abyss))',
+				gunmetal: 'hsl(var(--bnr-gunmetal))',
+				violet: 'hsl(var(--bnr-violet))',
+				lilac: 'hsl(var(--bnr-lilac))',
+				bone: 'hsl(var(--bnr-bone))',
+				ash: 'hsl(var(--bnr-ash))'
 			},
 			sidebar: {
 				canvas: 'hsl(var(--sidebar-canvas))',

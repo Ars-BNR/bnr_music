@@ -1,98 +1,104 @@
-import React, { useEffect, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import Image from "next/image";
+import Link from "next/link";
+import { Play } from "lucide-react";
+import { cn } from "@/shared/components/lib/utils";
+import { FleurDeLis } from "@/shared/ui/brand";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/card";
 
 interface CardItemProps {
+  variant?: "track" | "author" | "genre" | "collection";
   imageUrl?: string;
   title: string;
   subtitle?: string;
-  icon?: React.ReactNode;
+  icon?: ReactNode;
   active?: boolean;
-  onClick?: (e: React.MouseEvent<HTMLDivElement>) => void;
+  onAction?: () => void;
+  href?: string;
+  ariaLabel?: string;
   className?: string;
 }
 
 const CardItem = ({
+  variant = "collection",
   imageUrl,
   title,
   subtitle,
   icon,
   active = false,
-  onClick,
+  onAction,
+  href,
+  ariaLabel,
   className = "",
 }: CardItemProps) => {
-  const titleRef = useRef<HTMLParagraphElement>(null);
-  const subtitleRef = useRef<HTMLParagraphElement>(null);
-  const [isTitleOverflowing, setIsTitleOverflowing] = useState(false);
-  const [isSubtitleOverflowing, setIsSubtitleOverflowing] = useState(false);
+  const isTrack = variant === "track";
+  const isAuthor = variant === "author";
+  const isGenre = variant === "genre";
+  const interactive = Boolean(onAction || href);
 
-  useEffect(() => {
-    const checkOverflow = (element: HTMLElement | null) => {
-      if (element) {
-        return element.scrollWidth > element.clientWidth;
-      }
-      return false;
-    };
-
-    setIsTitleOverflowing(checkOverflow(titleRef.current));
-    setIsSubtitleOverflowing(checkOverflow(subtitleRef.current));
-  }, [title, subtitle]);
-
-  return (
-    <div
-      onClick={onClick}
-      className={`
-        cursor-pointer flex flex-col grow justify-between max-w-[172px] p-[12px] bg-[#5801E1] rounded-[12px] gap-[10px] hover:bg-[#7A1FE3] hover:brightness-110 transition-all duration-300 relative 
-        ${active ? "bg-red-900" : ""}
-        ${className}
-      `}
+  const visual = (
+    <Card
+      className={cn(
+        "group relative h-full overflow-hidden border-bnr-ash/20 bg-bnr-gunmetal text-bnr-bone transition-[border-color,transform,box-shadow] [transition-duration:180ms] ease-out motion-reduce:transition-none",
+        interactive && "group-hover:-translate-y-0.5 group-focus-visible:-translate-y-0.5 group-hover:border-bnr-lilac/65 group-focus-visible:border-bnr-lilac/65 group-hover:shadow-[0_12px_28px_hsl(var(--bnr-abyss)/0.42)] group-focus-visible:shadow-[0_12px_28px_hsl(var(--bnr-abyss)/0.42)] motion-reduce:transform-none",
+        active && "border-bnr-violet bg-bnr-violet/15 shadow-[inset_3px_0_0_hsl(var(--bnr-violet))]",
+        isGenre && "min-h-[72px] bg-gradient-to-br from-bnr-gunmetal to-bnr-abyss",
+        isAuthor && "aspect-[4/5] min-h-[196px]",
+        className,
+      )}
     >
-      <div className="rounded-[4px] flex justify-center items-center min-h-[170px]">
-        {imageUrl ? (
-          <Image
-            src={imageUrl}
-            alt={title}
-            width={170}
-            height={170}
-            unoptimized
-            className="rounded-[4px]"
-          />
-        ) : (
-          icon
-        )}
-      </div>
-      <div className="flex flex-col justify-center items-center gap-[2px] text-center w-full overflow-hidden">
-        <div className="w-full overflow-hidden">
-          <p
-            ref={titleRef}
-            className={`text-white text-[14px] whitespace-nowrap ${
-              isTitleOverflowing ? "animate-scroll" : "truncate"
-            }`}
-            style={{
-              animationDuration: "12s",
-            }}
-          >
-            {title}
-          </p>
+      {isTrack && (
+        <div className="relative aspect-square overflow-hidden bg-bnr-abyss">
+          {imageUrl ? (
+            <Image src={imageUrl} alt="" fill sizes="(max-width: 640px) 45vw, (max-width: 1024px) 22vw, 172px" unoptimized className="object-cover" />
+          ) : null}
+          <span className="absolute inset-0 grid place-items-center bg-bnr-abyss/55 opacity-0 transition-opacity [transition-duration:180ms] group-hover:opacity-100 group-focus-visible:opacity-100 motion-reduce:transition-none">
+            <Play aria-hidden="true" className="size-8 fill-current text-bnr-bone" />
+          </span>
         </div>
+      )}
 
-        {subtitle && (
-          <div className="w-full overflow-hidden">
-            <p
-              ref={subtitleRef}
-              className={`text-[#B6A295] text-[12px] mb-[4px] whitespace-nowrap ${
-                isSubtitleOverflowing ? "animate-scroll" : "truncate"
-              }`}
-              style={{
-                animationDuration: "12s",
-              }}
-            >
-              {subtitle}
-            </p>
-          </div>
-        )}
-      </div>
-    </div>
+      {isAuthor && (
+        <div className="relative flex min-h-[136px] flex-1 items-center justify-center overflow-hidden bg-gradient-to-br from-bnr-violet/30 via-bnr-gunmetal to-bnr-abyss">
+          <FleurDeLis aria-hidden="true" className="absolute -right-5 -top-5 size-36 text-bnr-lilac/15" />
+          <span className="relative grid size-16 place-items-center rounded-full border border-bnr-lilac/45 bg-bnr-abyss/75 font-cinzel text-3xl text-bnr-lilac">
+            {title.trim().charAt(0).toUpperCase()}
+          </span>
+        </div>
+      )}
+
+      {isGenre && (
+        <CardContent className="flex min-h-[72px] items-center gap-3 p-4">
+          <span className="grid size-9 shrink-0 place-items-center border border-bnr-lilac/35 bg-bnr-violet/10 text-bnr-lilac">
+            <FleurDeLis aria-hidden="true" className="size-5" />
+          </span>
+          <CardTitle className="line-clamp-2 font-cinzel text-[15px] font-semibold leading-snug tracking-wide" title={title}>
+            {title}
+          </CardTitle>
+        </CardContent>
+      )}
+
+      {!isGenre && (
+        <CardHeader className={cn("min-w-0 p-3", isAuthor && "mt-auto text-center", variant === "collection" && "items-center text-center")}>
+          {variant === "collection" && (
+            <div className="mb-1 flex min-h-28 items-center justify-center text-bnr-lilac">{icon ?? <FleurDeLis className="size-14" aria-hidden="true" />}</div>
+          )}
+          <CardTitle className="line-clamp-2 text-[14px] font-semibold leading-snug" title={title}>{title}</CardTitle>
+          {subtitle ? <CardDescription className="line-clamp-1 text-[12px] text-bnr-ash" title={subtitle}>{subtitle}</CardDescription> : null}
+        </CardHeader>
+      )}
+    </Card>
   );
+
+  if (href) {
+    return <Link href={href} aria-label={ariaLabel ?? title} className="group block min-w-0 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bnr-lilac focus-visible:ring-offset-2 focus-visible:ring-offset-bnr-abyss">{visual}</Link>;
+  }
+
+  if (onAction) {
+    return <button type="button" onClick={onAction} aria-label={ariaLabel} aria-pressed={isTrack ? active : undefined} className="group block min-w-0 rounded-lg text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bnr-lilac focus-visible:ring-offset-2 focus-visible:ring-offset-bnr-abyss">{visual}</button>;
+  }
+
+  return <article className="min-w-0">{visual}</article>;
 };
 
 export default CardItem;

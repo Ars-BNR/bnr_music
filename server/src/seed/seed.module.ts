@@ -13,6 +13,7 @@ import { CollectionAlbumModel } from 'src/collection-album/model/collection-albu
 import { CollectionTrackModel } from 'src/collection-track/model/collection-track.model';
 import { PlaylistTrackModel } from 'src/playlist-track/model/playlist-track.model';
 import { CollectionPlaylistModel } from 'src/collection-playlist/model/collection-playlist.model';
+import { TrackGenreModel } from 'src/track-genre/model/track-genre.model';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { CollectionPlaylistModel } from 'src/collection-playlist/model/collectio
       UserModel,
       AuthorModel,
       GenreModel,
+      TrackGenreModel,
       PlaylistModel,
       CollectionModel,
       CollectionAlbumModel,

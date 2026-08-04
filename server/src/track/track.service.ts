@@ -3,22 +3,45 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { InjectModel } from '@nestjs/sequelize';
-import { Op, Sequelize } from 'sequelize';
+import { InjectConnection, InjectModel } from '@nestjs/sequelize';
+import { Op, Sequelize, Transaction } from 'sequelize';
 import { AlbumModel } from 'src/album/model/album.model';
 import { AuthorModel } from 'src/author/model/author.model';
 import { FileService, FileType } from 'src/file/file.service';
 import { CreateTrackDto } from './dto/create-track.dto';
 import { UpdateTrackDto } from './dto/update-track.dto';
 import { TrackModel } from './model/track.model';
+import { GenreModel } from 'src/genre/model/genre.model';
+import { TrackGenreModel } from 'src/track-genre/model/track-genre.model';
 
 @Injectable()
 export class TrackService {
   constructor(
     @InjectModel(TrackModel)
     private readonly trackRepository: typeof TrackModel,
+    @InjectModel(GenreModel)
+    private readonly genreRepository: typeof GenreModel,
+    @InjectModel(TrackGenreModel)
+    private readonly trackGenreRepository: typeof TrackGenreModel,
     private readonly fileService: FileService,
+    @InjectConnection()
+    private readonly sequelize: Sequelize,
   ) {}
+
+  private async assertGenreIds(
+    genreIds: number[],
+    transaction: Transaction,
+  ): Promise<number[]> {
+    const uniqueGenreIds = [...new Set(genreIds)];
+    const found = await this.genreRepository.count({
+      where: { id: { [Op.in]: uniqueGenreIds } },
+      transaction,
+    });
+    if (found !== uniqueGenreIds.length) {
+      throw new BadRequestException('One or more genres do not exist');
+    }
+    return uniqueGenreIds;
+  }
 
   async create(
     dto: CreateTrackDto,
@@ -33,11 +56,27 @@ export class TrackService {
     try {
       picturePath = this.fileService.createFile(FileType.IMAGE, picture);
       audioPath = this.fileService.createFile(FileType.AUDIO, audio);
-      return await this.trackRepository.create({
-        ...dto,
-        listens: 0,
-        audio: audioPath,
-        picture: picturePath,
+      return await this.sequelize.transaction(async (transaction) => {
+        const genreIds = await this.assertGenreIds(dto.genreIds, transaction);
+        const trackData = {
+          name: dto.name,
+          authorId: dto.authorId,
+          text: dto.text,
+        };
+        const track = await this.trackRepository.create(
+          {
+            ...trackData,
+            listens: 0,
+            audio: audioPath,
+            picture: picturePath,
+          },
+          { transaction },
+        );
+        await this.trackGenreRepository.bulkCreate(
+          genreIds.map((genreId) => ({ trackId: track.id, genreId })),
+          { transaction },
+        );
+        return track;
       });
     } catch (error) {
       if (picturePath) this.fileService.deleteFile(picturePath);
@@ -143,9 +182,25 @@ export class TrackService {
   }
 
   async change(id: number, updateData: UpdateTrackDto): Promise<TrackModel> {
-    const track = await this.trackRepository.findByPk(id);
-    if (!track) throw new NotFoundException('Track not found');
-    Object.assign(track, updateData);
-    return track.save();
+    return this.sequelize.transaction(async (transaction) => {
+      const track = await this.trackRepository.findByPk(id, { transaction });
+      if (!track) throw new NotFoundException('Track not found');
+
+      const { genreIds, ...trackData } = updateData;
+      if (genreIds !== undefined) {
+        const validGenreIds = await this.assertGenreIds(genreIds, transaction);
+        await this.trackGenreRepository.destroy({
+          where: { trackId: id },
+          transaction,
+        });
+        await this.trackGenreRepository.bulkCreate(
+          validGenreIds.map((genreId) => ({ trackId: id, genreId })),
+          { transaction },
+        );
+      }
+
+      Object.assign(track, trackData);
+      return track.save({ transaction });
+    });
   }
 }

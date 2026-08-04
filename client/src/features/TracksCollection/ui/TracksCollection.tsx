@@ -5,7 +5,6 @@ import { usePlaybackStore } from "@/entities/playback";
 import CardItem from "@/shared/components/common/CardItem/CardItem";
 import { BASE_URL } from "@/shared/config/config";
 import useCollectionStore from "@/shared/store/collection";
-import { ITrack } from "@/shared/types/track";
 
 const TracksCollection = () => {
   const [collectionId, setCollectionId] = useState<number | null>(null);
@@ -21,24 +20,20 @@ const TracksCollection = () => {
     if (collectionId !== null) void getUserTracks(collectionId);
   }, [collectionId, getUserTracks]);
 
-  const play = (event: React.MouseEvent, track: ITrack) => {
-    event.stopPropagation();
-    if (collectionId === null) return;
-
-    playFromQueue(track, userTracks, { type: "favorites", collectionId });
-  };
-
   return (
     <div>
-      <h1 className="mb-3 bg-black text-[18px] text-white">Р›СЋР±РёРјС‹Рµ С‚СЂРµРєРё</h1>
+      <h1 className="mb-3 bg-black text-[18px] text-white">Любимые треки</h1>
       <div className="flex flex-wrap justify-stretch gap-2">
         {userTracks.map((track) => (
           <CardItem
             key={track.id}
+            variant="track"
             title={track.name}
             subtitle={track.authorName}
             imageUrl={`${BASE_URL}${track.picture}`}
-            onClick={(event) => play(event, track)}
+            onAction={() => {
+              if (collectionId !== null) playFromQueue(track, userTracks, { type: "favorites", collectionId });
+            }}
           />
         ))}
       </div>

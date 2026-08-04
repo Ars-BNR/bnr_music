@@ -4,7 +4,10 @@ import { Sequelize } from 'sequelize-typescript';
 import cookieParser from 'cookie-parser';
 import request from 'supertest';
 import { AuthorModel } from '../src/author/model/author.model';
+import { GenreModel } from '../src/genre/model/genre.model';
+import { FileService } from '../src/file/file.service';
 import { TrackModel } from '../src/track/model/track.model';
+import { TrackGenreModel } from '../src/track-genre/model/track-genre.model';
 import { UserModel } from '../src/user/model/user.model';
 
 const requiredDatabaseVariables = [
@@ -115,6 +118,48 @@ describeE2e('BNR Music API (e2e)', () => {
     await request(app.getHttpServer()).get('/tracks/999999').expect(404);
   });
 
+  it('serves a public, paginated genre queue and validates its pagination', async () => {
+    const genre = await GenreModel.create({ name: 'E2E genre' });
+    const author = await AuthorModel.create({ name: 'Genre composer' });
+    const [first, second] = await Promise.all([
+      TrackModel.create({
+        name: 'Genre track one',
+        picture: 'image/one.jpg',
+        text: '',
+        audio: 'audio/one.mp3',
+        authorId: author.id,
+        listens: 0,
+      }),
+      TrackModel.create({
+        name: 'Genre track two',
+        picture: 'image/two.jpg',
+        text: '',
+        audio: 'audio/two.mp3',
+        authorId: author.id,
+        listens: 0,
+      }),
+    ]);
+    await TrackGenreModel.bulkCreate([
+      { trackId: first.id, genreId: genre.id },
+      { trackId: second.id, genreId: genre.id },
+    ]);
+
+    const response = await request(app.getHttpServer())
+      .get(`/genres/${genre.id}/tracks?count=1&offset=0`)
+      .expect(200);
+    expect(response.body).toEqual(
+      expect.objectContaining({
+        genre: { id: genre.id, name: 'E2E genre' },
+        total: 2,
+        tracks: [expect.objectContaining({ authorName: 'Genre composer' })],
+      }),
+    );
+    await request(app.getHttpServer())
+      .get(`/genres/${genre.id}/tracks?offset=-1`)
+      .expect(400);
+    await request(app.getHttpServer()).get('/genres/999999/tracks').expect(404);
+  });
+
   it('rotates refresh sessions, never serializes the token, and invalidates logout', async () => {
     const { agent, response } = await register('rotation');
     const oldCookie = refreshCookieFrom(response.headers['set-cookie']);
@@ -193,5 +238,25 @@ describeE2e('BNR Music API (e2e)', () => {
       .get('/users')
       .set('Authorization', `Bearer ${adminLogin.body.accessToken}`)
       .expect(200);
+
+    const genre = await GenreModel.create({ name: 'Admin created genre' });
+    const createdTrack = await request(app.getHttpServer())
+      .post('/tracks')
+      .set('Authorization', `Bearer ${adminLogin.body.accessToken}`)
+      .field('name', 'Admin genre track')
+      .field('authorId', String(author.id))
+      .field('text', '')
+      .field('genreIds', JSON.stringify([genre.id]))
+      .attach('picture', Buffer.from('picture'), 'cover.png')
+      .attach('audio', Buffer.from('audio'), 'track.mp3')
+      .expect(201);
+    await expect(
+      TrackGenreModel.count({
+        where: { trackId: createdTrack.body.id, genreId: genre.id },
+      }),
+    ).resolves.toBe(1);
+    const files = app.get(FileService);
+    files.deleteFile(createdTrack.body.picture);
+    files.deleteFile(createdTrack.body.audio);
   });
 });

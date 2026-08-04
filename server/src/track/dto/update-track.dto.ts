@@ -1,60 +1,57 @@
-import { Type } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
-import { IsInt, IsOptional, IsString } from 'class-validator';
+import { Transform, Type } from 'class-transformer';
+import {
+  ArrayNotEmpty,
+  ArrayUnique,
+  IsArray,
+  IsInt,
+  IsOptional,
+  IsString,
+  Min,
+} from 'class-validator';
+import { transformGenreIds } from './create-track.dto';
 
 export class UpdateTrackDto {
-  @ApiProperty({
-    example: 'Sample',
-    description: 'Новое имя трека',
-    required: false,
-  })
+  @ApiProperty({ example: 'Sample', required: false })
   @IsOptional()
   @IsString()
   name?: string;
 
-  @ApiProperty({
-    example: 'Sam',
-    description: 'Автор трека',
-    required: false,
-  })
+  @ApiProperty({ example: 1, required: false })
   @IsOptional()
-  @IsString()
-  author?: string;
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  authorId?: number;
 
-  @ApiProperty({
-    example: 'image.png',
-    description: 'Имя картинки',
-    required: false,
-  })
+  @ApiProperty({ example: 'image.png', required: false })
   @IsOptional()
   @IsString()
   picture?: string;
 
-  @ApiProperty({
-    example: 'new song text',
-    description: 'Текст песни',
-    required: false,
-  })
+  @ApiProperty({ example: 'new song text', required: false })
   @IsOptional()
   @IsString()
   text?: string;
 
-  @ApiProperty({
-    example: 1200,
-    description: 'Количество прослушиваний',
-    required: false,
-  })
+  @ApiProperty({ example: 1200, required: false })
   @IsOptional()
   @Type(() => Number)
   @IsInt()
   listens?: number;
 
-  @ApiProperty({
-    example: 'audio-file.mp3',
-    description: 'Аудиофайл трека',
-    required: false,
-  })
+  @ApiProperty({ example: 'audio-file.mp3', required: false })
   @IsOptional()
   @IsString()
   audio?: string;
+
+  @ApiProperty({ example: [1, 2], type: [Number], required: false })
+  @IsOptional()
+  @Transform(transformGenreIds)
+  @IsArray()
+  @ArrayNotEmpty()
+  @ArrayUnique()
+  @IsInt({ each: true })
+  @Min(1, { each: true })
+  genreIds?: number[];
 }
