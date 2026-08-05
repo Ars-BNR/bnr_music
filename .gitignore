@@ -1,6 +1,8 @@
 # Environment variables and secrets
 .env
 .env.*
+.production.env
+.development.env
 !.env.example
 !.env.*.example
 *.pem
