@@ -29,7 +29,7 @@ export class CollectionTrackService {
   ): Promise<void> {
     const collection = await this.collectionRepository.findByPk(collectionId);
     if (!collection) throw new NotFoundException('Collection not found');
-    if (requester.role !== 'admin' && collection.userId !== requester.sub) {
+    if (collection.userId !== requester.sub) {
       throw new ForbiddenException('You can only change your own collection');
     }
   }

@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import AuthStore from "@/shared/store/auth";
 import { Button } from "@/shared/ui/button";
-import { profileApi, type UserProfile, UserAvatar } from "@/entities/user";
+import { hasPermission, profileApi, type UserProfile, UserAvatar } from "@/entities/user";
 
 const isCurrent = (pathname: string, href: string) => pathname === href;
 
@@ -29,9 +29,11 @@ export default function Profiles() {
     email: sessionUser?.email ?? "",
     bio: "",
     avatar: null,
-    role: sessionUser?.role ?? "user",
+    roles: sessionUser?.roles ?? ["user"],
+    permissions: sessionUser?.permissions ?? [],
     isActivated: true,
   };
+  const hasStudio = hasPermission(fallback, "creator.publish");
 
   return (
     <nav aria-label="Панель профиля" className="flex h-[58px] w-full min-w-0 items-center gap-1 border border-bnr-line/75 bg-bnr-surface p-2 shadow-[inset_0_0_0_1px_hsl(var(--bnr-abyss)/0.65)] sm:w-auto sm:max-w-[360px]">
@@ -46,7 +48,7 @@ export default function Profiles() {
         <Link href="/collection/albums" aria-label="Любимые альбомы"><Heart data-icon="inline-start" /></Link>
       </Button>
       <Button asChild size="sm" variant="ghost" className="size-9 shrink-0 p-0 text-bnr-ash hover:bg-bnr-violet/10 hover:text-bnr-lilac" aria-current={isCurrent(pathname, "/studio") ? "page" : undefined}>
-        <Link href="/studio" aria-label={fallback.role === "author" ? "Авторская студия" : "Стать автором"}><MicVocal data-icon="inline-start" /></Link>
+        <Link href="/studio" aria-label={hasStudio ? "Авторская студия" : "Стать автором"}><MicVocal data-icon="inline-start" /></Link>
       </Button>
       <Button asChild size="sm" variant="ghost" className="size-9 shrink-0 p-0 text-bnr-ash hover:bg-bnr-violet/10 hover:text-bnr-lilac" aria-current={isCurrent(pathname, "/settings") ? "page" : undefined}>
         <Link href="/settings" aria-label="Настройки профиля"><Settings data-icon="inline-start" /></Link>

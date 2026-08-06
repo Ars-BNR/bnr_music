@@ -15,6 +15,8 @@ import { Request } from 'express';
 import { AccessTokenPayload } from 'src/auth/jwt.strategy';
 import { PaginationQueryDto } from 'src/common/dto/pagination-query.dto';
 import { JwtAuthGuard } from 'src/guards/jwt-auth.guard';
+import { Permissions } from 'src/rbac/permissions.decorator';
+import { PermissionsGuard } from 'src/rbac/permissions.guard';
 import { CreatePlaylistDto } from './dto/create-playlist.dto';
 import { UpdatePlaylistDto } from './dto/update-playlist.dto';
 import { PlaylistTrackDto } from './dto/playlist-track.dto';
@@ -23,7 +25,8 @@ import { PlaylistService } from './playlist.service';
 type AuthenticatedRequest = Request & { user: AccessTokenPayload };
 
 @Controller('playlist')
-@UseGuards(JwtAuthGuard)
+@Permissions('library.manage-own')
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 export class PlaylistController {
   constructor(private readonly playlistService: PlaylistService) {}
 

@@ -21,5 +21,17 @@ export default defineConfig({
   projects: [
     { name: "mocked", testMatch: /.*\.mock\.spec\.ts/, use: { ...devices["Desktop Chrome"] } },
     { name: "live", testMatch: /.*\.live\.spec\.ts/, use: { ...devices["Desktop Chrome"] } },
+    {
+      name: "scrolling-firefox",
+      testMatch: /(?:rbac|volume)\.mock\.spec\.ts/,
+      grep: /admin sidebar stays scrollable without overlap|studio popovers support pointer keyboard Escape and restore focus/,
+      use: { ...devices["Desktop Firefox"] },
+    },
+    {
+      name: "scrolling-webkit",
+      testMatch: /(?:rbac|volume)\.mock\.spec\.ts/,
+      grep: /admin sidebar stays scrollable without overlap|studio popovers support pointer keyboard Escape and restore focus/,
+      use: { ...devices["Desktop Safari"] },
+    },
   ],
 });

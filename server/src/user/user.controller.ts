@@ -22,9 +22,10 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { Throttle } from '@nestjs/throttler';
 import { Request, Response } from 'express';
-import { Roles } from 'src/decorators/roles-auth.decorator';
 import { JwtAuthGuard } from 'src/guards/jwt-auth.guard';
-import { RolesGuard } from 'src/guards/roles.guard';
+import { Permissions } from 'src/rbac/permissions.decorator';
+import { PermissionsGuard } from 'src/rbac/permissions.guard';
+import { AuthenticatedPrincipal } from 'src/rbac/rbac.constants';
 import { ActivateDto } from './dto/check-link.dto';
 import { CreateUserDto } from './dto/create-user.dto';
 import { LoginDto } from './dto/login.dto';
@@ -36,7 +37,7 @@ import { UpdateProfileDto } from './dto/update-profile.dto';
 import { UserProfileResponse } from './response/user-profile-response';
 
 type AuthenticatedRequest = Request & {
-  user: { sub: number; email: string; role: string };
+  user: AuthenticatedPrincipal;
 };
 
 @ApiTags('Users')
@@ -105,7 +106,8 @@ export class UserController {
 
   @Get('users/me')
   @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard)
+  @Permissions('profile.manage-own')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
   getProfile(
     @Req() request: AuthenticatedRequest,
   ): Promise<UserProfileResponse> {
@@ -114,7 +116,8 @@ export class UserController {
 
   @Patch('users/me')
   @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard)
+  @Permissions('profile.manage-own')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
   updateProfile(
     @Req() request: AuthenticatedRequest,
     @Body() dto: UpdateProfileDto,
@@ -124,7 +127,8 @@ export class UserController {
 
   @Post('users/me/avatar')
   @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard)
+  @Permissions('profile.manage-own')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
   @UseInterceptors(FileInterceptor('avatar'))
   replaceAvatar(
     @Req() request: AuthenticatedRequest,
@@ -135,7 +139,8 @@ export class UserController {
 
   @Delete('users/me/avatar')
   @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard)
+  @Permissions('profile.manage-own')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
   removeAvatar(
     @Req() request: AuthenticatedRequest,
   ): Promise<UserProfileResponse> {
@@ -144,7 +149,8 @@ export class UserController {
 
   @Post('users/me/change-email')
   @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard)
+  @Permissions('profile.manage-own')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
   async changeEmail(
     @Req() request: AuthenticatedRequest,
     @Body() dto: ChangeEmailDto,
@@ -157,7 +163,8 @@ export class UserController {
 
   @Post('users/me/change-password')
   @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard)
+  @Permissions('profile.manage-own')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
   async changePassword(
     @Req() request: AuthenticatedRequest,
     @Body() dto: ChangePasswordDto,
@@ -176,8 +183,8 @@ export class UserController {
 
   @Get('users')
   @ApiBearerAuth()
-  @Roles('admin')
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Permissions('users.read')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
   getAll() {
     return this.userService.getAllUsers();
   }

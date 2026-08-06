@@ -71,7 +71,7 @@ export class CollectionService {
     userId: number,
     requester: AccessTokenPayload,
   ): Promise<CollectionModel> {
-    if (requester.role !== 'admin' && requester.sub !== userId) {
+    if (requester.sub !== userId) {
       throw new ForbiddenException('You can only access your own collection');
     }
     const collection = await this.collectionRepository.findOne({
@@ -349,7 +349,7 @@ export class CollectionService {
     collection: CollectionModel,
     requester: AccessTokenPayload,
   ): void {
-    if (requester.role !== 'admin' && collection.userId !== requester.sub) {
+    if (collection.userId !== requester.sub) {
       throw new ForbiddenException('You can only access your own collection');
     }
   }

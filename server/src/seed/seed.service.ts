@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { InjectModel } from '@nestjs/sequelize';
+import { InjectConnection, InjectModel } from '@nestjs/sequelize';
 import * as bcrypt from 'bcrypt';
 import { AlbumTrackModel } from 'src/album-track/model/album-track.model';
 import { AlbumModel } from 'src/album/model/album.model';
@@ -15,6 +15,8 @@ import { PlaylistTrackModel } from 'src/playlist-track/model/playlist-track.mode
 import { TrackModel } from 'src/track/model/track.model';
 import { TrackGenreModel } from 'src/track-genre/model/track-genre.model';
 import { UserModel } from 'src/user/model/user.model';
+import { RbacService } from 'src/rbac/rbac.service';
+import { Sequelize } from 'sequelize';
 import albumTracks from './data/album_track-seed';
 import albums from './data/album-seed';
 import authors from './data/authors-seed';
@@ -53,6 +55,8 @@ export class SeedService {
     @InjectModel(CollectionPlaylistModel)
     private readonly collectionPlaylistModel: typeof CollectionPlaylistModel,
     private readonly config: ConfigService,
+    private readonly rbacService: RbacService,
+    @InjectConnection() private readonly sequelize: Sequelize,
   ) {}
 
   private async insertWhenEmpty(
@@ -73,23 +77,25 @@ export class SeedService {
         'SEED_ADMIN_EMAIL and SEED_ADMIN_PASSWORD are required to run the seed command',
       );
     }
-    const [admin, created] = await this.userModel.findOrCreate({
-      where: { email },
-      defaults: {
-        email,
-        password: await bcrypt.hash(password, 10),
-        role: 'admin',
-        isActivated: true,
-        activationLink: null,
-      },
-    });
-    if (!created && admin.role !== 'admin') {
-      admin.role = 'admin';
-      await admin.save();
-    }
-    await this.collectionModel.findOrCreate({
-      where: { userId: admin.id },
-      defaults: { userId: admin.id },
+    await this.rbacService.ensureSystemDefinitions();
+    await this.sequelize.transaction(async (transaction) => {
+      const [admin] = await this.userModel.findOrCreate({
+        where: { email },
+        defaults: {
+          email,
+          password: await bcrypt.hash(password, 10),
+          isActivated: true,
+          activationLink: null,
+        },
+        transaction,
+      });
+      await this.rbacService.assignSystemRole(admin.id, 'user', transaction);
+      await this.rbacService.assignSystemRole(admin.id, 'admin', transaction);
+      await this.collectionModel.findOrCreate({
+        where: { userId: admin.id },
+        defaults: { userId: admin.id },
+        transaction,
+      });
     });
   }
 

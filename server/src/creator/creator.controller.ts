@@ -19,9 +19,10 @@ import {
 } from '@nestjs/platform-express';
 import { Request } from 'express';
 import { PaginationQueryDto } from 'src/common/dto/pagination-query.dto';
-import { Roles } from 'src/decorators/roles-auth.decorator';
 import { JwtAuthGuard } from 'src/guards/jwt-auth.guard';
-import { RolesGuard } from 'src/guards/roles.guard';
+import { Permissions } from 'src/rbac/permissions.decorator';
+import { PermissionsGuard } from 'src/rbac/permissions.guard';
+import { AuthenticatedPrincipal } from 'src/rbac/rbac.constants';
 import { CreatorApplicationDto } from './dto/creator-application.dto';
 import { CreatorApplicationsQueryDto } from './dto/creator-applications-query.dto';
 import {
@@ -32,7 +33,7 @@ import { ReviewApplicationDto } from './dto/review-application.dto';
 import { CreatorService } from './creator.service';
 
 type AuthenticatedRequest = Request & {
-  user: { sub: number; email: string; role: string };
+  user: AuthenticatedPrincipal;
 };
 
 @Controller('creator')
@@ -46,6 +47,8 @@ export class CreatorController {
   }
 
   @Post('application')
+  @Permissions('creator.apply')
+  @UseGuards(PermissionsGuard)
   @UseInterceptors(
     FileInterceptor('avatar', { limits: { fileSize: 2 * 1024 * 1024 } }),
   )
@@ -58,6 +61,8 @@ export class CreatorController {
   }
 
   @Get('tracks')
+  @Permissions('creator.publish')
+  @UseGuards(PermissionsGuard)
   getTracks(
     @Req() request: AuthenticatedRequest,
     @Query() pagination: PaginationQueryDto,
@@ -70,6 +75,8 @@ export class CreatorController {
   }
 
   @Get('albums')
+  @Permissions('creator.publish')
+  @UseGuards(PermissionsGuard)
   getAlbums(
     @Req() request: AuthenticatedRequest,
     @Query() pagination: PaginationQueryDto,
@@ -82,6 +89,8 @@ export class CreatorController {
   }
 
   @Post('tracks')
+  @Permissions('creator.publish')
+  @UseGuards(PermissionsGuard)
   @UseInterceptors(
     FileFieldsInterceptor(
       [
@@ -108,6 +117,8 @@ export class CreatorController {
   }
 
   @Post('albums')
+  @Permissions('creator.publish')
+  @UseGuards(PermissionsGuard)
   @UseInterceptors(
     FileInterceptor('picture', { limits: { fileSize: 5 * 1024 * 1024 } }),
   )
@@ -120,8 +131,8 @@ export class CreatorController {
   }
 
   @Get('applications')
-  @Roles('admin')
-  @UseGuards(RolesGuard)
+  @Permissions('creator.moderate')
+  @UseGuards(PermissionsGuard)
   getApplications(@Query() query: CreatorApplicationsQueryDto) {
     return this.creatorService.getApplications(
       query.status,
@@ -131,8 +142,8 @@ export class CreatorController {
   }
 
   @Patch('applications/:id/approve')
-  @Roles('admin')
-  @UseGuards(RolesGuard)
+  @Permissions('creator.moderate')
+  @UseGuards(PermissionsGuard)
   approve(
     @Param('id', ParseIntPipe) id: number,
     @Req() request: AuthenticatedRequest,
@@ -141,8 +152,8 @@ export class CreatorController {
   }
 
   @Patch('applications/:id/reject')
-  @Roles('admin')
-  @UseGuards(RolesGuard)
+  @Permissions('creator.moderate')
+  @UseGuards(PermissionsGuard)
   reject(
     @Param('id', ParseIntPipe) id: number,
     @Req() request: AuthenticatedRequest,

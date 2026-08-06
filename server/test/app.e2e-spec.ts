@@ -5,12 +5,15 @@ import cookieParser from 'cookie-parser';
 import * as bcrypt from 'bcrypt';
 import request from 'supertest';
 import { AlbumModel } from '../src/album/model/album.model';
+import { AlbumFeaturedAuthorModel } from '../src/album-featured-author/model/album-featured-author.model';
 import { AuthorModel } from '../src/author/model/author.model';
 import { CollectionAlbumModel } from '../src/collection-album/model/collection-album.model';
 import { GenreModel } from '../src/genre/model/genre.model';
 import { FileService } from '../src/file/file.service';
 import { PlaylistTrackModel } from '../src/playlist-track/model/playlist-track.model';
+import { RbacService } from '../src/rbac/rbac.service';
 import { TrackModel } from '../src/track/model/track.model';
+import { TrackFeaturedAuthorModel } from '../src/track-featured-author/model/track-featured-author.model';
 import { TrackGenreModel } from '../src/track-genre/model/track-genre.model';
 import { TokenModel } from '../src/token/model/token.model';
 import { UserModel } from '../src/user/model/user.model';
@@ -64,6 +67,8 @@ const refreshCookieFrom = (value: string | string[] | undefined): string => {
 describeE2e('BNR Music API (e2e)', () => {
   let app: INestApplication;
   let sequelize: Sequelize;
+  let rbacService: RbacService;
+  const createdFixtureFiles = new Set<string>();
 
   beforeAll(async () => {
     const { AppModule } = await import('../src/app.module');
@@ -81,11 +86,19 @@ describeE2e('BNR Music API (e2e)', () => {
     );
     await app.init();
     sequelize = app.get(Sequelize);
+    rbacService = app.get(RbacService);
   }, 30_000);
 
   beforeEach(async () => {
     await sequelize.sync({ force: true });
+    await rbacService.ensureSystemDefinitions();
   }, 30_000);
+
+  afterEach(() => {
+    const files = app.get(FileService);
+    createdFixtureFiles.forEach((file) => files.deleteFile(file));
+    createdFixtureFiles.clear();
+  });
 
   afterAll(async () => {
     await app?.close();
@@ -104,7 +117,14 @@ describeE2e('BNR Music API (e2e)', () => {
     expect(response.body).toEqual(
       expect.objectContaining({
         accessToken: expect.any(String),
-        user: expect.any(Object),
+        user: expect.objectContaining({
+          roles: expect.arrayContaining(['user']),
+          permissions: expect.arrayContaining([
+            'profile.manage-own',
+            'library.manage-own',
+            'creator.apply',
+          ]),
+        }),
       }),
     );
     expect(response.body.refreshToken).toBeUndefined();
@@ -128,13 +148,18 @@ describeE2e('BNR Music API (e2e)', () => {
     await UserModel.create({
       email: 'seed-admin@example.test',
       password: await bcrypt.hash(password, 10),
-      role: 'admin',
       isActivated: true,
       activationLink: 'seed-admin-activation',
       displayName: 'Seed Admin',
       bio: '',
       avatar: null,
     });
+    const seedAdmin = await UserModel.findOne({
+      where: { email: 'seed-admin@example.test' },
+    });
+    if (!seedAdmin) throw new Error('Seed admin fixture was not created');
+    await rbacService.assignSystemRole(seedAdmin.id, 'user');
+    await rbacService.assignSystemRole(seedAdmin.id, 'admin');
 
     const response = await request(app.getHttpServer())
       .post('/login')
@@ -146,6 +171,98 @@ describeE2e('BNR Music API (e2e)', () => {
       .post('/login')
       .send({ email: 'seed-admin@example.test', password: 'wrong-password' })
       .expect(401);
+  });
+
+  it('creates creator albums and tracks with ordered featured authors', async () => {
+    const owner = await register('creator-feat');
+    const ownerId = owner.response.body.user.sub as number;
+    const ownerToken = owner.response.body.accessToken as string;
+    const primary = await AuthorModel.create({
+      userId: ownerId,
+      name: 'Primary creator',
+      bio: '',
+      avatar: null,
+    });
+    const [firstFeatured, secondFeatured, genre] = await Promise.all([
+      AuthorModel.create({ name: 'Featured One' }),
+      AuthorModel.create({ name: 'Featured Two' }),
+      GenreModel.create({ name: 'Creator genre' }),
+    ]);
+    await rbacService.assignSystemRole(ownerId, 'author');
+
+    const albumResponse = await owner.agent
+      .post('/creator/albums')
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .field('name', 'Featured album')
+      .field(
+        'featuredAuthorIds',
+        JSON.stringify([secondFeatured.id, firstFeatured.id]),
+      )
+      .attach('picture', Buffer.from('album-picture'), 'album.webp')
+      .expect(201);
+    createdFixtureFiles.add(albumResponse.body.picture);
+
+    await expect(
+      AlbumFeaturedAuthorModel.findAll({
+        where: { albumId: albumResponse.body.id },
+        order: [['position', 'ASC']],
+      }),
+    ).resolves.toEqual([
+      expect.objectContaining({ authorId: secondFeatured.id, position: 0 }),
+      expect.objectContaining({ authorId: firstFeatured.id, position: 1 }),
+    ]);
+
+    const trackResponse = await owner.agent
+      .post('/creator/tracks')
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .field('name', 'Featured track')
+      .field('text', '')
+      .field('genreIds', JSON.stringify([genre.id]))
+      .field(
+        'featuredAuthorIds',
+        JSON.stringify([firstFeatured.id, secondFeatured.id]),
+      )
+      .attach('picture', Buffer.from('track-picture'), 'track.webp')
+      .attach('audio', Buffer.from('track-audio'), 'track.mp3')
+      .expect(201);
+    createdFixtureFiles.add(trackResponse.body.picture);
+    createdFixtureFiles.add(trackResponse.body.audio);
+
+    await expect(
+      TrackFeaturedAuthorModel.findAll({
+        where: { trackId: trackResponse.body.id },
+        order: [['position', 'ASC']],
+      }),
+    ).resolves.toEqual([
+      expect.objectContaining({ authorId: firstFeatured.id, position: 0 }),
+      expect.objectContaining({ authorId: secondFeatured.id, position: 1 }),
+    ]);
+
+    const publicAlbum = await request(app.getHttpServer())
+      .get(`/albums/${albumResponse.body.id}`)
+      .expect(200);
+    expect(publicAlbum.body).toEqual(
+      expect.objectContaining({
+        authorId: primary.id,
+        featuredAuthors: [
+          expect.objectContaining({ id: secondFeatured.id }),
+          expect.objectContaining({ id: firstFeatured.id }),
+        ],
+      }),
+    );
+
+    const publicTrack = await request(app.getHttpServer())
+      .get(`/tracks/${trackResponse.body.id}`)
+      .expect(200);
+    expect(publicTrack.body).toEqual(
+      expect.objectContaining({
+        authorId: primary.id,
+        featuredAuthors: [
+          expect.objectContaining({ id: firstFeatured.id }),
+          expect.objectContaining({ id: secondFeatured.id }),
+        ],
+      }),
+    );
   });
 
   it('serves a public, paginated genre queue and validates its pagination', async () => {
@@ -212,6 +329,150 @@ describeE2e('BNR Music API (e2e)', () => {
       .expect(401);
     await agent.post('/logout').expect(201);
     await agent.post('/refresh').expect(401);
+  });
+
+  it('manages RBAC roles, applies grants immediately and preserves ownership', async () => {
+    const manager = await register('rbac-manager');
+    const member = await register('rbac-member');
+    const managerId = manager.response.body.user.sub as number;
+    const memberId = member.response.body.user.sub as number;
+    const managerToken = manager.response.body.accessToken as string;
+    const memberToken = member.response.body.accessToken as string;
+
+    await request(app.getHttpServer()).get('/rbac/roles').expect(401);
+    await member.agent
+      .get('/rbac/roles')
+      .set('Authorization', `Bearer ${memberToken}`)
+      .expect(403);
+
+    await rbacService.assignSystemRole(managerId, 'admin');
+
+    const rolesResponse = await manager.agent
+      .get('/rbac/roles')
+      .set('Authorization', `Bearer ${managerToken}`)
+      .expect(200);
+    const permissionsResponse = await manager.agent
+      .get('/rbac/permissions')
+      .set('Authorization', `Bearer ${managerToken}`)
+      .expect(200);
+    const userRole = rolesResponse.body.find(
+      (role: { code: string }) => role.code === 'user',
+    );
+    const adminRole = rolesResponse.body.find(
+      (role: { code: string }) => role.code === 'admin',
+    );
+    const usersRead = permissionsResponse.body.find(
+      (permission: { code: string }) => permission.code === 'users.read',
+    );
+    expect(userRole).toEqual(expect.objectContaining({ isSystem: true }));
+    expect(adminRole).toEqual(expect.objectContaining({ isSystem: true }));
+    expect(usersRead).toEqual(
+      expect.objectContaining({ id: expect.any(Number) }),
+    );
+
+    const customRoleResponse = await manager.agent
+      .post('/rbac/roles')
+      .set('Authorization', `Bearer ${managerToken}`)
+      .send({
+        code: 'support.reader',
+        name: 'Support reader',
+        description: 'Can review user directory',
+        permissionIds: [usersRead.id],
+      })
+      .expect(201);
+    expect(customRoleResponse.body).toEqual(
+      expect.objectContaining({
+        code: 'support.reader',
+        isSystem: false,
+        permissions: [expect.objectContaining({ code: 'users.read' })],
+      }),
+    );
+
+    const usersPage = await manager.agent
+      .get('/rbac/users?query=rbac-member&count=1&offset=0')
+      .set('Authorization', `Bearer ${managerToken}`)
+      .expect(200);
+    expect(usersPage.body).toEqual({
+      items: [
+        expect.objectContaining({
+          id: memberId,
+          email: 'e2e-rbac-member@example.test',
+          roles: [expect.objectContaining({ code: 'user' })],
+        }),
+      ],
+      total: 1,
+    });
+    await manager.agent
+      .get('/rbac/users?count=1&offset=-1')
+      .set('Authorization', `Bearer ${managerToken}`)
+      .expect(400);
+
+    await member.agent
+      .get('/users')
+      .set('Authorization', `Bearer ${memberToken}`)
+      .expect(403);
+    await manager.agent
+      .put(`/rbac/users/${memberId}/roles`)
+      .set('Authorization', `Bearer ${managerToken}`)
+      .send({ roleIds: [userRole.id, customRoleResponse.body.id] })
+      .expect(200)
+      .expect((response) => {
+        expect(response.body.roles).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({ code: 'user' }),
+            expect.objectContaining({ code: 'support.reader' }),
+          ]),
+        );
+      });
+
+    await member.agent
+      .get('/users')
+      .set('Authorization', `Bearer ${memberToken}`)
+      .expect(200);
+
+    await manager.agent
+      .put(`/rbac/users/${memberId}/roles`)
+      .set('Authorization', `Bearer ${managerToken}`)
+      .send({ roleIds: [userRole.id] })
+      .expect(200);
+    await member.agent
+      .get('/users')
+      .set('Authorization', `Bearer ${memberToken}`)
+      .expect(403);
+
+    await manager.agent
+      .patch(`/rbac/roles/${adminRole.id}`)
+      .set('Authorization', `Bearer ${managerToken}`)
+      .send({ name: 'Mutable admin' })
+      .expect(403);
+    await manager.agent
+      .put(`/rbac/users/${memberId}/roles`)
+      .set('Authorization', `Bearer ${managerToken}`)
+      .send({ roleIds: [customRoleResponse.body.id] })
+      .expect(400);
+    await manager.agent
+      .put(`/rbac/users/${managerId}/roles`)
+      .set('Authorization', `Bearer ${managerToken}`)
+      .send({ roleIds: [userRole.id] })
+      .expect(403);
+
+    const memberCollection = await member.agent
+      .get(`/collection/user/${memberId}`)
+      .set('Authorization', `Bearer ${memberToken}`)
+      .expect(200);
+    await manager.agent
+      .get(`/collection/${memberCollection.body.id}`)
+      .set('Authorization', `Bearer ${managerToken}`)
+      .expect(403);
+    const memberPlaylist = await member.agent
+      .post('/playlist')
+      .set('Authorization', `Bearer ${memberToken}`)
+      .send({ name: 'Member private playlist' })
+      .expect(201);
+    await manager.agent
+      .get(`/playlist/${memberPlaylist.body.id}`)
+      .set('Authorization', `Bearer ${managerToken}`)
+      .expect(403);
   });
 
   it('returns favorite albums and only the authenticated user playlists', async () => {
@@ -423,7 +684,7 @@ describeE2e('BNR Music API (e2e)', () => {
     ]);
     await expect(track.reload()).resolves.toMatchObject({ listens: 2 });
 
-    await UserModel.update({ role: 'admin' }, { where: { id: firstUserId } });
+    await rbacService.assignSystemRole(firstUserId, 'admin');
     const adminLogin = await request(app.getHttpServer())
       .post('/login')
       .send({ email: 'e2e-first@example.test', password: 'strong-password' })

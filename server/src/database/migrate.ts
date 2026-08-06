@@ -8,6 +8,7 @@ import * as hardening from './migrations/0002-security-and-constraints';
 import * as userProfile from './migrations/0003-user-profile';
 import * as creatorStudio from './migrations/0004-creator-studio';
 import * as creatorStudioHardening from './migrations/0005-creator-studio-hardening';
+import * as rbac from './migrations/0006-rbac';
 
 loadEnvironment({ path: `.${process.env.NODE_ENV ?? 'development'}.env` });
 const env = validateEnvironment(process.env);
@@ -29,6 +30,7 @@ const umzug = new Umzug({
     userProfile,
     creatorStudio,
     creatorStudioHardening,
+    rbac,
   ],
   context: sequelize.getQueryInterface(),
   storage: new SequelizeStorage({ sequelize }),

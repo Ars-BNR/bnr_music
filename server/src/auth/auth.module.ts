@@ -4,7 +4,6 @@ import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { SequelizeModule } from '@nestjs/sequelize';
 import { JwtAuthGuard } from 'src/guards/jwt-auth.guard';
-import { RolesGuard } from 'src/guards/roles.guard';
 import { TokenModel } from 'src/token/model/token.model';
 import { TokenService } from 'src/token/token.service';
 import { CollectionModel } from 'src/collection/model/collection.model';
@@ -29,19 +28,12 @@ import { OwnershipService } from './ownership.service';
     }),
     SequelizeModule.forFeature([TokenModel, CollectionModel, PlaylistModel]),
   ],
-  providers: [
-    TokenService,
-    JwtStrategy,
-    JwtAuthGuard,
-    RolesGuard,
-    OwnershipService,
-  ],
+  providers: [TokenService, JwtStrategy, JwtAuthGuard, OwnershipService],
   exports: [
     TokenService,
     JwtModule,
     PassportModule,
     JwtAuthGuard,
-    RolesGuard,
     OwnershipService,
   ],
 })

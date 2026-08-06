@@ -2,6 +2,7 @@ import { ApiProperty } from '@nestjs/swagger';
 import {
   AutoIncrement,
   AllowNull,
+  BelongsToMany,
   Column,
   DataType,
   Default,
@@ -14,6 +15,8 @@ import {
 } from 'sequelize-typescript';
 import { CollectionModel } from 'src/collection/model/collection.model';
 import { TokenModel } from 'src/token/model/token.model';
+import { RoleModel } from 'src/rbac/model/role.model';
+import { UserRoleModel } from 'src/rbac/model/user-role.model';
 
 @Table({ tableName: 'users', timestamps: false })
 export class UserModel extends Model {
@@ -55,11 +58,6 @@ export class UserModel extends Model {
   @Column(DataType.STRING)
   password: string;
 
-  @ApiProperty({ example: 'user', description: 'Роль пользователя' })
-  @Default('user')
-  @Column(DataType.STRING)
-  role: string;
-
   @ApiProperty({ example: 'false', description: 'Активирован ли пользователь' })
   @Default(false)
   @Column(DataType.BOOLEAN)
@@ -77,4 +75,7 @@ export class UserModel extends Model {
 
   @HasOne(() => CollectionModel)
   collection: CollectionModel;
+
+  @BelongsToMany(() => RoleModel, () => UserRoleModel)
+  roles: RoleModel[];
 }

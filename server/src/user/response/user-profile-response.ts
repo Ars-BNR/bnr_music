@@ -17,7 +17,10 @@ export class UserProfileResponse {
   avatar: string | null;
 
   @ApiProperty()
-  role: string;
+  roles: string[];
+
+  @ApiProperty({ type: [String] })
+  permissions: string[];
 
   @ApiProperty()
   isActivated: boolean;

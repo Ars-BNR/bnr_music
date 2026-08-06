@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/sequelize';
 import { Sequelize } from 'sequelize';
 import { AuthorModel } from 'src/author/model/author.model';
+import { mapFeaturedAuthors } from 'src/author/featured-author.mapper';
 import { TrackModel } from 'src/track/model/track.model';
 import { CreateAlbumDto } from './dto/create-album.dto';
 import { AlbumModel } from './model/album.model';
@@ -21,12 +22,7 @@ export class AlbumService {
     return {
       ...album,
       authorName: album.author?.name ?? '',
-      featuredAuthors:
-        album.featuredAuthors?.map((author) => ({
-          id: author.id,
-          name: author.name,
-          avatar: author.avatar ?? null,
-        })) ?? [],
+      featuredAuthors: mapFeaturedAuthors(album.featuredAuthors),
     };
   }
 

@@ -8,9 +8,38 @@ export interface UserProfile {
   displayName: string;
   bio: string;
   avatar: string | null;
-  role: string;
+  roles: string[];
+  permissions: string[];
   isActivated: boolean;
 }
+
+export const ROLE_CODES = ["user", "author", "admin"] as const;
+export type SystemRoleCode = (typeof ROLE_CODES)[number];
+
+export const PERMISSION_CODES = [
+  "profile.manage-own",
+  "library.manage-own",
+  "creator.apply",
+  "creator.publish",
+  "creator.moderate",
+  "catalog.manage",
+  "users.read",
+  "rbac.manage",
+] as const;
+export type PermissionCode = (typeof PERMISSION_CODES)[number];
+
+export interface AccessSubject {
+  roles?: readonly string[] | null;
+  permissions?: readonly string[] | null;
+}
+
+export const hasRole = (subject: AccessSubject | null | undefined, role: string) =>
+  subject?.roles?.includes(role) ?? false;
+
+export const hasPermission = (
+  subject: AccessSubject | null | undefined,
+  permission: PermissionCode,
+) => hasRole(subject, "admin") || (subject?.permissions?.includes(permission) ?? false);
 
 export interface CollectionSummary {
   collectionId: number;

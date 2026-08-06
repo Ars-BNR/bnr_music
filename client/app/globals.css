@@ -52,10 +52,14 @@ html {
 
 body {
   font-size: 12px;
+  min-height: 100%;
+  overflow-x: hidden;
 }
 
 html {
+  overflow-y: auto;
   scroll-behavior: smooth;
+  scrollbar-gutter: stable;
 }
 
 button {
@@ -88,37 +92,57 @@ section {
   animation: fillAnimation 0.5s ease-in-out forwards;
 }
 
-html {
-  overflow-y: scroll;
-  /* Скроллбар всегда занимает место */
+html,
+.bnr-scrollbar,
+.scroll-container {
+  scrollbar-color: hsl(var(--bnr-lilac) / 0.58) hsl(var(--bnr-abyss) / 0.52);
+  scrollbar-width: thin;
 }
 
-html,
-body {
-  overflow-y: scroll;
-  /* Зарезервировать место для прокрутки */
-  scrollbar-width: none;
-  /* Скрыть скроллбар в Firefox */
-  -ms-overflow-style: none;
-  /* Скрыть скроллбар в IE */
+.bnr-scrollbar {
+  scrollbar-gutter: stable;
 }
 
 html::-webkit-scrollbar,
-body::-webkit-scrollbar {
-  display: none;
-  /* Скрыть скроллбар в Chrome, Safari и Edge */
-}
-
-.scroll-container {
-  scrollbar-width: none;
-  /* Firefox */
-  -ms-overflow-style: none;
-  /* IE 10+ */
-}
-
+.bnr-scrollbar::-webkit-scrollbar,
 .scroll-container::-webkit-scrollbar {
-  display: none;
-  /* Chrome, Safari, Opera */
+  height: 6px;
+  width: 8px;
+}
+
+.bnr-scrollbar-compact::-webkit-scrollbar {
+  height: 6px;
+  width: 6px;
+}
+
+html::-webkit-scrollbar-track,
+.bnr-scrollbar::-webkit-scrollbar-track,
+.scroll-container::-webkit-scrollbar-track {
+  background: hsl(var(--bnr-abyss) / 0.52);
+}
+
+html::-webkit-scrollbar-thumb,
+.bnr-scrollbar::-webkit-scrollbar-thumb,
+.scroll-container::-webkit-scrollbar-thumb {
+  background: hsl(var(--bnr-lilac) / 0.58);
+  border: 2px solid hsl(var(--bnr-abyss) / 0.78);
+  border-radius: var(--radius);
+}
+
+.bnr-scrollbar-compact::-webkit-scrollbar-thumb {
+  border-width: 1px;
+}
+
+html::-webkit-scrollbar-thumb:hover,
+.bnr-scrollbar::-webkit-scrollbar-thumb:hover,
+.scroll-container::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--bnr-violet) / 0.86);
+}
+
+html::-webkit-scrollbar-corner,
+.bnr-scrollbar::-webkit-scrollbar-corner,
+.scroll-container::-webkit-scrollbar-corner {
+  background: hsl(var(--bnr-abyss) / 0.52);
 }
 
 .flex {
@@ -256,13 +280,11 @@ body::-webkit-scrollbar {
 .heraldic-loader__echo--late { animation-delay: .45s; }
 @media (prefers-reduced-motion: reduce) {
   .heraldic-loader__echo { animation: none; opacity: .25; }
-}
 
-/* @media screen and (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;
   }
-} */
+}
 @layer base {
   * {
     @apply border-border;

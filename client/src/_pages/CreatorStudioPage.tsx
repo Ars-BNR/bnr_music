@@ -1,7 +1,8 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
+import { isAxiosError } from "axios";
 import { Check, ChevronDown, Disc3, FileAudio, ImagePlus, Loader2, Plus, Send, ShieldCheck, X } from "lucide-react";
 import $api from "@/entities/http-service";
 import { Alert, AlertDescription } from "@/shared/ui/alert";
@@ -28,30 +29,113 @@ type Genre = { id: number; name: string };
 
 const fileUrl = (path?: string | null) => path ? `${process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8340"}/${path}` : null;
 
-function FeaturedAuthors({ value, onChange, primaryAuthorId }: { value: Author[]; onChange: (next: Author[]) => void; primaryAuthorId?: number }) {
+const creatorErrorMessage = (error: unknown) => {
+  if (!isAxiosError(error)) return "Не удалось сохранить запись. Проверьте обязательные поля и файлы.";
+  if (error.response?.status === 404) return "Один из выбранных feat-авторов или связанных разделов больше недоступен.";
+  if (error.response?.status === 400) {
+    const message = error.response.data && typeof error.response.data === "object" && "message" in error.response.data
+      ? error.response.data.message
+      : undefined;
+    if (message === "Primary author cannot be featured") return "Основного автора нельзя указать как feat-автора.";
+    return "Проверьте выбранных feat-авторов и обязательные поля.";
+  }
+  return "Не удалось сохранить запись. Проверьте подключение и повторите попытку.";
+};
+
+function FeaturedAuthors({ value, onChange, primaryAuthorId }: { value: Author[]; onChange: (next: Author[]) => void; primaryAuthorId: number }) {
+  const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<Author[]>([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [retry, setRetry] = useState(0);
+  const triggerId = useId();
+  const inputId = useId();
+  const listId = useId();
+  const inputRef = useRef<HTMLInputElement>(null);
+  const requestId = useRef(0);
+
   useEffect(() => {
+    if (!open) return;
+
     const controller = new AbortController();
-    const timeout = setTimeout(() => {
-      if (!query.trim()) { setResults([]); return; }
+    const currentRequest = ++requestId.current;
+    const normalizedQuery = query.trim();
+    const timeout = window.setTimeout(() => {
       setLoading(true);
-      void $api.get<Author[]>("/authors", { params: { query, count: 8 }, signal: controller.signal }).then(({ data }) => setResults(data.filter((author) => author.id !== primaryAuthorId && !value.some((selected) => selected.id === author.id)))).catch(() => setResults([])).finally(() => setLoading(false));
-    }, 300);
-    return () => { controller.abort(); clearTimeout(timeout); };
-  }, [primaryAuthorId, query, value]);
+      setError("");
+      void $api.get<Author[]>("/authors", {
+        params: { ...(normalizedQuery ? { query: normalizedQuery } : {}), count: 20, offset: 0 },
+        signal: controller.signal,
+      }).then(({ data }) => {
+        if (controller.signal.aborted || currentRequest !== requestId.current) return;
+        const selectedIds = new Set(value.map((author) => author.id));
+        setResults(data.filter((author) => author.id !== primaryAuthorId && !selectedIds.has(author.id)));
+      }).catch(() => {
+        if (controller.signal.aborted || currentRequest !== requestId.current) return;
+        setResults([]);
+        setError("Не удалось загрузить авторов. Попробуйте ещё раз.");
+      }).finally(() => {
+        if (!controller.signal.aborted && currentRequest === requestId.current) setLoading(false);
+      });
+    }, normalizedQuery ? 300 : 0);
+
+    return () => {
+      controller.abort();
+      window.clearTimeout(timeout);
+    };
+  }, [open, primaryAuthorId, query, retry, value]);
+
+  const handleOpenChange = (nextOpen: boolean) => {
+    setOpen(nextOpen);
+    if (!nextOpen) {
+      requestId.current += 1;
+      setLoading(false);
+      setError("");
+      setQuery("");
+    }
+  };
+
+  const selectAuthor = (author: Author) => {
+    if (author.id === primaryAuthorId || value.some((selected) => selected.id === author.id)) return;
+    onChange([...value, author]);
+    setQuery("");
+  };
+
   return <Field>
-    <FieldLabel htmlFor="featured-authors">Feat-авторы</FieldLabel>
-    <Popover><PopoverTrigger asChild><Button type="button" variant="brandLink" className="w-full justify-between"><span>{value.length ? `Выбрано: ${value.length}` : "Добавить feat-автора"}</span><ChevronDown data-icon="inline-end" /></Button></PopoverTrigger><PopoverContent className="w-[min(22rem,calc(100vw-2rem))] border-bnr-line bg-bnr-surface p-0" align="start"><Command shouldFilter={false}><CommandInput id="featured-authors" value={query} onValueChange={setQuery} placeholder="Найдите автора" aria-label="Поиск feat-автора" /><CommandList>{loading ? <p className="p-3 text-sm text-bnr-ash">Ищем авторов…</p> : <><CommandEmpty>{query ? "Авторов не найдено." : "Введите имя автора."}</CommandEmpty><CommandGroup>{results.map((author) => <CommandItem key={author.id} value={author.name} onSelect={() => { onChange([...value, author]); setQuery(""); }}>{author.name}</CommandItem>)}</CommandGroup></>}</CommandList></Command></PopoverContent></Popover>
-    {value.length ? <div className="flex flex-wrap gap-2">{value.map((author) => <Badge key={author.id} variant="outline" className="gap-1 border-bnr-lilac/50 px-2 py-1 text-bnr-bone">{author.name}<button type="button" aria-label={`Убрать ${author.name}`} onClick={() => onChange(value.filter((item) => item.id !== author.id))}><X className="size-3" /></button></Badge>)}</div> : null}
+    <FieldLabel htmlFor={triggerId}>Feat-авторы</FieldLabel>
+    <Popover modal open={open} onOpenChange={handleOpenChange}><PopoverTrigger asChild><Button id={triggerId} type="button" variant="brandLink" className="w-full justify-between" aria-label={value.length ? `Выбрано: ${value.length}` : "Добавить feat-автора"} aria-expanded={open} aria-haspopup="listbox" aria-controls={listId}><span aria-live="polite">{value.length ? `Выбрано: ${value.length}` : "Добавить feat-автора"}</span><ChevronDown data-icon="inline-end" /></Button></PopoverTrigger><PopoverContent className="w-[min(22rem,calc(100vw-2rem))] border-bnr-line bg-bnr-surface p-0" align="start" onOpenAutoFocus={(event) => { event.preventDefault(); inputRef.current?.focus(); }}><Command shouldFilter={false}><CommandInput ref={inputRef} id={inputId} value={query} onValueChange={setQuery} placeholder="Найдите автора" aria-label="Поиск feat-автора" aria-describedby={error ? `${inputId}-error` : undefined} /><CommandList id={listId} aria-busy={loading}>{loading ? <p className="p-3 text-sm text-bnr-ash" role="status" aria-live="polite">Ищем авторов…</p> : error ? <div id={`${inputId}-error`} className="space-y-2 p-3" role="alert"><p className="text-sm text-destructive">{error}</p><Button type="button" variant="brandLink" size="sm" onClick={() => setRetry((current) => current + 1)}>Повторить</Button></div> : <><CommandEmpty>{query.trim() ? "Авторов не найдено." : "Доступных авторов не найдено."}</CommandEmpty><CommandGroup>{results.map((author) => <CommandItem key={author.id} value={String(author.id)} keywords={[author.name]} onSelect={() => selectAuthor(author)}>{author.name}</CommandItem>)}</CommandGroup></>}</CommandList></Command></PopoverContent></Popover>
+    {value.length ? <div className="flex flex-wrap gap-2" aria-live="polite">{value.map((author) => <Badge key={author.id} variant="outline" className="gap-1 border-bnr-lilac/50 px-2 py-1 text-bnr-bone">{author.name}<button type="button" aria-label={`Убрать ${author.name}`} onClick={() => onChange(value.filter((item) => item.id !== author.id))}><X className="size-3" /></button></Badge>)}</div> : null}
   </Field>;
 }
 
 function GenrePicker({ value, onChange }: { value: Genre[]; onChange: (next: Genre[]) => void }) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const [commandValue, setCommandValue] = useState("");
   const [genres, setGenres] = useState<Genre[]>([]);
+  const triggerId = useId();
+  const inputId = useId();
+  const listId = useId();
+  const inputRef = useRef<HTMLInputElement>(null);
+  const commandValueRef = useRef("");
   useEffect(() => { void $api.get<Genre[]>("/genres", { params: { count: 100, offset: 0 } }).then(({ data }) => setGenres(data)).catch(() => setGenres([])); }, []);
-  return <Field data-invalid={value.length === 0}><FieldLabel>Жанры</FieldLabel><Popover><PopoverTrigger asChild><Button type="button" variant="brandLink" className="w-full justify-between" aria-invalid={value.length === 0}><span>{value.length ? value.map((genre) => genre.name).join(", ") : "Выберите хотя бы один жанр"}</span><ChevronDown data-icon="inline-end" /></Button></PopoverTrigger><PopoverContent className="w-[min(22rem,calc(100vw-2rem))] border-bnr-line bg-bnr-surface p-0" align="start"><Command><CommandInput placeholder="Найти жанр" /><CommandList><CommandEmpty>Жанры не найдены.</CommandEmpty><CommandGroup>{genres.map((genre) => { const selected = value.some((item) => item.id === genre.id); return <CommandItem key={genre.id} value={genre.name} onSelect={() => onChange(selected ? value.filter((item) => item.id !== genre.id) : [...value, genre])}><Check className={selected ? "opacity-100" : "opacity-0"} />{genre.name}</CommandItem>; })}</CommandGroup></CommandList></Command></PopoverContent></Popover>{value.length === 0 ? <FieldError>Выберите минимум один жанр.</FieldError> : null}</Field>;
+  const normalizedQuery = query.trim().toLocaleLowerCase();
+  const filteredGenres = normalizedQuery ? genres.filter((genre) => genre.name.toLocaleLowerCase().includes(normalizedQuery)) : genres;
+  const triggerLabel = value.length ? value.map((genre) => genre.name).join(", ") : "Выберите хотя бы один жанр";
+  const handleOpenChange = (nextOpen: boolean) => { setOpen(nextOpen); if (!nextOpen) { commandValueRef.current = ""; setQuery(""); setCommandValue(""); } };
+  const handleCommandValueChange = (nextValue: string) => { commandValueRef.current = nextValue; setCommandValue(nextValue); };
+  const toggleGenre = (genre: Genre) => { const selected = value.some((item) => item.id === genre.id); onChange(selected ? value.filter((item) => item.id !== genre.id) : [...value, genre]); setQuery(""); };
+  const handleInputKeyDownCapture = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key !== "Enter" || event.nativeEvent.isComposing) return;
+    const activeValue = commandValueRef.current || commandValue;
+    const activeGenre = filteredGenres.find((genre) => String(genre.id) === activeValue);
+    if (!activeGenre) return;
+    event.preventDefault();
+    event.stopPropagation();
+    toggleGenre(activeGenre);
+  };
+  return <Field data-invalid={value.length === 0}><FieldLabel htmlFor={triggerId}>Жанры</FieldLabel><Popover modal open={open} onOpenChange={handleOpenChange}><PopoverTrigger asChild><Button id={triggerId} type="button" variant="brandLink" className="w-full justify-between" aria-label={triggerLabel} aria-expanded={open} aria-haspopup="listbox" aria-controls={listId} aria-invalid={value.length === 0}><span>{triggerLabel}</span><ChevronDown data-icon="inline-end" /></Button></PopoverTrigger><PopoverContent className="w-[min(22rem,calc(100vw-2rem))] border-bnr-line bg-bnr-surface p-0" align="start" onOpenAutoFocus={(event) => { event.preventDefault(); inputRef.current?.focus(); }}><Command shouldFilter={false} value={commandValue} onValueChange={handleCommandValueChange}><CommandInput ref={inputRef} id={inputId} value={query} onValueChange={setQuery} onKeyDownCapture={handleInputKeyDownCapture} placeholder="Найти жанр" aria-label="Поиск жанра" /><CommandList id={listId}><CommandEmpty>Жанры не найдены.</CommandEmpty><CommandGroup>{filteredGenres.map((genre) => { const selected = value.some((item) => item.id === genre.id); return <CommandItem key={genre.id} value={String(genre.id)} keywords={[genre.name]} onSelect={() => toggleGenre(genre)}><Check className={selected ? "opacity-100" : "opacity-0"} />{genre.name}</CommandItem>; })}</CommandGroup></CommandList></Command></PopoverContent></Popover>{value.length === 0 ? <FieldError>Выберите минимум один жанр.</FieldError> : null}</Field>;
 }
 
 export function CreatorStudioPage() {
@@ -102,18 +186,18 @@ function ApprovedStudio({ studio, onChanged }: { studio: Extract<Studio, { state
   const refreshCatalog = () => void Promise.all([$api.get<{ items: Item[] }>("/creator/tracks"), $api.get<{ items: Item[] }>("/creator/albums")]).then(([trackData, albumData]) => { setTracks(trackData.data.items); setAlbums(albumData.data.items); });
   useEffect(() => { refreshCatalog(); }, [studio.counts.tracks, studio.counts.albums]);
   return <><HeraldicPanel watermark className="p-6 sm:p-8"><div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between"><div className="flex min-w-0 items-center gap-4"><div className="grid size-20 shrink-0 place-items-center overflow-hidden border border-bnr-lilac/50 bg-bnr-abyss font-cinzel text-3xl text-bnr-lilac">{studio.author.avatar ? <Image src={fileUrl(studio.author.avatar)!} alt="" width={80} height={80} className="size-full object-cover" /> : studio.author.name[0]}</div><div className="min-w-0"><Badge variant="outline" className="border-bnr-lilac/50 px-2 py-1 text-[10px] text-bnr-lilac"><ShieldCheck className="mr-1 size-3" />ОДОБРЕНО</Badge><h1 id="creator-studio-title" className="mt-2 truncate font-cinzel text-3xl font-semibold text-bnr-bone">{studio.author.name}</h1><p className="mt-1 text-sm text-bnr-ash">{studio.counts.tracks} треков · {studio.counts.albums} альбомов</p></div></div><span className="font-cinzel text-[10px] tracking-[.18em] text-bnr-ash">АРХИВ АВТОРА</span></div></HeraldicPanel>
-    <Tabs defaultValue="tracks" className="mt-8"><TabsList className="bg-bnr-surface"><TabsTrigger value="tracks">Треки</TabsTrigger><TabsTrigger value="albums">Альбомы</TabsTrigger></TabsList><TabsContent value="tracks"><StudioList title="Ваши треки" items={tracks} icon={<FileAudio />} action={<TrackDialog albums={albums} onCreated={() => { refreshCatalog(); onChanged(); }} />} /></TabsContent><TabsContent value="albums"><StudioList title="Ваши альбомы" items={albums} icon={<Disc3 />} action={<AlbumDialog onCreated={() => { refreshCatalog(); onChanged(); }} />} /></TabsContent></Tabs>
+    <Tabs defaultValue="tracks" className="mt-8"><TabsList className="bg-bnr-surface"><TabsTrigger value="tracks">Треки</TabsTrigger><TabsTrigger value="albums">Альбомы</TabsTrigger></TabsList><TabsContent value="tracks"><StudioList title="Ваши треки" items={tracks} icon={<FileAudio />} action={<TrackDialog albums={albums} primaryAuthorId={studio.author.id} onCreated={() => { refreshCatalog(); onChanged(); }} />} /></TabsContent><TabsContent value="albums"><StudioList title="Ваши альбомы" items={albums} icon={<Disc3 />} action={<AlbumDialog primaryAuthorId={studio.author.id} onCreated={() => { refreshCatalog(); onChanged(); }} />} /></TabsContent></Tabs>
   </>;
 }
 
 function StudioList({ title, items, action, icon }: { title: string; items: Item[]; action: React.ReactNode; icon: React.ReactNode }) { return <section className="mt-5"><div className="flex flex-wrap items-center justify-between gap-3"><SectionHeading>{title}</SectionHeading>{action}</div>{items.length ? <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">{items.map((item) => <article key={item.id} className="min-w-0 border border-bnr-line bg-bnr-surface p-4"><div className="flex items-center gap-2 text-bnr-lilac">{icon}<span className="font-cinzel text-[10px] tracking-[.14em]">ОПУБЛИКОВАНО</span></div><h3 className="mt-7 truncate text-sm font-semibold text-bnr-bone">{item.name}</h3></article>)}</div> : <Empty className="mt-5 border border-bnr-line"><EmptyHeader><EmptyTitle>{title} пока пусты</EmptyTitle><EmptyDescription>Создайте первую запись в архиве.</EmptyDescription></EmptyHeader></Empty>}</section>; }
 
-function AlbumDialog({ onCreated }: { onCreated: () => void }) { return <CreationDialog kind="album" onCreated={onCreated} />; }
-function TrackDialog({ albums, onCreated }: { albums: Item[]; onCreated: () => void }) { return <CreationDialog kind="track" albums={albums} onCreated={onCreated} />; }
+function AlbumDialog({ primaryAuthorId, onCreated }: { primaryAuthorId: number; onCreated: () => void }) { return <CreationDialog kind="album" primaryAuthorId={primaryAuthorId} onCreated={onCreated} />; }
+function TrackDialog({ albums, primaryAuthorId, onCreated }: { albums: Item[]; primaryAuthorId: number; onCreated: () => void }) { return <CreationDialog kind="track" albums={albums} primaryAuthorId={primaryAuthorId} onCreated={onCreated} />; }
 
-function CreationDialog({ kind, albums = [], onCreated }: { kind: "track" | "album"; albums?: Item[]; onCreated: () => void }) {
+function CreationDialog({ kind, albums = [], primaryAuthorId, onCreated }: { kind: "track" | "album"; albums?: Item[]; primaryAuthorId: number; onCreated: () => void }) {
   const [open, setOpen] = useState(false); const [featured, setFeatured] = useState<Author[]>([]); const [genres, setGenres] = useState<Genre[]>([]); const [albumId, setAlbumId] = useState(""); const [error, setError] = useState(""); const [busy, setBusy] = useState(false);
   const title = kind === "track" ? "Создать трек" : "Создать альбом";
-  const submit = async (event: React.FormEvent<HTMLFormElement>) => { event.preventDefault(); if (kind === "track" && !genres.length) return; setBusy(true); setError(""); const form = new FormData(event.currentTarget); form.set("featuredAuthorIds", JSON.stringify(featured.map((author) => author.id))); if (kind === "track") { form.set("genreIds", JSON.stringify(genres.map((genre) => genre.id))); if (albumId) form.set("albumId", albumId); } try { await $api.post(`/creator/${kind === "track" ? "tracks" : "albums"}`, form); setOpen(false); setFeatured([]); setGenres([]); setAlbumId(""); onCreated(); } catch { setError("Не удалось сохранить запись. Проверьте все обязательные поля и файлы."); } finally { setBusy(false); } };
-  return <Dialog open={open} onOpenChange={setOpen}><DialogTrigger asChild><Button type="button" variant="brand"><Plus data-icon="inline-start" />{title}</Button></DialogTrigger><DialogContent className="max-h-[90dvh] overflow-y-auto border-bnr-line bg-bnr-surface"><DialogHeader><DialogTitle className="font-cinzel text-bnr-bone">{title}</DialogTitle><DialogDescription>Основной автор определяется вашей одобренной студией.</DialogDescription></DialogHeader>{error ? <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert> : null}<form onSubmit={submit}><FieldGroup><Field><FieldLabel htmlFor={`${kind}-name`}>Название</FieldLabel><Input id={`${kind}-name`} name="name" required disabled={busy} /></Field>{kind === "track" ? <><Field><FieldLabel htmlFor="text">Текст или описание</FieldLabel><Textarea id="text" name="text" disabled={busy} /></Field><GenrePicker value={genres} onChange={setGenres} /><Field><FieldLabel htmlFor="albumId">Альбом</FieldLabel><Select value={albumId} onValueChange={setAlbumId} disabled={busy}><SelectTrigger id="albumId"><SelectValue placeholder="Сингл — без альбома" /></SelectTrigger><SelectContent><SelectGroup>{albums.map((album) => <SelectItem key={album.id} value={String(album.id)}>{album.name}</SelectItem>)}</SelectGroup></SelectContent></Select></Field></> : null}<FeaturedAuthors value={featured} onChange={setFeatured} /><Field><FieldLabel htmlFor={`${kind}-picture`}>{kind === "track" ? "Обложка" : "Обложка альбома"}</FieldLabel><Input id={`${kind}-picture`} name="picture" type="file" accept="image/jpeg,image/png,image/webp" required disabled={busy} /></Field>{kind === "track" ? <Field><FieldLabel htmlFor="audio">Аудиофайл</FieldLabel><Input id="audio" name="audio" type="file" accept="audio/mpeg,audio/mp3,audio/wav,audio/ogg" required disabled={busy} /></Field> : null}<Button type="submit" variant="brand" disabled={busy}>{busy ? <Loader2 className="animate-spin" data-icon="inline-start" /> : <Check data-icon="inline-start" />}Опубликовать</Button></FieldGroup></form></DialogContent></Dialog>;
+  const submit = async (event: React.FormEvent<HTMLFormElement>) => { event.preventDefault(); if (kind === "track" && !genres.length) return; setBusy(true); setError(""); const form = new FormData(event.currentTarget); form.set("featuredAuthorIds", JSON.stringify(featured.map((author) => author.id))); if (kind === "track") { form.set("genreIds", JSON.stringify(genres.map((genre) => genre.id))); if (albumId) form.set("albumId", albumId); } try { await $api.post(`/creator/${kind === "track" ? "tracks" : "albums"}`, form); setOpen(false); setFeatured([]); setGenres([]); setAlbumId(""); onCreated(); } catch (requestError) { setError(creatorErrorMessage(requestError)); } finally { setBusy(false); } };
+  return <Dialog open={open} onOpenChange={setOpen}><DialogTrigger asChild><Button type="button" variant="brand"><Plus data-icon="inline-start" />{title}</Button></DialogTrigger><DialogContent className="bnr-scrollbar max-h-[90dvh] overflow-y-auto border-bnr-line bg-bnr-surface"><DialogHeader><DialogTitle className="font-cinzel text-bnr-bone">{title}</DialogTitle><DialogDescription>Основной автор определяется вашей одобренной студией.</DialogDescription></DialogHeader>{error ? <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert> : null}<form onSubmit={submit}><FieldGroup><Field><FieldLabel htmlFor={`${kind}-name`}>Название</FieldLabel><Input id={`${kind}-name`} name="name" required disabled={busy} /></Field>{kind === "track" ? <><Field><FieldLabel htmlFor="text">Текст или описание</FieldLabel><Textarea id="text" name="text" disabled={busy} /></Field><GenrePicker value={genres} onChange={setGenres} /><Field><FieldLabel htmlFor="albumId">Альбом</FieldLabel><Select value={albumId} onValueChange={setAlbumId} disabled={busy}><SelectTrigger id="albumId"><SelectValue placeholder="Сингл — без альбома" /></SelectTrigger><SelectContent><SelectGroup>{albums.map((album) => <SelectItem key={album.id} value={String(album.id)}>{album.name}</SelectItem>)}</SelectGroup></SelectContent></Select></Field></> : null}<FeaturedAuthors value={featured} onChange={setFeatured} primaryAuthorId={primaryAuthorId} /><Field><FieldLabel htmlFor={`${kind}-picture`}>{kind === "track" ? "Обложка" : "Обложка альбома"}</FieldLabel><Input id={`${kind}-picture`} name="picture" type="file" accept="image/jpeg,image/png,image/webp" required disabled={busy} /></Field>{kind === "track" ? <Field><FieldLabel htmlFor="audio">Аудиофайл</FieldLabel><Input id="audio" name="audio" type="file" accept="audio/mpeg,audio/mp3,audio/wav,audio/ogg" required disabled={busy} /></Field> : null}<Button type="submit" variant="brand" disabled={busy}>{busy ? <Loader2 className="animate-spin" data-icon="inline-start" /> : <Check data-icon="inline-start" />}Опубликовать</Button></FieldGroup></form></DialogContent></Dialog>;
 }

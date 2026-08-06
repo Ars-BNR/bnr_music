@@ -2,6 +2,10 @@ import { expect, test } from "@playwright/test";
 
 test("live smoke: login, owner favorites and volume wheel invariant", async ({ page }) => {
   test.skip(!process.env.E2E_EMAIL || !process.env.E2E_PASSWORD, "E2E_EMAIL and E2E_PASSWORD are required");
+  test.skip(
+    !process.env.E2E_POSTGRES_DB?.startsWith("bnr_music_e2e_"),
+    "Live Playwright requires an isolated E2E_POSTGRES_DB",
+  );
   await page.goto("/login");
   await page.getByLabel("Email").fill(process.env.E2E_EMAIL!);
   await page.locator('input[type="password"]').fill(process.env.E2E_PASSWORD!);

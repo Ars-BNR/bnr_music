@@ -15,6 +15,8 @@ import { Request } from 'express';
 import { AccessTokenPayload } from 'src/auth/jwt.strategy';
 import { OffsetLimitQueryDto } from 'src/common/dto/offset-limit-query.dto';
 import { JwtAuthGuard } from 'src/guards/jwt-auth.guard';
+import { Permissions } from 'src/rbac/permissions.decorator';
+import { PermissionsGuard } from 'src/rbac/permissions.guard';
 import { CreatePlaylistTrackDto } from './dto/create-playlistTrack.dto';
 import { UpdatePlaylistTrackDto } from './dto/update-playlistTrack.dto';
 import { PlaylistTrackService } from './playlist-track.service';
@@ -22,7 +24,8 @@ import { PlaylistTrackService } from './playlist-track.service';
 type AuthenticatedRequest = Request & { user: AccessTokenPayload };
 
 @Controller('playlist_track')
-@UseGuards(JwtAuthGuard)
+@Permissions('library.manage-own')
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 export class PlaylistTrackController {
   constructor(private readonly playlistTrackService: PlaylistTrackService) {}
   @Post()

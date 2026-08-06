@@ -1,13 +1,32 @@
 import { expect, test } from "@playwright/test";
 
-const user = { sub: 1, email: "playwright@example.com", role: "user" };
+const userPermissions = [
+  "profile.manage-own",
+  "library.manage-own",
+  "creator.apply",
+];
+const adminPermissions = [
+  ...userPermissions,
+  "creator.publish",
+  "creator.moderate",
+  "catalog.manage",
+  "users.read",
+  "rbac.manage",
+];
+const user = {
+  sub: 1,
+  email: "playwright@example.com",
+  roles: ["user"],
+  permissions: userPermissions,
+};
 const profile = {
   id: 1,
   email: "playwright@example.com",
   displayName: "Playwright Saint",
   bio: "Тестовый хранитель музыкального архива.",
   avatar: null,
-  role: "user",
+  roles: ["user"],
+  permissions: userPermissions,
   isActivated: true,
 };
 const tracks = [
@@ -131,10 +150,20 @@ async function dispatchMediaMetadata(audio: import("@playwright/test").Locator, 
   }, duration);
 }
 
+const readMultipartField = (body: string, name: string) => {
+  const match = body.match(
+    new RegExp(
+      `name="${name}"(?:; filename="[^"]*")?\\r\\n(?:Content-Type: [^\\r\\n]+\\r\\n)?\\r\\n([^\\r\\n]*)`,
+    ),
+  );
+  return match?.[1];
+};
+
 type LibraryFailures = {
   favoriteAlbums?: boolean;
   favoriteTracks?: boolean;
   playlists?: boolean;
+  approvedStudio?: boolean;
 };
 
 async function mockApi(page: import("@playwright/test").Page, failures: LibraryFailures = {}) {
@@ -142,6 +171,8 @@ async function mockApi(page: import("@playwright/test").Page, failures: LibraryF
   let personalFavoriteTracks = favoriteTracks.map((track) => ({ ...track }));
   let personalPlaylists = sidebarPlaylists.map((playlist, index) => ({ ...playlist, userId: 1, trackCount: index + 1 }));
   let creatorState: "none" | "pending" = "none";
+  let authorRequests = 0;
+  const creatorSubmissions: Partial<Record<"track" | "album", string>> = {};
   await page.route("**://localhost:8340/refresh", async (route) => route.fulfill({ json: { accessToken: "test-access-token", user } }));
   await page.route("**://localhost:8340/users/me", async (route) => {
     if (route.request().method() === "PATCH") return route.fulfill({ json: profile });
@@ -165,26 +196,68 @@ async function mockApi(page: import("@playwright/test").Page, failures: LibraryF
     return route.fulfill({ json: genres });
   });
   await page.route("**://localhost:8340/authors**", async (route) => {
-    const path = new URL(route.request().url()).pathname;
+    const url = new URL(route.request().url());
+    const path = url.pathname;
     if (/\/authors\/1\/tracks$/.test(path)) return route.fulfill({ json: { tracks, total: tracks.length } });
     if (/\/authors\/1\/albums$/.test(path)) return route.fulfill({ json: { albums: albums.filter((album) => album.authorId === 1), total: 1 } });
     if (/\/authors\/1$/.test(path)) return route.fulfill({ json: { id: 1, name: "Genre Author" } });
-    return route.fulfill({ json: [
+    authorRequests += 1;
+    const query = url.searchParams.get("query")?.trim().toLowerCase() ?? "";
+    const availableAuthors = [
       { id: 1, name: "Genre Author" },
       { id: 2, name: "Purple Composer" },
-    ] });
+      ...(failures.approvedStudio ? [{ id: 3, name: "Shaundi" }] : []),
+    ];
+    return route.fulfill({
+      json: query
+        ? availableAuthors.filter((author) =>
+            author.name.toLowerCase().includes(query),
+          )
+        : availableAuthors,
+    });
   });
   await page.route("**://localhost:8340/creator/**", async (route) => {
     const url = new URL(route.request().url());
     if (url.pathname.endsWith("/creator/me")) {
+      if (failures.approvedStudio) {
+        return route.fulfill({
+          json: {
+            state: "approved",
+            author: {
+              id: 1,
+              name: "Genre Author",
+              bio: "Approved Playwright creator",
+              avatar: null,
+            },
+            counts: { tracks: 0, albums: 1 },
+          },
+        });
+      }
       return route.fulfill({ json: creatorState === "none" ? { state: "none" } : { state: "pending", application: { stageName: "Purple Saint", bio: "Музыкальный архив Третьей улицы и редких саундтреков.", avatar: "image/avatar.jpg" } } });
     }
     if (url.pathname.endsWith("/creator/application") && route.request().method() === "POST") {
       creatorState = "pending";
       return route.fulfill({ status: 201, json: { id: 1, status: "pending" } });
     }
-    if (url.pathname.endsWith("/creator/tracks")) return route.fulfill({ json: { items: [], total: 0 } });
-    if (url.pathname.endsWith("/creator/albums")) return route.fulfill({ json: { items: [], total: 0 } });
+    if (url.pathname.endsWith("/creator/tracks")) {
+      if (route.request().method() === "POST") {
+        creatorSubmissions.track = route.request().postDataBuffer()?.toString("utf8") ?? "";
+        return route.fulfill({ status: 201, json: { id: 901, name: "Feat Track" } });
+      }
+      return route.fulfill({ json: { items: [], total: 0 } });
+    }
+    if (url.pathname.endsWith("/creator/albums")) {
+      if (route.request().method() === "POST") {
+        creatorSubmissions.album = route.request().postDataBuffer()?.toString("utf8") ?? "";
+        return route.fulfill({ status: 201, json: { id: 902, name: "Feat Album" } });
+      }
+      return route.fulfill({
+        json: {
+          items: failures.approvedStudio ? [albums[0]] : [],
+          total: failures.approvedStudio ? 1 : 0,
+        },
+      });
+    }
     if (url.pathname.endsWith("/creator/applications")) return route.fulfill({ json: { items: [], total: 0 } });
     return route.fulfill({ json: {} });
   });
@@ -289,6 +362,12 @@ async function mockApi(page: import("@playwright/test").Page, failures: LibraryF
     return route.fulfill({ json: {} });
   });
   await page.route("**://localhost:8340/logout", async (route) => route.fulfill({ json: {} }));
+
+  return {
+    getAuthorRequestCount: () => authorRequests,
+    getCreatorSubmission: (kind: "track" | "album") =>
+      creatorSubmissions[kind] ?? "",
+  };
 }
 
 test("protected page plays a mocked track and keeps page scroll stable while changing volume", async ({ page }) => {
@@ -381,7 +460,16 @@ test("login accepts the seed password and explains API failures by status", asyn
   let loginStatus: number | "success" = 400;
   await page.route("**://localhost:8340/login", async (route) => {
     if (loginStatus === "success") {
-      return route.fulfill({ json: { accessToken: "admin-access-token", user: { ...user, role: "admin" } } });
+      return route.fulfill({
+        json: {
+          accessToken: "admin-access-token",
+          user: {
+            ...user,
+            roles: ["user", "admin"],
+            permissions: adminPermissions,
+          },
+        },
+      });
     }
     return route.fulfill({ status: loginStatus, json: { message: "Login failed" } });
   });
@@ -1034,6 +1122,163 @@ test("creator studio submits a heraldic application and transitions to pending",
 
   await expect(page.getByRole("heading", { name: "Заявка на рассмотрении" })).toBeVisible();
   await expect(page.getByRole("status", { name: /Загружаем авторскую студию/ })).toHaveCount(0);
+});
+
+test("studio popovers support pointer keyboard Escape and restore focus", async ({
+  page,
+}) => {
+  const studio = await mockApi(page, { approvedStudio: true });
+  await page.goto("/studio");
+  await expect(page.getByRole("heading", { name: "Genre Author" })).toBeVisible();
+  await page.getByRole("button", { name: "Создать трек" }).click();
+  const dialog = page.getByRole("dialog", { name: "Создать трек" });
+  const featTrigger = dialog.getByRole("button", {
+    name: "Добавить feat-автора",
+  });
+  await featTrigger.click();
+  const featSearch = page.getByRole("combobox", {
+    name: "Поиск feat-автора",
+  });
+
+  await expect.poll(studio.getAuthorRequestCount).toBeGreaterThan(0);
+  await expect(featSearch).toBeFocused();
+  await expect(page.getByRole("option", { name: "Purple Composer" })).toBeVisible();
+  await expect(page.getByRole("option", { name: "Genre Author" })).toHaveCount(0);
+
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("option", { name: "Purple Composer" })).toHaveCount(0);
+  await expect(featTrigger).toBeFocused();
+
+  await featTrigger.press("Enter");
+  await expect(featSearch).toBeFocused();
+  const authorRequestsBeforeSearch = studio.getAuthorRequestCount();
+  await featSearch.fill("Purple");
+  await expect
+    .poll(studio.getAuthorRequestCount)
+    .toBeGreaterThan(authorRequestsBeforeSearch);
+  await expect(page.getByRole("option", { name: "Purple Composer" })).toBeVisible();
+  await featSearch.press("ArrowDown");
+  await featSearch.press("Enter");
+  await expect(
+    dialog.getByRole("button", { name: "Убрать Purple Composer" }),
+  ).toBeVisible();
+
+  await page.keyboard.press("Escape");
+  const selectedFeatTrigger = dialog.getByRole("button", {
+    name: "Выбрано: 1",
+  });
+  await expect(selectedFeatTrigger).toBeFocused();
+
+  const genreTrigger = dialog.getByRole("button", {
+    name: "Выберите хотя бы один жанр",
+  });
+  const genreTriggerControl = dialog.locator(
+    'button[aria-haspopup="listbox"][aria-invalid]',
+  );
+  await genreTrigger.click();
+  const genreSearch = page.getByPlaceholder("Найти жанр");
+  await expect(genreSearch).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("option", { name: "Game music" })).toHaveCount(0);
+  await expect(genreTrigger).toBeFocused();
+
+  await genreTrigger.press("Enter");
+  await expect(genreSearch).toBeFocused();
+  const gameMusicOption = page.getByRole("option", { name: "Game music" });
+  const hipHopOption = page.getByRole("option", { name: "Hip hop" });
+  await expect(gameMusicOption).toBeVisible();
+  await expect(hipHopOption).toBeVisible();
+  await expect(gameMusicOption).toHaveAttribute("aria-selected", "true");
+  await genreSearch.press("ArrowDown");
+  await expect(gameMusicOption).toHaveAttribute("aria-selected", "false");
+  await expect(hipHopOption).toHaveAttribute("aria-selected", "true");
+  await expect(genreSearch).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(genreTriggerControl).toHaveAttribute("aria-label", "Hip hop");
+  await page.keyboard.press("Escape");
+  await expect(genreTriggerControl).toHaveAccessibleName("Hip hop");
+  await expect(genreTriggerControl).toBeFocused();
+});
+
+test("approved studio submits ordered feat ids for tracks and albums", async ({
+  page,
+}) => {
+  const studio = await mockApi(page, { approvedStudio: true });
+  await page.goto("/studio");
+
+  await page.getByRole("button", { name: "Создать трек" }).click();
+  const trackDialog = page.getByRole("dialog", { name: "Создать трек" });
+  await trackDialog.getByLabel("Название").fill("Feat Track");
+  await trackDialog.getByLabel("Текст или описание").fill("Multiple feat test");
+
+  await trackDialog
+    .getByRole("button", { name: "Добавить feat-автора" })
+    .click();
+  const featSearch = page.getByRole("combobox", { name: "Поиск feat-автора" });
+  await featSearch.fill("Purple");
+  await expect(page.getByRole("option", { name: "Genre Author" })).toHaveCount(0);
+  await page.getByRole("option", { name: "Purple Composer" }).click();
+  await expect(trackDialog.getByRole("button", { name: "Убрать Purple Composer" })).toBeVisible();
+  await featSearch.fill("Shaundi");
+  await page.getByRole("option", { name: "Shaundi" }).click();
+  await expect(trackDialog.getByRole("button", { name: "Убрать Shaundi" })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(trackDialog.getByRole("button", { name: "Выбрано: 2" })).toBeFocused();
+
+  await trackDialog
+    .getByRole("button", { name: "Выберите хотя бы один жанр" })
+    .click();
+  await page.getByRole("option", { name: "Game music" }).click();
+  await page.keyboard.press("Escape");
+  await expect(trackDialog.getByRole("button", { name: "Game music" })).toBeFocused();
+  await trackDialog.getByLabel("Альбом").click();
+  await page.getByRole("option", { name: "Album One" }).click();
+  await trackDialog.getByLabel("Обложка").setInputFiles({
+    name: "track-cover.png",
+    mimeType: "image/png",
+    buffer: Buffer.from("track-cover"),
+  });
+  await trackDialog.getByLabel("Аудиофайл").setInputFiles({
+    name: "track.mp3",
+    mimeType: "audio/mpeg",
+    buffer: Buffer.from("track-audio"),
+  });
+  await trackDialog.getByRole("button", { name: "Опубликовать" }).click();
+  await expect(trackDialog).toBeHidden();
+
+  const trackBody = studio.getCreatorSubmission("track");
+  expect(readMultipartField(trackBody, "featuredAuthorIds")).toBe("[2,3]");
+  expect(readMultipartField(trackBody, "genreIds")).toBe("[1]");
+  expect(readMultipartField(trackBody, "albumId")).toBe("1");
+  expect(readMultipartField(trackBody, "authorId")).toBeUndefined();
+
+  await page.getByRole("tab", { name: "Альбомы" }).click();
+  await page.getByRole("button", { name: "Создать альбом" }).click();
+  const albumDialog = page.getByRole("dialog", { name: "Создать альбом" });
+  await albumDialog.getByLabel("Название").fill("Feat Album");
+  await albumDialog
+    .getByRole("button", { name: "Добавить feat-автора" })
+    .click();
+  const albumFeatSearch = page.getByRole("combobox", {
+    name: "Поиск feat-автора",
+  });
+  await albumFeatSearch.fill("Purple");
+  await page.getByRole("option", { name: "Purple Composer" }).click();
+  await albumFeatSearch.fill("Shaundi");
+  await page.getByRole("option", { name: "Shaundi" }).click();
+  await page.keyboard.press("Escape");
+  await expect(albumDialog.getByRole("button", { name: "Выбрано: 2" })).toBeFocused();
+  await albumDialog.getByLabel("Обложка альбома").setInputFiles({
+    name: "album-cover.webp",
+    mimeType: "image/webp",
+    buffer: Buffer.from("album-cover"),
+  });
+  await albumDialog.getByRole("button", { name: "Опубликовать" }).click();
+  await expect(albumDialog).toBeHidden();
+
+  const albumBody = studio.getCreatorSubmission("album");
+  expect(readMultipartField(albumBody, "featuredAuthorIds")).toBe("[2,3]");
+  expect(readMultipartField(albumBody, "authorId")).toBeUndefined();
 });
 
 test("heraldic loader announces delayed authorization and respects reduced motion", async ({ page }) => {

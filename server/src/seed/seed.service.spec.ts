@@ -22,6 +22,11 @@ const createService = (configValues: Record<string, string | undefined>) => {
     model as never,
     model as never,
     config as unknown as ConfigService,
+    {
+      ensureSystemDefinitions: jest.fn(),
+      assignSystemRole: jest.fn(),
+    } as never,
+    { transaction: jest.fn() } as never,
   );
 
   return { service, userModel, collectionModel };

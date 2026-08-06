@@ -7,6 +7,7 @@ import { InjectConnection, InjectModel } from '@nestjs/sequelize';
 import { Op, Sequelize, Transaction } from 'sequelize';
 import { AlbumModel } from 'src/album/model/album.model';
 import { AuthorModel } from 'src/author/model/author.model';
+import { mapFeaturedAuthors } from 'src/author/featured-author.mapper';
 import { FileService, FileType } from 'src/file/file.service';
 import { CreateTrackDto } from './dto/create-track.dto';
 import { UpdateTrackDto } from './dto/update-track.dto';
@@ -53,12 +54,7 @@ export class TrackService {
       ...track,
       authorName: track.author?.name ?? '',
       albumId: track.albums?.[0]?.id,
-      featuredAuthors:
-        track.featuredAuthors?.map((author) => ({
-          id: author.id,
-          name: author.name,
-          avatar: author.avatar ?? null,
-        })) ?? [],
+      featuredAuthors: mapFeaturedAuthors(track.featuredAuthors),
     };
   }
 

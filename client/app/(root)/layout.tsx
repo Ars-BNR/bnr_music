@@ -1,7 +1,7 @@
 import { Player } from "@/features/Player";
 import { Profiles } from "@/features/Profiles";
 import Search from "@/features/Search/ui/Search";
-import Sidebar from "@/features/Sidebar/ui/Sidebar";
+import Sidebar from "@/features/Sidebar";
 import type { Metadata } from "next";
 import { AuthGate } from "@/_app/auth/AuthGate";
 

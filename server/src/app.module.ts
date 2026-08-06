@@ -41,6 +41,11 @@ import { UserModel } from './user/model/user.model';
 import { AuthorApplicationModel } from './author-application/model/author-application.model';
 import { TrackFeaturedAuthorModel } from './track-featured-author/model/track-featured-author.model';
 import { AlbumFeaturedAuthorModel } from './album-featured-author/model/album-featured-author.model';
+import { PermissionModel } from './rbac/model/permission.model';
+import { RolePermissionModel } from './rbac/model/role-permission.model';
+import { RoleModel } from './rbac/model/role.model';
+import { UserRoleModel } from './rbac/model/user-role.model';
+import { RbacModule } from './rbac/rbac.module';
 
 const models = [
   UserModel,
@@ -60,6 +65,10 @@ const models = [
   AuthorApplicationModel,
   TrackFeaturedAuthorModel,
   AlbumFeaturedAuthorModel,
+  RoleModel,
+  PermissionModel,
+  UserRoleModel,
+  RolePermissionModel,
 ];
 
 @Module({
@@ -87,6 +96,7 @@ const models = [
         logging: false,
       }),
     }),
+    RbacModule,
     AuthModule,
     UserModule,
     PlaylistModule,

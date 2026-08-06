@@ -1,4 +1,8 @@
-import { BadRequestException, ConflictException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  NotFoundException,
+} from '@nestjs/common';
 import { CreatorService } from './creator.service';
 
 describe('CreatorService', () => {
@@ -8,6 +12,17 @@ describe('CreatorService', () => {
     findOne: jest.fn(),
   };
   const authorRepository = { findOne: jest.fn(), count: jest.fn() };
+  const trackRepository = { create: jest.fn(), count: jest.fn() };
+  const albumRepository = {
+    create: jest.fn(),
+    count: jest.fn(),
+    findByPk: jest.fn(),
+  };
+  const genreRepository = { count: jest.fn() };
+  const trackGenreRepository = { bulkCreate: jest.fn() };
+  const albumTrackRepository = { create: jest.fn() };
+  const trackFeaturedAuthorRepository = { bulkCreate: jest.fn() };
+  const albumFeaturedAuthorRepository = { bulkCreate: jest.fn() };
   const sequelize = {
     transaction: jest.fn(
       (callback: (transaction: { LOCK: { UPDATE: string } }) => unknown) =>
@@ -19,15 +34,16 @@ describe('CreatorService', () => {
     applicationRepository as never,
     authorRepository as never,
     { findByPk: jest.fn() } as never,
-    { count: jest.fn() } as never,
-    { count: jest.fn() } as never,
-    { count: jest.fn() } as never,
-    {} as never,
-    {} as never,
-    {} as never,
-    {} as never,
+    trackRepository as never,
+    albumRepository as never,
+    genreRepository as never,
+    trackGenreRepository as never,
+    albumTrackRepository as never,
+    trackFeaturedAuthorRepository as never,
+    albumFeaturedAuthorRepository as never,
     sequelize as never,
     fileService as never,
+    { assignSystemRole: jest.fn() } as never,
   );
 
   beforeEach(() => jest.clearAllMocks());
@@ -84,5 +100,92 @@ describe('CreatorService', () => {
     await expect(
       service.reject(7, 1, 'Already reviewed.'),
     ).rejects.toBeInstanceOf(ConflictException);
+  });
+
+  it('creates an album with ordered featured-author relations', async () => {
+    authorRepository.findOne.mockResolvedValue({ id: 7 });
+    authorRepository.count.mockResolvedValue(2);
+    fileService.createFile.mockReturnValue('image/creator-album.webp');
+    albumRepository.create.mockResolvedValue({ id: 31 });
+
+    await service.createAlbum(
+      14,
+      { name: 'Purple Archive', featuredAuthorIds: [12, 13] },
+      { mimetype: 'image/webp', size: 1024 } as Express.Multer.File,
+    );
+
+    expect(albumFeaturedAuthorRepository.bulkCreate).toHaveBeenCalledWith(
+      [
+        { albumId: 31, authorId: 12, position: 0 },
+        { albumId: 31, authorId: 13, position: 1 },
+      ],
+      expect.objectContaining({ transaction: expect.any(Object) }),
+    );
+  });
+
+  it('creates a track with ordered featured-author relations', async () => {
+    authorRepository.findOne.mockResolvedValue({ id: 7 });
+    authorRepository.count.mockResolvedValue(2);
+    genreRepository.count.mockResolvedValue(1);
+    fileService.createFile
+      .mockReturnValueOnce('image/creator-track.webp')
+      .mockReturnValueOnce('audio/creator-track.mp3');
+    trackRepository.create.mockResolvedValue({ id: 41 });
+
+    await service.createTrack(
+      14,
+      {
+        name: 'Saints Theme',
+        genreIds: [3],
+        featuredAuthorIds: [12, 13],
+      },
+      { mimetype: 'image/webp', size: 1024 } as Express.Multer.File,
+      { mimetype: 'audio/mpeg', size: 2048 } as Express.Multer.File,
+    );
+
+    expect(trackFeaturedAuthorRepository.bulkCreate).toHaveBeenCalledWith(
+      [
+        { trackId: 41, authorId: 12, position: 0 },
+        { trackId: 41, authorId: 13, position: 1 },
+      ],
+      expect.objectContaining({ transaction: expect.any(Object) }),
+    );
+  });
+
+  it('rejects self-featuring and removes the newly stored cover', async () => {
+    authorRepository.findOne.mockResolvedValue({ id: 7 });
+    fileService.createFile.mockReturnValue('image/rejected-album.webp');
+
+    await expect(
+      service.createAlbum(
+        14,
+        { name: 'Invalid album', featuredAuthorIds: [7] },
+        { mimetype: 'image/webp', size: 1024 } as Express.Multer.File,
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    expect(albumRepository.create).not.toHaveBeenCalled();
+    expect(fileService.deleteFile).toHaveBeenCalledWith(
+      'image/rejected-album.webp',
+    );
+  });
+
+  it('rejects an unknown featured author before creating an album', async () => {
+    authorRepository.findOne.mockResolvedValue({ id: 7 });
+    authorRepository.count.mockResolvedValue(1);
+    fileService.createFile.mockReturnValue('image/unknown-feat.webp');
+
+    await expect(
+      service.createAlbum(
+        14,
+        { name: 'Unknown feat', featuredAuthorIds: [12, 999] },
+        { mimetype: 'image/webp', size: 1024 } as Express.Multer.File,
+      ),
+    ).rejects.toBeInstanceOf(NotFoundException);
+
+    expect(albumRepository.create).not.toHaveBeenCalled();
+    expect(fileService.deleteFile).toHaveBeenCalledWith(
+      'image/unknown-feat.webp',
+    );
   });
 });

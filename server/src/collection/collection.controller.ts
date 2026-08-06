@@ -13,15 +13,16 @@ import {
 import { Request } from 'express';
 import { AccessTokenPayload } from 'src/auth/jwt.strategy';
 import { PaginationQueryDto } from 'src/common/dto/pagination-query.dto';
-import { Roles } from 'src/decorators/roles-auth.decorator';
 import { JwtAuthGuard } from 'src/guards/jwt-auth.guard';
-import { RolesGuard } from 'src/guards/roles.guard';
+import { Permissions } from 'src/rbac/permissions.decorator';
+import { PermissionsGuard } from 'src/rbac/permissions.guard';
 import { CollectionService } from './collection.service';
 
 type AuthenticatedRequest = Request & { user: AccessTokenPayload };
 
 @Controller('collection')
-@UseGuards(JwtAuthGuard)
+@Permissions('library.manage-own')
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 export class CollectionController {
   constructor(private readonly collectionService: CollectionService) {}
 
@@ -31,8 +32,8 @@ export class CollectionController {
   }
 
   @Get()
-  @Roles('admin')
-  @UseGuards(RolesGuard)
+  @Permissions('users.read')
+  @UseGuards(PermissionsGuard)
   getAll(@Query() pagination: PaginationQueryDto) {
     return this.collectionService.getAll(pagination.count, pagination.offset);
   }

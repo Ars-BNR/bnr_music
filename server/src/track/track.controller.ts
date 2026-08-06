@@ -13,10 +13,10 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
-import { Roles } from 'src/decorators/roles-auth.decorator';
 import { PaginationQueryDto } from 'src/common/dto/pagination-query.dto';
 import { JwtAuthGuard } from 'src/guards/jwt-auth.guard';
-import { RolesGuard } from 'src/guards/roles.guard';
+import { Permissions } from 'src/rbac/permissions.decorator';
+import { PermissionsGuard } from 'src/rbac/permissions.guard';
 import { CreateTrackDto } from './dto/create-track.dto';
 import { searchDto } from './dto/search-dto';
 import { UpdateTrackDto } from './dto/update-track.dto';
@@ -27,8 +27,8 @@ export class TrackController {
   constructor(private readonly trackService: TrackService) {}
 
   @Post()
-  @Roles('admin')
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Permissions('catalog.manage')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
   @UseInterceptors(
     FileFieldsInterceptor([
       { name: 'picture', maxCount: 1 },
@@ -73,15 +73,15 @@ export class TrackController {
   }
 
   @Delete(':id')
-  @Roles('admin')
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Permissions('catalog.manage')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
   delete(@Param('id', ParseIntPipe) id: number) {
     return this.trackService.delete(id);
   }
 
   @Patch('change/:id')
-  @Roles('admin')
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Permissions('catalog.manage')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
   change(
     @Param('id', ParseIntPipe) id: number,
     @Body() updateData: UpdateTrackDto,

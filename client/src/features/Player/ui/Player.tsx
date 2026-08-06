@@ -94,7 +94,7 @@ export default function Player() {
           <Link href={`/album/${active.albumId}`} className="block w-full truncate text-sm text-white">
             {active.name}
           </Link>
-          <Link href={`/author/${active.authorId}`} className="block w-full truncate text-xs text-[#ACB0B1]">
+          <Link href={`/authors/${active.authorId}`} className="block w-full truncate text-xs text-[#ACB0B1]">
             {active.authorName}
           </Link>
         </div>

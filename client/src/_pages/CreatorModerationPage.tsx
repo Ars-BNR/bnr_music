@@ -3,7 +3,10 @@
 import Image from "next/image";
 import { useEffect, useState } from "react";
 import { Check, ShieldCheck, X } from "lucide-react";
+import { useRouter } from "next/navigation";
 import $api from "@/entities/http-service";
+import { hasPermission } from "@/entities/user";
+import AuthStore from "@/shared/store/auth";
 import { Alert, AlertDescription } from "@/shared/ui/alert";
 import { Badge } from "@/shared/ui/badge";
 import { Button } from "@/shared/ui/button";
@@ -19,11 +22,22 @@ type Application = { id: number; stageName: string; bio: string; avatar: string;
 const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8340";
 
 export function CreatorModerationPage() {
+  const router = useRouter();
+  const principal = AuthStore((state) => state.profiles?.user);
+  const canModerate = hasPermission(principal, "creator.moderate");
   const [items, setItems] = useState<Application[]>([]); const [loading, setLoading] = useState(true); const [error, setError] = useState("");
   const load = () => { setLoading(true); setError(""); void $api.get<{ items: Application[] }>("/creator/applications", { params: { count: 50 } }).then(({ data }) => setItems(data.items)).catch(() => setError("Не удалось загрузить заявки. Доступен только администратору.")).finally(() => setLoading(false)); };
-  useEffect(load, []);
+  useEffect(() => {
+    if (principal && !canModerate) router.replace("/");
+  }, [canModerate, principal, router]);
+  useEffect(() => {
+    if (canModerate) load();
+    // `load` is local to this page; access changes are the only reload trigger.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canModerate]);
   const decide = async (id: number, decision: "approve" | "reject", reviewNote?: string) => { try { await $api.patch(`/creator/applications/${id}/${decision}`, reviewNote ? { reviewNote } : undefined); load(); } catch { setError("Не удалось сохранить решение."); } };
   const byStatus = (status: Application["status"]) => items.filter((item) => item.status === status);
+  if (!canModerate) return <LoadingReveal loading variant="page" label="Проверяем доступ к модерации"><div className="min-h-[420px]" /></LoadingReveal>;
   return <LoadingReveal loading={loading} variant="page" label="Загружаем очередь модерации"><section className="mb-16" aria-labelledby="moderation-title"><HeraldicPanel watermark className="p-6 sm:p-8"><p className="font-cinzel text-[10px] tracking-[.2em] text-bnr-lilac">ADMIN ARCHIVE</p><h1 id="moderation-title" className="mt-3 font-cinzel text-4xl font-semibold text-bnr-bone">Модерация авторов</h1><p className="mt-3 text-sm text-bnr-ash">Проверьте заявку, затем одобрите доступ к авторской студии или укажите причину доработки.</p></HeraldicPanel>{error ? <Alert variant="destructive" className="mt-5"><AlertDescription>{error}</AlertDescription></Alert> : null}<Tabs defaultValue="pending" className="mt-7"><TabsList className="bg-bnr-surface"><TabsTrigger value="pending">Ожидают</TabsTrigger><TabsTrigger value="approved">Одобрены</TabsTrigger><TabsTrigger value="rejected">Отклонены</TabsTrigger></TabsList>{(["pending", "approved", "rejected"] as const).map((status) => <TabsContent key={status} value={status}><ApplicationList items={byStatus(status)} pending={status === "pending"} onDecide={decide} /></TabsContent>)}</Tabs></section></LoadingReveal>;
 }
 

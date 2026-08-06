@@ -15,6 +15,10 @@ import { TrackModel } from 'src/track/model/track.model';
 import { TrackGenreModel } from 'src/track-genre/model/track-genre.model';
 import { TrackFeaturedAuthorModel } from 'src/track-featured-author/model/track-featured-author.model';
 import { UserModel } from 'src/user/model/user.model';
+import { PermissionModel } from 'src/rbac/model/permission.model';
+import { RolePermissionModel } from 'src/rbac/model/role-permission.model';
+import { RoleModel } from 'src/rbac/model/role.model';
+import { UserRoleModel } from 'src/rbac/model/user-role.model';
 
 export const databaseModels = [
   UserModel,
@@ -34,6 +38,10 @@ export const databaseModels = [
   AuthorApplicationModel,
   TrackFeaturedAuthorModel,
   AlbumFeaturedAuthorModel,
+  RoleModel,
+  PermissionModel,
+  UserRoleModel,
+  RolePermissionModel,
 ];
 
 export const databaseTables = [

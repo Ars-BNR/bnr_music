@@ -21,6 +21,7 @@ import { TrackFeaturedAuthorModel } from 'src/track-featured-author/model/track-
 import { TrackGenreModel } from 'src/track-genre/model/track-genre.model';
 import { TrackModel } from 'src/track/model/track.model';
 import { UserModel } from 'src/user/model/user.model';
+import { RbacService } from 'src/rbac/rbac.service';
 import { CreatorApplicationDto } from './dto/creator-application.dto';
 import {
   CreateCreatorAlbumDto,
@@ -60,6 +61,7 @@ export class CreatorService {
     private readonly albumFeaturedAuthorRepository: typeof AlbumFeaturedAuthorModel,
     @InjectConnection() private readonly sequelize: Sequelize,
     private readonly fileService: FileService,
+    private readonly rbacService: RbacService,
   ) {}
 
   private assertFile(
@@ -263,8 +265,7 @@ export class CreatorService {
         transaction,
       });
       if (!user) throw new NotFoundException('Application user not found');
-      if (user.role !== 'admin')
-        await user.update({ role: 'author' }, { transaction });
+      await this.rbacService.assignSystemRole(user.id, 'author', transaction);
       await application.update(
         {
           status: 'approved',

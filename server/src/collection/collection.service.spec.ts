@@ -18,7 +18,6 @@ describe('CollectionService', () => {
       service.getByUserId(2, {
         sub: 1,
         email: 'user@example.com',
-        role: 'user',
       }),
     ).rejects.toBeInstanceOf(ForbiddenException);
   });

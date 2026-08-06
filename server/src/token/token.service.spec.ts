@@ -30,7 +30,7 @@ describe('TokenService', () => {
       {} as any,
       {} as any,
     );
-    const user = { sub: 7, email: 'user@example.test', role: 'user' };
+    const user = { sub: 7, email: 'user@example.test' };
 
     await service.generateTokens(user);
     await service.generateTokens(user);

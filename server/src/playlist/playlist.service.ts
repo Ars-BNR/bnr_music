@@ -102,7 +102,7 @@ export class PlaylistService {
     offset = 0,
   ): Promise<PlaylistModel[]> {
     return this.playlistRepository.findAll({
-      where: owner.role === 'admin' ? undefined : { userId: owner.sub },
+      where: { userId: owner.sub },
       limit: count,
       offset,
     });
@@ -114,7 +114,7 @@ export class PlaylistService {
   ): Promise<PlaylistModel> {
     const playlist = await this.playlistRepository.findByPk(id);
     if (!playlist) throw new NotFoundException('Playlist not found');
-    if (requester.role !== 'admin' && playlist.userId !== requester.sub) {
+    if (playlist.userId !== requester.sub) {
       throw new ForbiddenException('You can only access your own playlists');
     }
     return playlist;

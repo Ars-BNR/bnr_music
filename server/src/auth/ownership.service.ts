@@ -23,7 +23,7 @@ export class OwnershipService {
   ): Promise<CollectionModel> {
     const collection = await this.collectionRepository.findByPk(collectionId);
     if (!collection) throw new NotFoundException('Collection not found');
-    if (user.role !== 'admin' && collection.userId !== user.sub) {
+    if (collection.userId !== user.sub) {
       throw new ForbiddenException('You can only access your own collection');
     }
     return collection;
@@ -35,7 +35,7 @@ export class OwnershipService {
   ): Promise<PlaylistModel> {
     const playlist = await this.playlistRepository.findByPk(playlistId);
     if (!playlist) throw new NotFoundException('Playlist not found');
-    if (user.role !== 'admin' && playlist.userId !== user.sub) {
+    if (playlist.userId !== user.sub) {
       throw new ForbiddenException('You can only access your own playlist');
     }
     return playlist;

@@ -1,7 +1,8 @@
 export interface dataUser {
   sub: number;
   email: string;
-  role: string;
+  roles: string[];
+  permissions: string[];
 }
 
 export interface user {

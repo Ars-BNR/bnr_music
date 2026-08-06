@@ -21,6 +21,19 @@ describe('UserService profile operations', () => {
       createFile: jest.fn().mockReturnValue('image/new-avatar.png'),
       deleteFile: jest.fn(),
     };
+    const rbacService = {
+      resolvePrincipal: jest.fn().mockResolvedValue({
+        sub: Number(user.id ?? 1),
+        email: String(user.email ?? 'saint@example.com'),
+        roles: ['user'],
+        permissions: [
+          'profile.manage-own',
+          'library.manage-own',
+          'creator.apply',
+        ],
+      }),
+      assignSystemRole: jest.fn(),
+    };
     const service = new UserService(
       userRepository as any,
       {} as any,
@@ -32,6 +45,7 @@ describe('UserService profile operations', () => {
         getOrThrow: jest.fn().mockReturnValue('http://localhost:8340'),
         get: jest.fn(),
       } as any,
+      rbacService as any,
     );
     return { service, userRepository, tokenService, fileService };
   };
@@ -43,7 +57,6 @@ describe('UserService profile operations', () => {
       displayName: 'Saint',
       bio: '',
       avatar: null,
-      role: 'user',
       isActivated: true,
       password: 'secret',
       activationLink: 'private',
@@ -56,7 +69,12 @@ describe('UserService profile operations', () => {
       displayName: 'Saint',
       bio: '',
       avatar: null,
-      role: 'user',
+      roles: ['user'],
+      permissions: [
+        'profile.manage-own',
+        'library.manage-own',
+        'creator.apply',
+      ],
       isActivated: true,
     });
     expect(profile).not.toHaveProperty('password');
@@ -70,7 +88,6 @@ describe('UserService profile operations', () => {
       displayName: 'Saint',
       bio: '',
       avatar: 'image/old.png',
-      role: 'user',
       isActivated: true,
       save: jest.fn().mockRejectedValue(new Error('database failure')),
     };

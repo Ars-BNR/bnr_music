@@ -25,11 +25,7 @@ describe('PlaylistService', () => {
     );
 
     await expect(
-      service.getMine(
-        { sub: 1, email: 'admin@example.test', role: 'admin' },
-        20,
-        0,
-      ),
+      service.getMine({ sub: 1, email: 'admin@example.test' }, 20, 0),
     ).resolves.toEqual({
       items: [
         { id: 10, name: 'Purple set', userId: 1, trackCount: 2 },
@@ -92,7 +88,7 @@ describe('PlaylistService', () => {
 
     const result = await service.getOne(
       5,
-      { sub: 1, email: 'owner@example.test', role: 'user' },
+      { sub: 1, email: 'owner@example.test' },
       20,
       0,
     );

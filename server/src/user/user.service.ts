@@ -23,9 +23,11 @@ import { ChangePasswordDto } from './dto/change-password.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { UserModel } from './model/user.model';
 import { UserProfileResponse } from './response/user-profile-response';
+import { AuthenticatedPrincipal } from 'src/rbac/rbac.constants';
+import { RbacService } from 'src/rbac/rbac.service';
 
 export interface AuthResponse extends Pick<TokenPair, 'accessToken'> {
-  user: AccessTokenPayload;
+  user: AuthenticatedPrincipal;
 }
 
 export interface AuthSession extends AuthResponse {
@@ -43,20 +45,23 @@ export class UserService {
     private readonly mailService: MailService,
     private readonly fileService: FileService,
     private readonly config: ConfigService,
+    private readonly rbacService: RbacService,
   ) {}
 
   private toPayload(user: UserModel): AccessTokenPayload {
-    return { sub: user.id, email: user.email, role: user.role };
+    return { sub: user.id, email: user.email };
   }
 
-  private toProfile(user: UserModel): UserProfileResponse {
+  private async toProfile(user: UserModel): Promise<UserProfileResponse> {
+    const principal = await this.rbacService.resolvePrincipal(user.id);
     return {
       id: user.id,
       email: user.email,
       displayName: user.displayName,
       bio: user.bio ?? '',
       avatar: user.avatar ?? null,
-      role: user.role,
+      roles: principal.roles,
+      permissions: principal.permissions,
       isActivated: user.isActivated,
     };
   }
@@ -95,7 +100,7 @@ export class UserService {
     return {
       accessToken: tokens.accessToken,
       refreshToken: tokens.refreshToken,
-      user: payload,
+      user: await this.rbacService.resolvePrincipal(user.id, transaction),
     };
   }
 
@@ -141,6 +146,11 @@ export class UserService {
       await this.collectionRepository.create(
         { userId: createdUser.id },
         { transaction },
+      );
+      await this.rbacService.assignSystemRole(
+        createdUser.id,
+        'user',
+        transaction,
       );
       return this.createSession(createdUser, transaction);
     });
@@ -196,7 +206,7 @@ export class UserService {
     return {
       accessToken: nextTokens.accessToken,
       refreshToken: nextTokens.refreshToken,
-      user: this.toPayload(user),
+      user: await this.rbacService.resolvePrincipal(user.id),
     };
   }
 

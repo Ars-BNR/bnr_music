@@ -4,9 +4,11 @@ import { useCallback, useEffect, useState } from "react";
 import {
   Grid2X2,
   House,
+  KeyRound,
   ListMusic,
   LogOut,
   Menu,
+  ShieldCheck,
   UsersRound,
   X,
 } from "lucide-react";
@@ -33,6 +35,7 @@ import {
   PopoverTrigger,
 } from "@/shared/ui/popover";
 import AuthStore from "@/shared/store/auth";
+import { hasPermission, type PermissionCode } from "@/entities/user";
 import {
   PLAYLISTS_CHANGED_EVENT,
   playlistApi,
@@ -47,6 +50,26 @@ const primaryLinks = [
   { href: "/authors", icon: UsersRound, label: "Артисты" },
 ] as const;
 
+const adminLinks: ReadonlyArray<{
+  href: string;
+  icon: typeof ShieldCheck;
+  label: string;
+  permission: PermissionCode;
+}> = [
+  {
+    href: "/studio/moderation",
+    icon: ShieldCheck,
+    label: "Модерация артистов",
+    permission: "creator.moderate",
+  },
+  {
+    href: "/admin/access",
+    icon: KeyRound,
+    label: "Роли и доступ",
+    permission: "rbac.manage",
+  },
+];
+
 type NavigationMode = "desktop" | "drawer";
 
 const isCurrentPath = (pathname: string, href: string) =>
@@ -56,11 +79,18 @@ export const Sidebar = () => {
   const pathname = usePathname();
   const router = useRouter();
   const logout = AuthStore((state) => state.logout);
+  const sessionUser = AuthStore((state) => state.profiles?.user);
   const [userPlaylists, setUserPlaylists] = useState<PlaylistSummary[]>([]);
   const [playlistsOpen, setPlaylistsOpen] = useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isRailPlaylistOpen, setIsRailPlaylistOpen] = useState(false);
   const isPlaylistRoute = pathname.startsWith("/playlist/");
+  const playlistContentKey = userPlaylists.length
+    ? userPlaylists.map(({ id }) => id).join(":")
+    : "empty";
+  const visibleAdminLinks = adminLinks.filter(({ permission }) =>
+    hasPermission(sessionUser, permission),
+  );
 
   const loadPlaylists = useCallback(async () => {
     try {
@@ -156,7 +186,7 @@ export const Sidebar = () => {
 
         <div className={stl.panelHeader}>{renderBrand(false, onNavigate)}</div>
 
-        <div className={stl.navigationBody}>
+        <div className={`${stl.navigationBody} bnr-scrollbar bnr-scrollbar-compact`}>
           <div className={stl.primaryLinks}>
             {primaryLinks.map(({ href, icon: Icon, label }) => {
               const isActive = isCurrentPath(pathname, href);
@@ -199,11 +229,39 @@ export const Sidebar = () => {
                   <span>Плейлисты</span>
                 </span>
               </AccordionTrigger>
-              <AccordionContent className={stl.playlistContent}>
+              <AccordionContent key={playlistContentKey} className={stl.playlistContent}>
                 {renderPlaylistLinks(onNavigate)}
               </AccordionContent>
             </AccordionItem>
           </Accordion>
+
+          {visibleAdminLinks.length > 0 ? (
+            <div className={stl.adminSection} aria-label="Администрирование">
+              <div className={stl.sectionHeading}>
+                <FleurDeLis aria-hidden="true" />
+                <span>Администрирование</span>
+              </div>
+              <div className={stl.adminLinks}>
+                {visibleAdminLinks.map(({ href, icon: Icon, label }) => {
+                  const isActive = isCurrentPath(pathname, href);
+                  return (
+                    <Link
+                      key={href}
+                      href={href}
+                      className={stl.navItem}
+                      aria-current={isActive ? "page" : undefined}
+                      data-active={isActive || undefined}
+                      onClick={onNavigate}
+                    >
+                      <Icon aria-hidden="true" className={stl.navIcon} />
+                      <span>{label}</span>
+                      <span aria-hidden="true" className={stl.activeMarker} />
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          ) : null}
         </div>
 
         <button type="button" onClick={handleLogout} className={stl.logout}>
@@ -224,7 +282,7 @@ export const Sidebar = () => {
         <nav className={stl.railPanel} aria-label="Основная навигация">
           {renderBrand(true)}
 
-          <div className={stl.railLinks}>
+          <div className={`${stl.railLinks} bnr-scrollbar bnr-scrollbar-compact`}>
             {primaryLinks.map(({ href, icon: Icon, label }) => {
               const isActive = isCurrentPath(pathname, href);
               return (
@@ -263,9 +321,35 @@ export const Sidebar = () => {
               </PopoverTrigger>
               <PopoverContent className={stl.playlistPopover} side="right" align="start" aria-label="Плейлисты">
                 <p className={stl.popoverTitle}>Плейлисты</p>
-                {renderPlaylistLinks(() => setIsRailPlaylistOpen(false), stl.popoverPlaylistLinks)}
+                {renderPlaylistLinks(
+                  () => setIsRailPlaylistOpen(false),
+                  `${stl.popoverPlaylistLinks} bnr-scrollbar bnr-scrollbar-compact`,
+                )}
               </PopoverContent>
             </Popover>
+
+            {visibleAdminLinks.length > 0 ? (
+              <div className={stl.railAdminLinks} aria-label="Администрирование">
+                {visibleAdminLinks.map(({ href, icon: Icon, label }) => {
+                  const isActive = isCurrentPath(pathname, href);
+                  return (
+                    <Link
+                      key={href}
+                      href={href}
+                      className={stl.railControl}
+                      aria-current={isActive ? "page" : undefined}
+                      aria-label={label}
+                      data-active={isActive || undefined}
+                    >
+                      <Icon aria-hidden="true" className={stl.navIcon} />
+                      <span className={stl.railTooltip} role="tooltip">
+                        {label}
+                      </span>
+                    </Link>
+                  );
+                })}
+              </div>
+            ) : null}
           </div>
 
           <button type="button" onClick={handleLogout} className={stl.railControl} aria-label="Выход">

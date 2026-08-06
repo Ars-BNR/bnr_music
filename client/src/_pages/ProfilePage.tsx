@@ -57,7 +57,9 @@ export function ProfilePage() {
             <p className="mt-2 truncate text-sm text-bnr-ash">{profile.email}</p>
             {profile.bio ? <p className="mt-4 max-w-xl text-sm leading-relaxed text-bnr-bone/80">{profile.bio}</p> : <p className="mt-4 text-sm text-bnr-ash">Добавьте короткое описание в настройках профиля.</p>}
             <div className="mt-5 flex flex-wrap gap-2">
-              <Badge className="border border-bnr-lilac/35 bg-bnr-violet/10 text-bnr-lilac">{profile.role}</Badge>
+              {profile.roles.map((role) => (
+                <Badge key={role} className="border border-bnr-lilac/35 bg-bnr-violet/10 text-bnr-lilac">{role}</Badge>
+              ))}
               <Badge className="border border-bnr-ash/25 bg-bnr-abyss/55 text-bnr-ash">{profile.isActivated ? "Аккаунт активирован" : "Ожидается активация"}</Badge>
               <Button asChild variant="brandLink" size="sm"><Link href="/settings"><Settings data-icon="inline-start" />Настроить профиль</Link></Button>
             </div>

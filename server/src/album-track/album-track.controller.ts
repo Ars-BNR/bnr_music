@@ -9,16 +9,16 @@ import {
   Post,
   UseGuards,
 } from '@nestjs/common';
-import { Roles } from 'src/decorators/roles-auth.decorator';
 import { JwtAuthGuard } from 'src/guards/jwt-auth.guard';
-import { RolesGuard } from 'src/guards/roles.guard';
+import { Permissions } from 'src/rbac/permissions.decorator';
+import { PermissionsGuard } from 'src/rbac/permissions.guard';
 import { AlbumTrackService } from './album-track.service';
 import { CreateAlbumTrackDto } from './dto/create-albumTrack.dto';
 import { UpdateAlbumTrackDto } from './dto/update-albumTrack.dto';
 
 @Controller('album_track')
-@Roles('admin')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@Permissions('catalog.manage')
+@UseGuards(JwtAuthGuard, PermissionsGuard)
 export class AlbumTrackController {
   constructor(private readonly albumTrackService: AlbumTrackService) {}
   @Post() create(@Body() dto: CreateAlbumTrackDto) {
