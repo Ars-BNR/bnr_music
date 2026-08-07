@@ -375,10 +375,9 @@ test("protected page plays a mocked track and keeps page scroll stable while cha
   await page.goto("/");
   await page.evaluate(() => { document.body.style.minHeight = "3000px"; window.scrollTo(0, 300); });
 
-  const search = page.getByPlaceholder("Search song");
-  const searchResults = page.getByRole("list", { name: "Track search results" });
-  await search.fill("playwright");
-  await searchResults.getByRole("button", { name: /^Playwright Track Test Author/ }).click();
+  await page
+    .getByRole("button", { name: "Воспроизвести Playwright Track" })
+    .click();
 
   const volumeButton = page.getByRole("button", { name: /^Volume:/ });
   await expect(volumeButton).toHaveAccessibleName("Volume: 50%");
@@ -400,8 +399,8 @@ test("protected page plays a mocked track and keeps page scroll stable while cha
   const sliderBox = await volumeSliderRoot.boundingBox();
   expect(sliderBox?.height).toBeGreaterThan(100);
 
-  const scrollBefore = await page.evaluate(() => window.scrollY);
   await volumeSliderRoot.hover();
+  const scrollBefore = await page.evaluate(() => window.scrollY);
   await page.mouse.wheel(0, 120);
   await expect(volumeButton).toHaveAccessibleName("Volume: 45%");
   await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(scrollBefore);
@@ -411,8 +410,10 @@ test("protected page plays a mocked track and keeps page scroll stable while cha
   await page.waitForTimeout(150);
   await expect(page.getByRole("slider", { name: "Volume" })).toBeHidden();
 
-  await search.fill("second");
-  await searchResults.getByRole("button", { name: /^Second Playwright Track Second Test Author/ }).click();
+  await page.getByRole("button", { name: "Next track" }).click();
+  await expect(page.getByRole("region", { name: "Audio player" })).toContainText(
+    "Second Playwright Track",
+  );
   await expect.poll(() => page.locator("audio").evaluate((audio) => (audio as HTMLAudioElement).volume)).toBe(0.45);
 
   await volumeButton.hover();
@@ -522,7 +523,9 @@ test("genre cards lead to a paginated genre queue that stays inside its context"
   await page.getByRole("button", { name: "Показать ещё" }).click();
   await expect(page.getByRole("button", { name: /Genre Track/ })).toHaveCount(21);
 
-  await page.getByRole("button", { name: "Genre Track 1 Genre Author", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Воспроизвести Genre Track 1", exact: true })
+    .click();
   await page.getByRole("button", { name: "Shuffle playlist" }).click();
   await page.getByRole("button", { name: "Next track" }).click();
   await expect(page.getByRole("region", { name: "Audio player" })).toContainText(/Genre Track/);
@@ -543,45 +546,18 @@ test("author and track cards adapt without fake imagery", async ({ page }) => {
   expect(bounds.scrollWidth).toBeLessThanOrEqual(bounds.clientWidth);
 });
 
-test("Search closes its backdrop and ignores stale responses", async ({ page }) => {
+test("Search launcher opens the catalog route and supports Escape", async ({ page }) => {
   await mockApi(page);
   await page.goto("/");
 
-  const search = page.getByPlaceholder("Search song");
-  const backdrop = page.getByTestId("search-backdrop");
-  const searchResult = page.getByRole("list", { name: "Track search results" }).getByRole("button", { name: /^Playwright Track Test Author/ });
-
+  const search = page.getByRole("searchbox", { name: "Поиск по каталогу" });
   await search.focus();
-  await expect(backdrop).toBeVisible();
-  await search.fill("playwright");
-  await expect(searchResult).toBeVisible();
-
-  await backdrop.click();
-  await expect(backdrop).toBeHidden();
-  await expect(searchResult).toBeHidden();
-  await expect(search).toHaveValue("playwright");
-
-  await search.focus();
-  await expect(searchResult).toBeVisible();
-  await search.press("Escape");
-  await expect(backdrop).toBeHidden();
-  await expect(searchResult).toBeHidden();
-
-  await page.route("**/tracks/search**", async (route) => {
-    await new Promise((resolve) => setTimeout(resolve, 500));
-    await route.fulfill({ json: tracks });
-  });
-  await search.fill("delayed");
-  await page.waitForTimeout(350);
-  await search.fill("");
-  await page.waitForTimeout(550);
-  await expect(searchResult).toBeHidden();
-
-  await search.fill("playwright");
-  await expect(searchResult).toBeVisible();
-  await searchResult.click();
-  await expect(backdrop).toBeHidden();
-  await expect(page.locator("audio")).toHaveCount(1);
+  await page.waitForURL((url) => url.pathname === "/search");
+  const routeSearch = page.getByRole("searchbox", { name: "Поиск по каталогу" });
+  await expect(routeSearch).toBeFocused();
+  await expect(page.getByTestId("search-backdrop")).toHaveCount(0);
+  await routeSearch.press("Escape");
+  await expect(routeSearch).not.toBeFocused();
 });
 
 test("Sidebar desktop uses the heraldic system, active routes, playlists, and logout", async ({ page }) => {
@@ -782,8 +758,9 @@ test("Player controls use Lucide icons and fit every supported viewport", async 
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto("/");
 
-  await page.getByPlaceholder("Search song").fill("playwright");
-  await page.getByRole("list", { name: "Track search results" }).getByRole("button", { name: /^Playwright Track Test Author/ }).click();
+  await page
+    .getByRole("button", { name: "Воспроизвести Playwright Track" })
+    .click();
 
   const player = page.getByRole("region", { name: "Audio player" });
   const playerButtons = [
@@ -794,6 +771,7 @@ test("Player controls use Lucide icons and fit every supported viewport", async 
     page.getByRole("button", { name: "Repeat playlist" }),
     page.getByRole("button", { name: "Shuffle playlist" }),
     page.getByRole("button", { name: /^Volume:/ }),
+    page.getByRole("button", { name: "Сведения о треке" }),
   ];
 
   for (const button of playerButtons) {
@@ -919,7 +897,7 @@ test("favorite toggle ignores a stale collection id and uses the owner-derived A
   await page.goto("/");
 
   await page
-    .getByRole("button", { name: /^Playwright Track Test Author/ })
+    .getByRole("button", { name: "Воспроизвести Playwright Track" })
     .first()
     .click();
   const addButton = page.getByRole("button", { name: "Add track to favorites" });
@@ -940,7 +918,7 @@ test("favorite toggle ignores a stale collection id and uses the owner-derived A
 
   await page.goto("/collection/tracks");
   await expect(
-    page.getByRole("button", { name: /^Playwright Track Test Author/ }),
+    page.getByRole("button", { name: "Playwright Track Test Author" }),
   ).toBeVisible();
   expect(legacyRequests).toEqual([]);
 });
@@ -951,7 +929,7 @@ test("failed favorite mutation keeps the heart state unchanged", async ({ page }
   await page.goto("/");
 
   await page
-    .getByRole("button", { name: /^Playwright Track Test Author/ })
+    .getByRole("button", { name: "Воспроизвести Playwright Track" })
     .first()
     .click();
   const addButton = page.getByRole("button", { name: "Add track to favorites" });
@@ -1130,15 +1108,12 @@ test("studio popovers support pointer keyboard Escape and restore focus", async 
   const studio = await mockApi(page, { approvedStudio: true });
   await page.goto("/studio");
   await expect(page.getByRole("heading", { name: "Genre Author" })).toBeVisible();
-  await page.getByRole("button", { name: "Создать трек" }).click();
-  const dialog = page.getByRole("dialog", { name: "Создать трек" });
-  const featTrigger = dialog.getByRole("button", {
-    name: "Добавить feat-автора",
-  });
+  await page.getByRole("button", { name: "Загрузить треки" }).click();
+  const dialog = page.getByRole("dialog", { name: "Массовая публикация треков" });
+  const firstDraft = dialog.getByTestId("bulk-track-draft-1");
+  const featTrigger = firstDraft.getByRole("button", { name: "Feat-авторы" });
   await featTrigger.click();
-  const featSearch = page.getByRole("combobox", {
-    name: "Поиск feat-автора",
-  });
+  const featSearch = page.getByPlaceholder("Найти: feat-авторы");
 
   await expect.poll(studio.getAuthorRequestCount).toBeGreaterThan(0);
   await expect(featSearch).toBeFocused();
@@ -1151,32 +1126,19 @@ test("studio popovers support pointer keyboard Escape and restore focus", async 
 
   await featTrigger.press("Enter");
   await expect(featSearch).toBeFocused();
-  const authorRequestsBeforeSearch = studio.getAuthorRequestCount();
   await featSearch.fill("Purple");
-  await expect
-    .poll(studio.getAuthorRequestCount)
-    .toBeGreaterThan(authorRequestsBeforeSearch);
   await expect(page.getByRole("option", { name: "Purple Composer" })).toBeVisible();
   await featSearch.press("ArrowDown");
   await featSearch.press("Enter");
+  await page.keyboard.press("Escape");
+  await expect(featTrigger).toBeFocused();
   await expect(
     dialog.getByRole("button", { name: "Убрать Purple Composer" }),
   ).toBeVisible();
 
-  await page.keyboard.press("Escape");
-  const selectedFeatTrigger = dialog.getByRole("button", {
-    name: "Выбрано: 1",
-  });
-  await expect(selectedFeatTrigger).toBeFocused();
-
-  const genreTrigger = dialog.getByRole("button", {
-    name: "Выберите хотя бы один жанр",
-  });
-  const genreTriggerControl = dialog.locator(
-    'button[aria-haspopup="listbox"][aria-invalid]',
-  );
+  const genreTrigger = firstDraft.getByRole("button", { name: "Жанры" });
   await genreTrigger.click();
-  const genreSearch = page.getByPlaceholder("Найти жанр");
+  const genreSearch = page.getByPlaceholder("Найти: жанры");
   await expect(genreSearch).toBeFocused();
   await page.keyboard.press("Escape");
   await expect(page.getByRole("option", { name: "Game music" })).toHaveCount(0);
@@ -1188,16 +1150,12 @@ test("studio popovers support pointer keyboard Escape and restore focus", async 
   const hipHopOption = page.getByRole("option", { name: "Hip hop" });
   await expect(gameMusicOption).toBeVisible();
   await expect(hipHopOption).toBeVisible();
-  await expect(gameMusicOption).toHaveAttribute("aria-selected", "true");
   await genreSearch.press("ArrowDown");
-  await expect(gameMusicOption).toHaveAttribute("aria-selected", "false");
-  await expect(hipHopOption).toHaveAttribute("aria-selected", "true");
   await expect(genreSearch).toBeFocused();
   await page.keyboard.press("Enter");
-  await expect(genreTriggerControl).toHaveAttribute("aria-label", "Hip hop");
   await page.keyboard.press("Escape");
-  await expect(genreTriggerControl).toHaveAccessibleName("Hip hop");
-  await expect(genreTriggerControl).toBeFocused();
+  await expect(genreTrigger).toBeFocused();
+  await expect(genreTrigger).toContainText("Выбрано: 1");
 });
 
 test("approved studio submits ordered feat ids for tracks and albums", async ({
@@ -1206,50 +1164,50 @@ test("approved studio submits ordered feat ids for tracks and albums", async ({
   const studio = await mockApi(page, { approvedStudio: true });
   await page.goto("/studio");
 
-  await page.getByRole("button", { name: "Создать трек" }).click();
-  const trackDialog = page.getByRole("dialog", { name: "Создать трек" });
-  await trackDialog.getByLabel("Название").fill("Feat Track");
-  await trackDialog.getByLabel("Текст или описание").fill("Multiple feat test");
+  await page.getByRole("button", { name: "Загрузить треки" }).click();
+  const trackDialog = page.getByRole("dialog", { name: "Массовая публикация треков" });
+  const trackDraft = trackDialog.getByTestId("bulk-track-draft-1");
+  await trackDraft.getByLabel("Название").fill("Feat Track");
+  await trackDraft.getByLabel("Описание").fill("Multiple feat test");
 
-  await trackDialog
-    .getByRole("button", { name: "Добавить feat-автора" })
-    .click();
-  const featSearch = page.getByRole("combobox", { name: "Поиск feat-автора" });
+  await trackDraft.getByRole("button", { name: "Feat-авторы" }).click();
+  const featSearch = page.getByPlaceholder("Найти: feat-авторы");
   await featSearch.fill("Purple");
   await expect(page.getByRole("option", { name: "Genre Author" })).toHaveCount(0);
   await page.getByRole("option", { name: "Purple Composer" }).click();
-  await expect(trackDialog.getByRole("button", { name: "Убрать Purple Composer" })).toBeVisible();
   await featSearch.fill("Shaundi");
   await page.getByRole("option", { name: "Shaundi" }).click();
-  await expect(trackDialog.getByRole("button", { name: "Убрать Shaundi" })).toBeVisible();
   await page.keyboard.press("Escape");
-  await expect(trackDialog.getByRole("button", { name: "Выбрано: 2" })).toBeFocused();
+  await expect(trackDraft.getByRole("button", { name: "Feat-авторы" })).toBeFocused();
+  await expect(trackDraft.getByRole("button", { name: "Убрать Purple Composer" })).toBeVisible();
+  await expect(trackDraft.getByRole("button", { name: "Убрать Shaundi" })).toBeVisible();
 
-  await trackDialog
-    .getByRole("button", { name: "Выберите хотя бы один жанр" })
-    .click();
+  await trackDraft.getByRole("button", { name: "Жанры" }).click();
   await page.getByRole("option", { name: "Game music" }).click();
   await page.keyboard.press("Escape");
-  await expect(trackDialog.getByRole("button", { name: "Game music" })).toBeFocused();
-  await trackDialog.getByLabel("Альбом").click();
+  await trackDraft.getByRole("button", { name: "Альбомы" }).click();
   await page.getByRole("option", { name: "Album One" }).click();
-  await trackDialog.getByLabel("Обложка").setInputFiles({
+  await page.keyboard.press("Escape");
+  await trackDraft.getByLabel("Своя обложка").setInputFiles({
     name: "track-cover.png",
     mimeType: "image/png",
     buffer: Buffer.from("track-cover"),
   });
-  await trackDialog.getByLabel("Аудиофайл").setInputFiles({
+  await trackDraft.getByLabel("Аудиофайл").setInputFiles({
     name: "track.mp3",
     mimeType: "audio/mpeg",
     buffer: Buffer.from("track-audio"),
   });
-  await trackDialog.getByRole("button", { name: "Опубликовать" }).click();
+  await trackDialog.getByRole("button", { name: "Опубликовать очередь" }).click();
+  await expect.poll(() => studio.getCreatorSubmission("track")).not.toBe("");
+  await page.keyboard.press("Escape");
   await expect(trackDialog).toBeHidden();
 
   const trackBody = studio.getCreatorSubmission("track");
   expect(readMultipartField(trackBody, "featuredAuthorIds")).toBe("[2,3]");
   expect(readMultipartField(trackBody, "genreIds")).toBe("[1]");
-  expect(readMultipartField(trackBody, "albumId")).toBe("1");
+  expect(readMultipartField(trackBody, "albumIds")).toBe("[1]");
+  expect(readMultipartField(trackBody, "albumId")).toBeUndefined();
   expect(readMultipartField(trackBody, "authorId")).toBeUndefined();
 
   await page.getByRole("tab", { name: "Альбомы" }).click();

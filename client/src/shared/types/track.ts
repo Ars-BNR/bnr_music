@@ -1,3 +1,14 @@
+export interface FeaturedAuthor {
+  id: number;
+  name: string;
+  avatar: string | null;
+}
+
+export interface TrackAlbumCredit {
+  id: number;
+  name: string;
+}
+
 export interface ITrack {
   id: number;
   name: string;
@@ -8,7 +19,8 @@ export interface ITrack {
   authorName: string;
   authorId?: number;
   albumId?: number;
-  featuredAuthors?: Array<{ id: number; name: string; avatar: string | null }>;
+  albums?: TrackAlbumCredit[];
+  featuredAuthors?: FeaturedAuthor[];
 }
 
 export interface TrackState {

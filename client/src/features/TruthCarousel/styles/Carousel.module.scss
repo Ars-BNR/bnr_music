@@ -3,8 +3,16 @@
   outline: none;
 }
 
-.heading {
+.headingRow {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
   margin-bottom: 18px;
+}
+
+.heading {
+  min-width: 0;
 }
 
 .viewport {
@@ -161,6 +169,11 @@
 }
 
 @media (max-width: 640px) {
+  .headingRow {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
   .slide[data-slot="-2"],
   .slide[data-slot="2"] {
     opacity: 0;

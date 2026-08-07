@@ -1,4 +1,4 @@
-import { ITrack } from "./track";
+import { FeaturedAuthor, ITrack } from "./track";
 
 export interface IAlbum {
   id: number;
@@ -7,7 +7,7 @@ export interface IAlbum {
   authorId: number;
   authorName: string;
   picture: string;
-  featuredAuthors?: Array<{ id: number; name: string; avatar: string | null }>;
+  featuredAuthors?: FeaturedAuthor[];
 }
 export interface ISelectedAlbum extends IAlbum {
   tracks: ITrack[];

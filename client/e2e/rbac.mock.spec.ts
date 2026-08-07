@@ -476,7 +476,12 @@ test("admin access searches users and assigns multiple roles", async ({
   await page.goto("/admin/access");
 
   await expect(page.getByRole("tab", { name: "Пользователи" })).toBeVisible();
+  const filteredUsersRequest = page.waitForRequest((request) => {
+    const url = new URL(request.url());
+    return url.pathname === "/rbac/users" && url.searchParams.get("query") === "member";
+  });
   await page.getByLabel("Поиск пользователей").fill("member");
+  await filteredUsersRequest;
   await expect(page.getByText("Member Saint", { exact: true })).toBeVisible();
 
   await page
@@ -491,12 +496,13 @@ test("admin access searches users and assigns multiple roles", async ({
     "true",
   );
   await expect(dialog.getByRole("option", { name: "User" })).toBeDisabled();
+  const roleSearch = dialog.getByRole("combobox", { name: "Поиск ролей" });
+  await roleSearch.fill("Support reader");
   const supportRole = dialog.getByRole("option", { name: "Support reader" });
-  await supportRole.evaluate((element) => (element as HTMLElement).click());
+  await expect(supportRole).toBeVisible();
+  await supportRole.click({ force: true });
   await expect(supportRole).toHaveAttribute("aria-checked", "true");
-  await dialog
-    .getByRole("button", { name: "Сохранить роли" })
-    .evaluate((element) => (element as HTMLButtonElement).click());
+  await dialog.getByRole("button", { name: "Сохранить роли" }).click();
   await expect(dialog).toBeHidden();
   expect(rbac.getLastAssignment().sort((left, right) => left - right)).toEqual([
     10, 12,
@@ -508,12 +514,11 @@ test("admin access searches users and assigns multiple roles", async ({
       name: "Назначить роли пользователю Member Saint",
     })
     .click();
-  await dialog
-    .getByRole("option", { name: "Support reader" })
-    .evaluate((element) => (element as HTMLElement).click());
-  await dialog
-    .getByRole("button", { name: "Сохранить роли" })
-    .evaluate((element) => (element as HTMLButtonElement).click());
+  await expect(dialog).toBeVisible();
+  await roleSearch.fill("Support reader");
+  await expect(supportRole).toBeVisible();
+  await supportRole.click({ force: true });
+  await dialog.getByRole("button", { name: "Сохранить роли" }).click();
   await expect(dialog).toBeVisible();
   await expect(dialog.getByRole("alert")).toBeVisible();
 });

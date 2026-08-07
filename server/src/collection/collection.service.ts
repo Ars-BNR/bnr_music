@@ -14,6 +14,8 @@ import { PlaylistModel } from 'src/playlist/model/playlist.model';
 import { TrackModel } from 'src/track/model/track.model';
 import { CollectionModel } from './model/collection.model';
 import { Op } from 'sequelize';
+import { mapTrackModel } from 'src/track/track.mapper';
+import { mapAlbumModel } from 'src/album/album.mapper';
 
 @Injectable()
 export class CollectionService {
@@ -174,9 +176,7 @@ export class CollectionService {
       items: relations.flatMap((relation) => {
         const album = albumsById.get(relation.albumId);
         if (!album) return [];
-        const value = album.get({ plain: true }) as AlbumModel & {
-          featuredAuthors?: AuthorModel[];
-        };
+        const value = mapAlbumModel(album);
         return [
           {
             favoriteRelationId: relation.id,
@@ -185,13 +185,8 @@ export class CollectionService {
             picture: value.picture,
             listens: value.listens,
             authorId: value.authorId,
-            authorName: value.author?.name ?? '',
-            featuredAuthors:
-              value.featuredAuthors?.map((author) => ({
-                id: author.id,
-                name: author.name,
-                avatar: author.avatar ?? null,
-              })) ?? [],
+            authorName: value.authorName,
+            featuredAuthors: value.featuredAuthors,
           },
         ];
       }),
@@ -254,8 +249,8 @@ export class CollectionService {
         {
           model: AlbumModel,
           as: 'albums',
-          attributes: ['id'],
-          through: { attributes: [] },
+          attributes: ['id', 'name'],
+          through: { attributes: ['position'] },
           required: false,
         },
       ],
@@ -266,30 +261,7 @@ export class CollectionService {
       items: relations.flatMap((relation) => {
         const model = tracksById.get(relation.trackId);
         if (!model) return [];
-        const track = model.get({ plain: true }) as TrackModel & {
-          author?: AuthorModel;
-          albums?: AlbumModel[];
-          featuredAuthors?: AuthorModel[];
-        };
-        return [
-          {
-            id: track.id,
-            name: track.name,
-            picture: track.picture,
-            text: track.text,
-            listens: track.listens,
-            audio: track.audio,
-            authorId: track.authorId,
-            authorName: track.author?.name ?? '',
-            albumId: track.albums?.[0]?.id,
-            featuredAuthors:
-              track.featuredAuthors?.map((author) => ({
-                id: author.id,
-                name: author.name,
-                avatar: author.avatar ?? null,
-              })) ?? [],
-          },
-        ];
+        return [mapTrackModel(model)];
       }),
       total,
     };

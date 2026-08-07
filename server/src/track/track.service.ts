@@ -7,13 +7,13 @@ import { InjectConnection, InjectModel } from '@nestjs/sequelize';
 import { Op, Sequelize, Transaction } from 'sequelize';
 import { AlbumModel } from 'src/album/model/album.model';
 import { AuthorModel } from 'src/author/model/author.model';
-import { mapFeaturedAuthors } from 'src/author/featured-author.mapper';
 import { FileService, FileType } from 'src/file/file.service';
 import { CreateTrackDto } from './dto/create-track.dto';
 import { UpdateTrackDto } from './dto/update-track.dto';
 import { TrackModel } from './model/track.model';
 import { GenreModel } from 'src/genre/model/genre.model';
 import { TrackGenreModel } from 'src/track-genre/model/track-genre.model';
+import { mapTrackModel } from './track.mapper';
 
 @Injectable()
 export class TrackService {
@@ -42,20 +42,6 @@ export class TrackService {
       throw new BadRequestException('One or more genres do not exist');
     }
     return uniqueGenreIds;
-  }
-
-  private mapTrack(model: TrackModel) {
-    const track = model.get({ plain: true }) as TrackModel & {
-      author?: AuthorModel;
-      albums?: AlbumModel[];
-      featuredAuthors?: AuthorModel[];
-    };
-    return {
-      ...track,
-      authorName: track.author?.name ?? '',
-      albumId: track.albums?.[0]?.id,
-      featuredAuthors: mapFeaturedAuthors(track.featuredAuthors),
-    };
   }
 
   async create(
@@ -122,13 +108,13 @@ export class TrackService {
         {
           model: AlbumModel,
           as: 'albums',
-          attributes: ['id'],
-          through: { attributes: [] },
+          attributes: ['id', 'name'],
+          through: { attributes: ['position'] },
           required: false,
         },
       ],
     });
-    return tracks.map((track) => this.mapTrack(track));
+    return tracks.map(mapTrackModel);
   }
 
   async getAll(count = 10, offset = 0) {
@@ -151,14 +137,14 @@ export class TrackService {
         {
           model: AlbumModel,
           as: 'albums',
-          attributes: ['id'],
-          through: { attributes: [] },
+          attributes: ['id', 'name'],
+          through: { attributes: ['position'] },
           required: false,
         },
       ],
       subQuery: false,
     });
-    return tracks.map((track) => this.mapTrack(track));
+    return tracks.map(mapTrackModel);
   }
 
   async getOne(id: number) {
@@ -180,14 +166,14 @@ export class TrackService {
         {
           model: AlbumModel,
           as: 'albums',
-          attributes: ['id'],
-          through: { attributes: [] },
+          attributes: ['id', 'name'],
+          through: { attributes: ['position'] },
           required: false,
         },
       ],
     });
     if (!track) throw new NotFoundException('Track not found');
-    return this.mapTrack(track);
+    return mapTrackModel(track);
   }
 
   async listen(id: number): Promise<{ listens: number }> {
@@ -219,7 +205,13 @@ export class TrackService {
       subQuery: false,
       include: [
         { model: AuthorModel, as: 'author', required: true },
-        { model: AlbumModel, as: 'albums', required: false },
+        {
+          model: AlbumModel,
+          as: 'albums',
+          attributes: ['id', 'name'],
+          through: { attributes: ['position'] },
+          required: false,
+        },
         {
           model: AuthorModel,
           as: 'featuredAuthors',
@@ -238,7 +230,7 @@ export class TrackService {
       limit,
       offset: (page - 1) * limit,
     });
-    return tracks.map((track) => this.mapTrack(track));
+    return tracks.map(mapTrackModel);
   }
 
   async delete(id: number): Promise<void> {

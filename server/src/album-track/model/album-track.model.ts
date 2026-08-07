@@ -1,6 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import {
   AutoIncrement,
+  AllowNull,
   Column,
   DataType,
   ForeignKey,
@@ -37,4 +38,8 @@ export class AlbumTrackModel extends Model {
   @ForeignKey(() => TrackModel)
   @Column
   trackId: number;
+
+  @AllowNull(false)
+  @Column(DataType.INTEGER)
+  position: number;
 }

@@ -20,6 +20,7 @@ const CardSongs = ({ track, queue, context, active = false }: TrackItemProps) =>
       title={track.name}
       subtitle={track.authorName}
       active={active}
+      ariaLabel={`Воспроизвести ${track.name}`}
       onAction={() => playFromQueue(track, queue, context)}
     />
   );

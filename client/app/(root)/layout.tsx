@@ -1,8 +1,9 @@
 import { Player } from "@/features/Player";
 import { Profiles } from "@/features/Profiles";
-import Search from "@/features/Search/ui/Search";
+import { Search } from "@/features/Search";
 import Sidebar from "@/features/Sidebar";
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { AuthGate } from "@/_app/auth/AuthGate";
 
 export const metadata: Metadata = {
@@ -23,7 +24,9 @@ export default function HomeLayout({
 
           <main className="flex min-w-0 w-full max-w-[894px] flex-col">
             <div className="mb-8 flex flex-col gap-4 sm:mb-[52px] sm:max-h-[58px] sm:flex-row sm:items-center sm:justify-between">
-              <Search />
+              <Suspense fallback={<div className="h-11 w-full max-w-[486px] rounded-md bg-bnr-surface" aria-hidden="true" />}>
+                <Search />
+              </Suspense>
               <Profiles />
             </div>
             {children}

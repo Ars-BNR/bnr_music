@@ -2,10 +2,12 @@ import {
   Body,
   Controller,
   Get,
+  Headers,
   Param,
   ParseIntPipe,
   Patch,
   Post,
+  Put,
   Query,
   Req,
   UploadedFile,
@@ -18,7 +20,6 @@ import {
   FileInterceptor,
 } from '@nestjs/platform-express';
 import { Request } from 'express';
-import { PaginationQueryDto } from 'src/common/dto/pagination-query.dto';
 import { JwtAuthGuard } from 'src/guards/jwt-auth.guard';
 import { Permissions } from 'src/rbac/permissions.decorator';
 import { PermissionsGuard } from 'src/rbac/permissions.guard';
@@ -28,6 +29,8 @@ import { CreatorApplicationsQueryDto } from './dto/creator-applications-query.dt
 import {
   CreateCreatorAlbumDto,
   CreateCreatorTrackDto,
+  AssignCreatorAlbumTracksDto,
+  CreatorCatalogQueryDto,
 } from './dto/creator-catalog.dto';
 import { ReviewApplicationDto } from './dto/review-application.dto';
 import { CreatorService } from './creator.service';
@@ -65,12 +68,13 @@ export class CreatorController {
   @UseGuards(PermissionsGuard)
   getTracks(
     @Req() request: AuthenticatedRequest,
-    @Query() pagination: PaginationQueryDto,
+    @Query() pagination: CreatorCatalogQueryDto,
   ) {
     return this.creatorService.getTracks(
       request.user.sub,
       pagination.count,
       pagination.offset,
+      pagination.query,
     );
   }
 
@@ -79,12 +83,13 @@ export class CreatorController {
   @UseGuards(PermissionsGuard)
   getAlbums(
     @Req() request: AuthenticatedRequest,
-    @Query() pagination: PaginationQueryDto,
+    @Query() pagination: CreatorCatalogQueryDto,
   ) {
     return this.creatorService.getAlbums(
       request.user.sub,
       pagination.count,
       pagination.offset,
+      pagination.query,
     );
   }
 
@@ -107,12 +112,14 @@ export class CreatorController {
     @Body() dto: CreateCreatorTrackDto,
     @UploadedFiles()
     files: { picture?: Express.Multer.File[]; audio?: Express.Multer.File[] },
+    @Headers('idempotency-key') idempotencyKey?: string,
   ) {
     return this.creatorService.createTrack(
       request.user.sub,
       dto,
       files?.picture?.[0],
       files?.audio?.[0],
+      idempotencyKey,
     );
   }
 
@@ -126,8 +133,44 @@ export class CreatorController {
     @Req() request: AuthenticatedRequest,
     @Body() dto: CreateCreatorAlbumDto,
     @UploadedFile() picture?: Express.Multer.File,
+    @Headers('idempotency-key') idempotencyKey?: string,
   ) {
-    return this.creatorService.createAlbum(request.user.sub, dto, picture);
+    return this.creatorService.createAlbum(
+      request.user.sub,
+      dto,
+      picture,
+      idempotencyKey,
+    );
+  }
+
+  @Put('albums/:albumId/tracks')
+  @Permissions('creator.publish')
+  @UseGuards(PermissionsGuard)
+  assignAlbumTracks(
+    @Req() request: AuthenticatedRequest,
+    @Param('albumId', ParseIntPipe) albumId: number,
+    @Body() dto: AssignCreatorAlbumTracksDto,
+  ) {
+    return this.creatorService.assignAlbumTracks(
+      request.user.sub,
+      albumId,
+      dto.trackIds,
+    );
+  }
+
+  @Post('albums/:albumId/tracks')
+  @Permissions('creator.publish')
+  @UseGuards(PermissionsGuard)
+  assignAlbumTracksCompat(
+    @Req() request: AuthenticatedRequest,
+    @Param('albumId', ParseIntPipe) albumId: number,
+    @Body() dto: AssignCreatorAlbumTracksDto,
+  ) {
+    return this.creatorService.assignAlbumTracks(
+      request.user.sub,
+      albumId,
+      dto.trackIds,
+    );
   }
 
   @Get('applications')

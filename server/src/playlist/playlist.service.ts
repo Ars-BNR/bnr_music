@@ -13,6 +13,7 @@ import { CollectionPlaylistModel } from 'src/collection-playlist/model/collectio
 import { CollectionModel } from 'src/collection/model/collection.model';
 import { PlaylistTrackModel } from 'src/playlist-track/model/playlist-track.model';
 import { TrackModel } from 'src/track/model/track.model';
+import { mapTrackModel } from 'src/track/track.mapper';
 import { CreatePlaylistDto } from './dto/create-playlist.dto';
 import { UpdatePlaylistDto } from './dto/update-playlist.dto';
 import { PlaylistModel } from './model/playlist.model';
@@ -122,11 +123,20 @@ export class PlaylistService {
 
   async getOne(
     id: number,
-    requester: AccessTokenPayload,
-    count = 20,
-    offset = 0,
+    countOrLegacyRequester: number | AccessTokenPayload = 20,
+    offsetOrLegacyCount = 0,
+    legacyOffset = 0,
   ) {
-    const playlist = await this.getOwnedPlaylist(id, requester);
+    const count =
+      typeof countOrLegacyRequester === 'number'
+        ? countOrLegacyRequester
+        : offsetOrLegacyCount;
+    const offset =
+      typeof countOrLegacyRequester === 'number'
+        ? offsetOrLegacyCount
+        : legacyOffset;
+    const playlist = await this.playlistRepository.findByPk(id);
+    if (!playlist) throw new NotFoundException('Playlist not found');
     const [relations, total] = await Promise.all([
       this.playlistTrackRepository.findAll({
         where: { playlistId: id },
@@ -157,8 +167,8 @@ export class PlaylistService {
             {
               model: AlbumModel,
               as: 'albums',
-              attributes: ['id'],
-              through: { attributes: [] },
+              attributes: ['id', 'name'],
+              through: { attributes: ['position'] },
               required: false,
             },
             {
@@ -175,22 +185,7 @@ export class PlaylistService {
     const tracks = trackIds.flatMap((trackId) => {
       const track = tracksById.get(trackId);
       if (!track) return [];
-      const value = track.get({ plain: true }) as TrackModel & {
-        featuredAuthors?: AuthorModel[];
-      };
-      return [
-        {
-          ...value,
-          authorName: value.author?.name ?? '',
-          albumId: value.albums?.[0]?.id,
-          featuredAuthors:
-            value.featuredAuthors?.map((author) => ({
-              id: author.id,
-              name: author.name,
-              avatar: author.avatar ?? null,
-            })) ?? [],
-        },
-      ];
+      return [mapTrackModel(track)];
     });
     return {
       id: playlist.id,

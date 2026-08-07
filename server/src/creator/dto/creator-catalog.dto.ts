@@ -7,7 +7,9 @@ import {
   IsOptional,
   IsString,
   Min,
+  MaxLength,
 } from 'class-validator';
+import { PaginationQueryDto } from 'src/common/dto/pagination-query.dto';
 import { transformGenreIds } from 'src/track/dto/create-track.dto';
 
 const transformIds = ({ value }: { value: unknown }) => {
@@ -26,6 +28,7 @@ const transformIds = ({ value }: { value: unknown }) => {
 
 export class CreateCreatorAlbumDto {
   @IsString()
+  @MaxLength(255)
   name: string;
 
   @IsOptional()
@@ -39,6 +42,7 @@ export class CreateCreatorAlbumDto {
 
 export class CreateCreatorTrackDto {
   @IsString()
+  @MaxLength(255)
   name: string;
 
   @IsOptional()
@@ -66,4 +70,30 @@ export class CreateCreatorTrackDto {
   @IsInt()
   @Min(1)
   albumId?: number;
+
+  @IsOptional()
+  @Transform(transformIds)
+  @IsArray()
+  @ArrayUnique()
+  @IsInt({ each: true })
+  @Min(1, { each: true })
+  albumIds?: number[];
+}
+
+export class AssignCreatorAlbumTracksDto {
+  @Transform(transformIds)
+  @IsArray()
+  @ArrayNotEmpty()
+  @ArrayUnique()
+  @IsInt({ each: true })
+  @Min(1, { each: true })
+  trackIds: number[];
+}
+
+export class CreatorCatalogQueryDto extends PaginationQueryDto {
+  @IsOptional()
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @IsString()
+  @MaxLength(100)
+  query?: string;
 }

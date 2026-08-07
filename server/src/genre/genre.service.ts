@@ -7,25 +7,11 @@ import { TrackModel } from 'src/track/model/track.model';
 import { TrackGenreModel } from 'src/track-genre/model/track-genre.model';
 import { Op } from 'sequelize';
 import { GenreModel } from './model/genre.model';
+import { mapTrackModel } from 'src/track/track.mapper';
 
 export interface GenreTracksResponse {
   genre: Pick<GenreModel, 'id' | 'name'>;
-  tracks: Array<{
-    id: number;
-    name: string;
-    picture: string;
-    text: string;
-    listens: number;
-    audio: string;
-    authorId: number;
-    authorName: string;
-    albumId?: number;
-    featuredAuthors: Array<{
-      id: number;
-      name: string;
-      avatar: string | null;
-    }>;
-  }>;
+  tracks: Array<ReturnType<typeof mapTrackModel>>;
   total: number;
 }
 
@@ -88,8 +74,8 @@ export class GenreService {
         {
           model: AlbumModel,
           as: 'albums',
-          attributes: ['id'],
-          through: { attributes: [] },
+          attributes: ['id', 'name'],
+          through: { attributes: ['position'] },
           required: false,
         },
         {
@@ -108,26 +94,7 @@ export class GenreService {
       tracks: trackIds.flatMap((trackId) => {
         const track = tracksById.get(trackId);
         if (!track) return [];
-        const value = track.get({ plain: true }) as TrackModel & {
-          featuredAuthors?: AuthorModel[];
-        };
-        return {
-          id: value.id,
-          name: value.name,
-          picture: value.picture,
-          text: value.text,
-          listens: value.listens,
-          audio: value.audio,
-          authorId: value.authorId,
-          authorName: value.author?.name ?? '',
-          albumId: value.albums?.[0]?.id,
-          featuredAuthors:
-            value.featuredAuthors?.map((author) => ({
-              id: author.id,
-              name: author.name,
-              avatar: author.avatar ?? null,
-            })) ?? [],
-        };
+        return mapTrackModel(track);
       }),
       total,
     };

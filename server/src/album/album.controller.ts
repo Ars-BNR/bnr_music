@@ -14,6 +14,7 @@ import { PaginationQueryDto } from 'src/common/dto/pagination-query.dto';
 import { JwtAuthGuard } from 'src/guards/jwt-auth.guard';
 import { Permissions } from 'src/rbac/permissions.decorator';
 import { PermissionsGuard } from 'src/rbac/permissions.guard';
+import { AlbumCatalogQueryDto } from './dto/album-catalog-query.dto';
 import { CreateAlbumDto } from './dto/create-album.dto';
 import { AlbumService } from './album.service';
 
@@ -36,6 +37,11 @@ export class AlbumController {
   @Get('popular')
   getTopAlbums(@Query() pagination: PaginationQueryDto) {
     return this.albumService.getTopAlbum(pagination.count, pagination.offset);
+  }
+
+  @Get('catalog')
+  getCatalog(@Query() query: AlbumCatalogQueryDto) {
+    return this.albumService.getCatalog(query.count, query.offset, query.query);
   }
 
   @Get(':id')

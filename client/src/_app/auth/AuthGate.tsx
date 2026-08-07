@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import type { ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import AuthStore from "@/shared/store/auth";
 import { HeraldicLoader } from "@/shared/ui/heraldic-loader";
 
-export function AuthGate({ children }: { children: React.ReactNode }) {
+export function AuthGate({ children }: { children: ReactNode }) {
   const router = useRouter();
   const checkAuth = AuthStore((state) => state.checkAuth);
   const isAuth = AuthStore((state) => state.isAuth);

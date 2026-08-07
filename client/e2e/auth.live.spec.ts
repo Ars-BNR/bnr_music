@@ -33,7 +33,7 @@ test("live smoke: login, owner favorites and volume wheel invariant", async ({ p
   expect(playlistsResponse.ok()).toBeTruthy();
   const playlists = await playlistsResponse.json() as { items: Array<{ id: number; name: string }>; total: number };
   expect(playlists.items.length).toBeGreaterThan(0);
-  const playlistResponse = await page.request.get(`${apiBase}/playlist/${playlists.items[0].id}?count=20&offset=0`, { headers });
+  const playlistResponse = await page.request.get(`${apiBase}/playlist/${playlists.items[0].id}?count=20&offset=0`);
   expect(playlistResponse.ok()).toBeTruthy();
   expect(await playlistResponse.json()).toEqual(expect.objectContaining({ id: playlists.items[0].id, tracks: expect.any(Array), total: expect.any(Number) }));
 
@@ -53,8 +53,37 @@ test("live smoke: login, owner favorites and volume wheel invariant", async ({ p
   const [popularTrack] = (await popularResponse.json()) as Array<{
     id: number;
     name: string;
+    authorId: number;
+    authorName: string;
+    albums?: Array<{ id: number; name: string }>;
   }>;
   expect(popularTrack).toBeTruthy();
+
+  const catalogResponse = await page.request.get(
+    `${apiBase}/albums/catalog?count=20&offset=0`,
+  );
+  expect(catalogResponse.ok()).toBeTruthy();
+  expect(await catalogResponse.json()).toEqual(
+    expect.objectContaining({ items: expect.any(Array), total: expect.any(Number) }),
+  );
+  const searchResponse = await page.request.get(
+    `${apiBase}/search/tracks?query=${encodeURIComponent(popularTrack.name)}&count=20&offset=0`,
+  );
+  expect(searchResponse.ok()).toBeTruthy();
+  expect(await searchResponse.json()).toEqual(
+    expect.objectContaining({
+      items: expect.arrayContaining([
+        expect.objectContaining({ id: popularTrack.id, albums: expect.any(Array) }),
+      ]),
+      total: expect.any(Number),
+    }),
+  );
+
+  await page.goto(`/search?q=${encodeURIComponent(popularTrack.name)}&type=tracks`);
+  await expect(page.getByText(popularTrack.name, { exact: true }).first()).toBeVisible();
+  await page.goto("/albums");
+  await expect(page.getByRole("heading", { name: "Альбомы" })).toBeVisible();
+  await page.goto("/");
   await page.request.delete(
     `${apiBase}/collection/me/tracks/${popularTrack.id}`,
     { headers },
@@ -67,6 +96,15 @@ test("live smoke: login, owner favorites and volume wheel invariant", async ({ p
   await firstTrack.click();
   await expect(page.getByRole("region", { name: "Audio player" })).toBeVisible();
   await expect(page.locator("audio")).toHaveCount(1);
+  const details = page.getByRole("button", { name: "Сведения о треке" });
+  await details.click();
+  await expect(
+    page.getByRole("menuitem", {
+      name: `Открыть автора ${popularTrack.authorName}`,
+    }),
+  ).toHaveAttribute("href", `/authors/${popularTrack.authorId}`);
+  await page.keyboard.press("Escape");
+  await expect(details).toBeFocused();
 
   try {
     const addFavorite = page.getByRole("button", {

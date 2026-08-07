@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { HeraldicLoader } from "@/shared/ui/heraldic-loader";
 
@@ -18,7 +19,7 @@ function RouteCompletion({ onRouteChange }: { onRouteChange: (routeKey: string) 
   return null;
 }
 
-export function NavigationLoadingProvider({ children }: { children: React.ReactNode }) {
+export function NavigationLoadingProvider({ children }: { children: ReactNode }) {
   const routeKey = useRef<string | null>(null);
   const failsafe = useRef<ReturnType<typeof setTimeout> | null>(null);
   const completion = useRef<ReturnType<typeof setTimeout> | null>(null);

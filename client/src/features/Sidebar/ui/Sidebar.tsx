@@ -1,7 +1,8 @@
-"use client";
+﻿"use client";
 
 import { useCallback, useEffect, useState } from "react";
 import {
+  Disc3,
   Grid2X2,
   House,
   KeyRound,
@@ -46,6 +47,7 @@ import stl from "../styles/Sidebar.module.scss";
 
 const primaryLinks = [
   { href: "/", icon: House, label: "Главная" },
+  { href: "/albums", icon: Disc3, label: "Альбомы" },
   { href: "/category", icon: Grid2X2, label: "Категории" },
   { href: "/authors", icon: UsersRound, label: "Артисты" },
 ] as const;

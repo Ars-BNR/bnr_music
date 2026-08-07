@@ -25,17 +25,19 @@ import { PlaylistService } from './playlist.service';
 type AuthenticatedRequest = Request & { user: AccessTokenPayload };
 
 @Controller('playlist')
-@Permissions('library.manage-own')
-@UseGuards(JwtAuthGuard, PermissionsGuard)
 export class PlaylistController {
   constructor(private readonly playlistService: PlaylistService) {}
 
   @Post()
+  @Permissions('library.manage-own')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
   create(@Body() dto: CreatePlaylistDto, @Req() request: AuthenticatedRequest) {
     return this.playlistService.create(dto, request.user);
   }
 
   @Get()
+  @Permissions('library.manage-own')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
   getAll(
     @Query() pagination: PaginationQueryDto,
     @Req() request: AuthenticatedRequest,
@@ -48,6 +50,8 @@ export class PlaylistController {
   }
 
   @Get('mine')
+  @Permissions('library.manage-own')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
   getMine(
     @Query() pagination: PaginationQueryDto,
     @Req() request: AuthenticatedRequest,
@@ -63,17 +67,13 @@ export class PlaylistController {
   getOne(
     @Param('id', ParseIntPipe) id: number,
     @Query() pagination: PaginationQueryDto,
-    @Req() request: AuthenticatedRequest,
   ) {
-    return this.playlistService.getOne(
-      id,
-      request.user,
-      pagination.count,
-      pagination.offset,
-    );
+    return this.playlistService.getOne(id, pagination.count, pagination.offset);
   }
 
   @Post(':id/tracks')
+  @Permissions('library.manage-own')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
   addTrack(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: PlaylistTrackDto,
@@ -83,6 +83,8 @@ export class PlaylistController {
   }
 
   @Delete(':id/tracks/:trackId')
+  @Permissions('library.manage-own')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
   removeTrack(
     @Param('id', ParseIntPipe) id: number,
     @Param('trackId', ParseIntPipe) trackId: number,
@@ -92,6 +94,8 @@ export class PlaylistController {
   }
 
   @Delete('delete/:id')
+  @Permissions('library.manage-own')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
   delete(
     @Param('id', ParseIntPipe) id: number,
     @Req() request: AuthenticatedRequest,
@@ -100,6 +104,8 @@ export class PlaylistController {
   }
 
   @Patch('change/:id')
+  @Permissions('library.manage-own')
+  @UseGuards(JwtAuthGuard, PermissionsGuard)
   change(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdatePlaylistDto,

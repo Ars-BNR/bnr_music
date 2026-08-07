@@ -1,11 +1,20 @@
-"use client";
+﻿"use client";
 
-import { Heart, Pause, Play, Repeat2, Shuffle, SkipBack, SkipForward } from "lucide-react";
+import { Disc3, Heart, Menu, Pause, Play, Repeat2, Shuffle, SkipBack, SkipForward, UserRound } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { usePlaybackStore } from "@/entities/playback";
 import { useFavoriteTracksStore } from "@/entities/track";
 import { Button } from "@/shared/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/shared/ui/dropdown-menu";
 import { Slider } from "@/shared/ui/slider";
 import { useAudioEngine } from "../model/useAudioEngine";
 import { VolumeControl } from "./VolumeControl";
@@ -43,12 +52,15 @@ export default function Player() {
   const clearFavoriteError = useFavoriteTracksStore((state) => state.clearMutationError);
   const { audioRef, seek } = useAudioEngine();
   const [tempTime, setTempTime] = useState<number | null>(null);
+  const [detailsOpen, setDetailsOpen] = useState(false);
 
   useEffect(() => {
     if (!active) return;
     clearFavoriteError();
     void checkFavoriteStatus(active.id);
   }, [active, checkFavoriteStatus, clearFavoriteError]);
+
+  useEffect(() => setDetailsOpen(false), [active?.id]);
 
   useEffect(() => {
     if (context?.type === "favorites") {
@@ -81,6 +93,14 @@ export default function Player() {
     favoriteStatuses[active.id] === undefined ||
     checkingTrackId === active.id ||
     mutatingTrackId === active.id;
+  const authors = [
+    ...(active.authorId ? [{ id: active.authorId, name: active.authorName }] : []),
+    ...(active.featuredAuthors ?? []),
+  ].filter((author, index, list) => list.findIndex((item) => item.id === author.id) === index);
+  const albums = (active.albums?.length
+    ? active.albums
+    : []
+  ).filter((album, index, list) => list.findIndex((item) => item.id === album.id) === index);
 
   return (
     <section
@@ -91,12 +111,12 @@ export default function Player() {
 
       <div className="min-w-0 lg:max-w-[280px]">
         <div className="flex min-w-0 flex-col items-start gap-1.5">
-          <Link href={`/album/${active.albumId}`} className="block w-full truncate text-sm text-white">
-            {active.name}
-          </Link>
-          <Link href={`/authors/${active.authorId}`} className="block w-full truncate text-xs text-[#ACB0B1]">
-            {active.authorName}
-          </Link>
+          {albums[0] ? (
+            <Link href={`/album/${albums[0].id}`} className="block w-full truncate text-sm text-white">{active.name}</Link>
+          ) : <p className="w-full truncate text-sm text-white">{active.name}</p>}
+          {active.authorId ? (
+            <Link href={`/authors/${active.authorId}`} className="block w-full truncate text-xs text-[#ACB0B1]">{active.authorName}</Link>
+          ) : <p className="w-full truncate text-xs text-[#ACB0B1]">{active.authorName}</p>}
         </div>
       </div>
 
@@ -172,6 +192,57 @@ export default function Player() {
           >
             <Shuffle data-icon="inline-start" />
           </Button>
+          <DropdownMenu open={detailsOpen} onOpenChange={setDetailsOpen}>
+            <DropdownMenuTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                aria-label="Сведения о треке"
+                aria-expanded={detailsOpen}
+              >
+                <Menu data-icon="inline-start" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              align="end"
+              side="top"
+              className="bnr-scrollbar bnr-scrollbar-compact min-w-64 border-bnr-line bg-bnr-surface text-bnr-bone"
+            >
+              <DropdownMenuLabel className="font-cinzel text-[10px] tracking-[.16em] text-bnr-lilac">
+                АВТОРЫ
+              </DropdownMenuLabel>
+              <DropdownMenuGroup>
+                {authors.map((author) => (
+                  <DropdownMenuItem key={author.id} asChild>
+                    <Link href={`/authors/${author.id}`} aria-label={`Открыть автора ${author.name}`}>
+                      <UserRound aria-hidden="true" />
+                      <span className="truncate">{author.name}</span>
+                    </Link>
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuGroup>
+              <DropdownMenuSeparator className="bg-bnr-line" />
+              <DropdownMenuLabel className="font-cinzel text-[10px] tracking-[.16em] text-bnr-lilac">
+                АЛЬБОМЫ
+              </DropdownMenuLabel>
+              <DropdownMenuGroup>
+                {albums.length ? albums.map((album) => (
+                  <DropdownMenuItem key={album.id} asChild>
+                    <Link href={`/album/${album.id}`} aria-label={`Открыть альбом ${album.name}`}>
+                      <Disc3 aria-hidden="true" />
+                      <span className="truncate">{album.name}</span>
+                    </Link>
+                  </DropdownMenuItem>
+                )) : (
+                  <DropdownMenuItem disabled>
+                    <Disc3 aria-hidden="true" />
+                    <span>Сингл</span>
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <VolumeControl />
         </div>
       </div>

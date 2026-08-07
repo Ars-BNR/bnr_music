@@ -12,15 +12,26 @@ describe('CreatorService', () => {
     findOne: jest.fn(),
   };
   const authorRepository = { findOne: jest.fn(), count: jest.fn() };
-  const trackRepository = { create: jest.fn(), count: jest.fn() };
+  const trackRepository = {
+    create: jest.fn(),
+    count: jest.fn(),
+    findAll: jest.fn(),
+    findOne: jest.fn(),
+  };
   const albumRepository = {
     create: jest.fn(),
     count: jest.fn(),
     findByPk: jest.fn(),
+    findOne: jest.fn(),
   };
   const genreRepository = { count: jest.fn() };
   const trackGenreRepository = { bulkCreate: jest.fn() };
-  const albumTrackRepository = { create: jest.fn() };
+  const albumTrackRepository = {
+    create: jest.fn(),
+    findAll: jest.fn(),
+    max: jest.fn(),
+    bulkCreate: jest.fn(),
+  };
   const trackFeaturedAuthorRepository = { bulkCreate: jest.fn() };
   const albumFeaturedAuthorRepository = { bulkCreate: jest.fn() };
   const sequelize = {
@@ -147,6 +158,51 @@ describe('CreatorService', () => {
       [
         { trackId: 41, authorId: 12, position: 0 },
         { trackId: 41, authorId: 13, position: 1 },
+      ],
+      expect.objectContaining({ transaction: expect.any(Object) }),
+    );
+  });
+
+  it('returns an idempotent album before storing another uploaded cover', async () => {
+    const existing = { id: 31, name: 'Already published' };
+    authorRepository.findOne.mockResolvedValue({ id: 7 });
+    albumRepository.findOne.mockResolvedValue(existing);
+
+    await expect(
+      service.createAlbum(
+        14,
+        { name: 'Retry', featuredAuthorIds: [] },
+        { mimetype: 'image/webp', size: 1024 } as Express.Multer.File,
+        '11111111-1111-4111-8111-111111111111',
+      ),
+    ).resolves.toBe(existing);
+
+    expect(fileService.createFile).not.toHaveBeenCalled();
+    expect(albumRepository.create).not.toHaveBeenCalled();
+  });
+
+  it('adds only missing owned tracks and preserves their requested order', async () => {
+    authorRepository.findOne.mockResolvedValue({ id: 7 });
+    albumRepository.findByPk.mockResolvedValue({ id: 31, authorId: 7 });
+    trackRepository.findAll.mockResolvedValue([
+      { id: 12, authorId: 7 },
+      { id: 13, authorId: 7 },
+      { id: 14, authorId: 7 },
+    ]);
+    albumTrackRepository.findAll.mockResolvedValue([{ trackId: 13 }]);
+    albumTrackRepository.max.mockResolvedValue(4);
+
+    await expect(
+      service.assignAlbumTracks(14, 31, [13, 12, 14]),
+    ).resolves.toEqual({
+      albumId: 31,
+      addedTrackIds: [12, 14],
+      trackIds: [13, 12, 14],
+    });
+    expect(albumTrackRepository.bulkCreate).toHaveBeenCalledWith(
+      [
+        { albumId: 31, trackId: 12, position: 5 },
+        { albumId: 31, trackId: 14, position: 6 },
       ],
       expect.objectContaining({ transaction: expect.any(Object) }),
     );

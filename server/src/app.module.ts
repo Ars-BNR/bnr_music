@@ -46,6 +46,7 @@ import { RolePermissionModel } from './rbac/model/role-permission.model';
 import { RoleModel } from './rbac/model/role.model';
 import { UserRoleModel } from './rbac/model/user-role.model';
 import { RbacModule } from './rbac/rbac.module';
+import { SearchModule } from './search/search.module';
 
 const models = [
   UserModel,
@@ -115,6 +116,7 @@ const models = [
     TrackGenreModule,
     SeedModule,
     CreatorModule,
+    SearchModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })

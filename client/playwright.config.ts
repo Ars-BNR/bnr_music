@@ -23,14 +23,14 @@ export default defineConfig({
     { name: "live", testMatch: /.*\.live\.spec\.ts/, use: { ...devices["Desktop Chrome"] } },
     {
       name: "scrolling-firefox",
-      testMatch: /(?:rbac|volume)\.mock\.spec\.ts/,
-      grep: /admin sidebar stays scrollable without overlap|studio popovers support pointer keyboard Escape and restore focus/,
+      testMatch: /(?:rbac|volume|catalog-search)\.mock\.spec\.ts/,
+      grep: /admin sidebar stays scrollable without overlap|studio popovers support pointer keyboard Escape and restore focus|search launcher opens the dedicated page and ignores stale responses|search playback queue and track menu expose all author and album credits/,
       use: { ...devices["Desktop Firefox"] },
     },
     {
       name: "scrolling-webkit",
-      testMatch: /(?:rbac|volume)\.mock\.spec\.ts/,
-      grep: /admin sidebar stays scrollable without overlap|studio popovers support pointer keyboard Escape and restore focus/,
+      testMatch: /(?:rbac|volume|catalog-search)\.mock\.spec\.ts/,
+      grep: /admin sidebar stays scrollable without overlap|studio popovers support pointer keyboard Escape and restore focus|search launcher opens the dedicated page and ignores stale responses|search playback queue and track menu expose all author and album credits/,
       use: { ...devices["Desktop Safari"] },
     },
   ],

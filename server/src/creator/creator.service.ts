@@ -10,6 +10,7 @@ import { Op, Sequelize, Transaction } from 'sequelize';
 import { AlbumFeaturedAuthorModel } from 'src/album-featured-author/model/album-featured-author.model';
 import { AlbumTrackModel } from 'src/album-track/model/album-track.model';
 import { AlbumModel } from 'src/album/model/album.model';
+import { mapAlbumModel } from 'src/album/album.mapper';
 import {
   AuthorApplicationModel,
   AuthorApplicationStatus,
@@ -22,6 +23,7 @@ import { TrackGenreModel } from 'src/track-genre/model/track-genre.model';
 import { TrackModel } from 'src/track/model/track.model';
 import { UserModel } from 'src/user/model/user.model';
 import { RbacService } from 'src/rbac/rbac.service';
+import { mapTrackModel } from 'src/track/track.mapper';
 import { CreatorApplicationDto } from './dto/creator-application.dto';
 import {
   CreateCreatorAlbumDto,
@@ -121,6 +123,72 @@ export class CreatorService {
     if (count !== uniqueIds.length)
       throw new NotFoundException('One or more genres were not found');
     return uniqueIds;
+  }
+
+  private normalizeIdempotencyKey(key?: string): string | undefined {
+    if (!key) return undefined;
+    const normalized = key.trim().toLowerCase();
+    if (
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(
+        normalized,
+      )
+    ) {
+      throw new BadRequestException('Idempotency-Key must be a valid UUID');
+    }
+    return normalized;
+  }
+
+  private async assignTracksToAlbum(
+    author: AuthorModel,
+    albumId: number,
+    trackIds: number[],
+    transaction: Transaction,
+  ) {
+    const album = await this.albumRepository.findByPk(albumId, {
+      transaction,
+      lock: transaction.LOCK.UPDATE,
+    });
+    if (!album) throw new NotFoundException('Album not found');
+    if (album.authorId !== author.id)
+      throw new ForbiddenException('Album does not belong to author');
+
+    const uniqueTrackIds = [...new Set(trackIds)];
+    const tracks = await this.trackRepository.findAll({
+      where: { id: { [Op.in]: uniqueTrackIds } },
+      attributes: ['id', 'authorId'],
+      transaction,
+    });
+    if (tracks.length !== uniqueTrackIds.length)
+      throw new NotFoundException('One or more tracks were not found');
+    if (tracks.some((track) => track.authorId !== author.id))
+      throw new ForbiddenException('Track does not belong to author');
+
+    const existing = await this.albumTrackRepository.findAll({
+      where: { albumId, trackId: { [Op.in]: uniqueTrackIds } },
+      attributes: ['trackId'],
+      transaction,
+    });
+    const existingIds = new Set(existing.map((relation) => relation.trackId));
+    const missingIds = uniqueTrackIds.filter((id) => !existingIds.has(id));
+    if (missingIds.length) {
+      const currentMax = await this.albumTrackRepository.max('position', {
+        where: { albumId },
+        transaction,
+      });
+      const firstPosition =
+        currentMax === null || currentMax === undefined
+          ? 0
+          : Number(currentMax) + 1;
+      await this.albumTrackRepository.bulkCreate(
+        missingIds.map((trackId, index) => ({
+          albumId,
+          trackId,
+          position: firstPosition + index,
+        })),
+        { transaction },
+      );
+    }
+    return { albumId, addedTrackIds: missingIds, trackIds: uniqueTrackIds };
   }
 
   async getMe(userId: number) {
@@ -300,39 +368,137 @@ export class CreatorService {
     });
   }
 
-  async getTracks(userId: number, count: number, offset: number) {
+  async getTracks(
+    userId: number,
+    count: number,
+    offset: number,
+    query?: string,
+  ) {
     const author = await this.getOwnedAuthor(userId);
-    const { rows, count: total } = await this.trackRepository.findAndCountAll({
-      where: { authorId: author.id },
+    const where = {
+      authorId: author.id,
+      ...(query ? { name: { [Op.iLike]: `%${query}%` } } : {}),
+    };
+    const [page, total] = await Promise.all([
+      this.trackRepository.findAll({
+        where,
+        attributes: ['id'],
+        order: [['id', 'DESC']],
+        limit: count,
+        offset,
+      }),
+      this.trackRepository.count({ where }),
+    ]);
+    const ids = page.map((track) => track.id);
+    if (!ids.length) return { items: [], total };
+    const rows = await this.trackRepository.findAll({
+      where: { id: { [Op.in]: ids } },
+      include: [
+        {
+          model: AuthorModel,
+          as: 'author',
+          attributes: ['id', 'name', 'avatar'],
+        },
+        {
+          model: AuthorModel,
+          as: 'featuredAuthors',
+          attributes: ['id', 'name', 'avatar'],
+          through: { attributes: ['position'] },
+          required: false,
+        },
+        {
+          model: AlbumModel,
+          as: 'albums',
+          attributes: ['id', 'name'],
+          through: { attributes: ['position'] },
+          required: false,
+        },
+      ],
       order: [['id', 'DESC']],
-      limit: count,
-      offset,
     });
-    return { items: rows, total };
+    const byId = new Map(rows.map((track) => [track.id, mapTrackModel(track)]));
+    return {
+      items: ids.flatMap((id) => (byId.has(id) ? [byId.get(id)!] : [])),
+      total,
+    };
   }
 
-  async getAlbums(userId: number, count: number, offset: number) {
+  async getAlbums(
+    userId: number,
+    count: number,
+    offset: number,
+    query?: string,
+  ) {
     const author = await this.getOwnedAuthor(userId);
-    const { rows, count: total } = await this.albumRepository.findAndCountAll({
-      where: { authorId: author.id },
+    const where = {
+      authorId: author.id,
+      ...(query ? { name: { [Op.iLike]: `%${query}%` } } : {}),
+    };
+    const [page, total] = await Promise.all([
+      this.albumRepository.findAll({
+        where,
+        attributes: ['id'],
+        order: [['id', 'DESC']],
+        limit: count,
+        offset,
+      }),
+      this.albumRepository.count({ where }),
+    ]);
+    const ids = page.map((album) => album.id);
+    if (!ids.length) return { items: [], total };
+    const rows = await this.albumRepository.findAll({
+      where: { id: { [Op.in]: ids } },
+      include: [
+        {
+          model: AuthorModel,
+          as: 'author',
+          attributes: ['id', 'name', 'avatar'],
+        },
+        {
+          model: AuthorModel,
+          as: 'featuredAuthors',
+          attributes: ['id', 'name', 'avatar'],
+          through: { attributes: ['position'] },
+          required: false,
+        },
+      ],
       order: [['id', 'DESC']],
-      limit: count,
-      offset,
     });
-    return { items: rows, total };
+    const byId = new Map(rows.map((model) => [model.id, mapAlbumModel(model)]));
+    return {
+      items: ids.flatMap((id) => (byId.has(id) ? [byId.get(id)!] : [])),
+      total,
+    };
   }
 
   async createAlbum(
     userId: number,
     dto: CreateCreatorAlbumDto,
     picture?: Express.Multer.File,
+    idempotencyKey?: string,
   ) {
+    const creatorRequestId = this.normalizeIdempotencyKey(idempotencyKey);
+    if (creatorRequestId) {
+      const author = await this.getOwnedAuthor(userId);
+      const existing = await this.albumRepository.findOne({
+        where: { authorId: author.id, creatorRequestId },
+      });
+      if (existing) return existing;
+    }
     this.assertFile(picture, 'image');
     let picturePath: string | undefined;
+    let createdNew = false;
     try {
       picturePath = this.fileService.createFile(FileType.IMAGE, picture);
-      return await this.sequelize.transaction(async (transaction) => {
+      const result = await this.sequelize.transaction(async (transaction) => {
         const author = await this.getOwnedAuthor(userId, transaction);
+        if (creatorRequestId) {
+          const existing = await this.albumRepository.findOne({
+            where: { authorId: author.id, creatorRequestId },
+            transaction,
+          });
+          if (existing) return existing;
+        }
         const featuredAuthorIds = await this.assertFeaturedAuthors(
           author.id,
           dto.featuredAuthorIds,
@@ -344,9 +510,11 @@ export class CreatorService {
             picture: picturePath!,
             listens: 0,
             authorId: author.id,
+            creatorRequestId: creatorRequestId ?? null,
           },
           { transaction },
         );
+        createdNew = true;
         if (featuredAuthorIds.length)
           await this.albumFeaturedAuthorRepository.bulkCreate(
             featuredAuthorIds.map((authorId, position) => ({
@@ -358,6 +526,8 @@ export class CreatorService {
           );
         return album;
       });
+      if (!createdNew && picturePath) this.fileService.deleteFile(picturePath);
+      return result;
     } catch (error) {
       if (picturePath) this.fileService.deleteFile(picturePath);
       throw error;
@@ -369,16 +539,33 @@ export class CreatorService {
     dto: CreateCreatorTrackDto,
     picture?: Express.Multer.File,
     audio?: Express.Multer.File,
+    idempotencyKey?: string,
   ) {
+    const creatorRequestId = this.normalizeIdempotencyKey(idempotencyKey);
+    if (creatorRequestId) {
+      const author = await this.getOwnedAuthor(userId);
+      const existing = await this.trackRepository.findOne({
+        where: { authorId: author.id, creatorRequestId },
+      });
+      if (existing) return existing;
+    }
     this.assertFile(picture, 'image');
     this.assertFile(audio, 'audio');
     let picturePath: string | undefined;
     let audioPath: string | undefined;
+    let createdNew = false;
     try {
       picturePath = this.fileService.createFile(FileType.IMAGE, picture);
       audioPath = this.fileService.createFile(FileType.AUDIO, audio);
-      return await this.sequelize.transaction(async (transaction) => {
+      const result = await this.sequelize.transaction(async (transaction) => {
         const author = await this.getOwnedAuthor(userId, transaction);
+        if (creatorRequestId) {
+          const existing = await this.trackRepository.findOne({
+            where: { authorId: author.id, creatorRequestId },
+            transaction,
+          });
+          if (existing) return existing;
+        }
         const [genreIds, featuredAuthorIds] = await Promise.all([
           this.assertGenres(dto.genreIds, transaction),
           this.assertFeaturedAuthors(
@@ -387,14 +574,12 @@ export class CreatorService {
             transaction,
           ),
         ]);
-        if (dto.albumId) {
-          const album = await this.albumRepository.findByPk(dto.albumId, {
-            transaction,
-          });
-          if (!album) throw new NotFoundException('Album not found');
-          if (album.authorId !== author.id)
-            throw new ForbiddenException('Album does not belong to author');
-        }
+        const albumIds = [
+          ...new Set([
+            ...(dto.albumIds ?? []),
+            ...(dto.albumId ? [dto.albumId] : []),
+          ]),
+        ];
         const track = await this.trackRepository.create(
           {
             name: dto.name.trim(),
@@ -403,18 +588,23 @@ export class CreatorService {
             audio: audioPath!,
             listens: 0,
             authorId: author.id,
+            creatorRequestId: creatorRequestId ?? null,
           },
           { transaction },
         );
+        createdNew = true;
         await this.trackGenreRepository.bulkCreate(
           genreIds.map((genreId) => ({ trackId: track.id, genreId })),
           { transaction },
         );
-        if (dto.albumId)
-          await this.albumTrackRepository.create(
-            { albumId: dto.albumId, trackId: track.id },
-            { transaction },
+        for (const albumId of albumIds) {
+          await this.assignTracksToAlbum(
+            author,
+            albumId,
+            [track.id],
+            transaction,
           );
+        }
         if (featuredAuthorIds.length)
           await this.trackFeaturedAuthorRepository.bulkCreate(
             featuredAuthorIds.map((authorId, position) => ({
@@ -426,10 +616,22 @@ export class CreatorService {
           );
         return track;
       });
+      if (!createdNew) {
+        if (picturePath) this.fileService.deleteFile(picturePath);
+        if (audioPath) this.fileService.deleteFile(audioPath);
+      }
+      return result;
     } catch (error) {
       if (picturePath) this.fileService.deleteFile(picturePath);
       if (audioPath) this.fileService.deleteFile(audioPath);
       throw error;
     }
+  }
+
+  async assignAlbumTracks(userId: number, albumId: number, trackIds: number[]) {
+    return this.sequelize.transaction(async (transaction) => {
+      const author = await this.getOwnedAuthor(userId, transaction);
+      return this.assignTracksToAlbum(author, albumId, trackIds, transaction);
+    });
   }
 }

@@ -1,9 +1,11 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { InjectModel } from '@nestjs/sequelize';
-import { Op } from 'sequelize';
+import { InjectConnection, InjectModel } from '@nestjs/sequelize';
+import { Op, QueryTypes, Sequelize } from 'sequelize';
 import { AlbumModel } from 'src/album/model/album.model';
 import { TrackModel } from 'src/track/model/track.model';
 import { AuthorModel } from './model/author.model';
+import { mapTrackModel } from 'src/track/track.mapper';
+import { mapAlbumModel } from 'src/album/album.mapper';
 
 @Injectable()
 export class AuthorService {
@@ -14,6 +16,7 @@ export class AuthorService {
     private readonly trackRepository: typeof TrackModel,
     @InjectModel(AlbumModel)
     private readonly albumRepository: typeof AlbumModel,
+    @InjectConnection() private readonly sequelize: Sequelize,
   ) {}
   async getOne(id: number): Promise<AuthorModel> {
     const author = await this.authorRepository.findByPk(id, {
@@ -37,96 +40,110 @@ export class AuthorService {
 
   async getTracks(id: number, count = 20, offset = 0) {
     await this.getOne(id);
-    const { rows, count: total } = await this.trackRepository.findAndCountAll({
-      where: { [Op.or]: [{ authorId: id }, { '$featuredAuthors.id$': id }] },
-      include: [
+    const [page, totals] = await Promise.all([
+      this.sequelize.query<{ id: number }>(
+        `SELECT t."id" FROM "tracks" t
+         WHERE t."authorId" = :authorId OR EXISTS (
+           SELECT 1 FROM "track_featured_authors" relation
+           WHERE relation."trackId" = t."id" AND relation."authorId" = :authorId
+         )
+         ORDER BY t."id" ASC LIMIT :count OFFSET :offset`,
         {
-          model: AuthorModel,
-          as: 'author',
-          attributes: ['id', 'name', 'avatar'],
+          replacements: { authorId: id, count, offset },
+          type: QueryTypes.SELECT,
         },
-        {
-          model: AuthorModel,
-          as: 'featuredAuthors',
-          attributes: ['id', 'name', 'avatar'],
-          through: { attributes: ['position'] },
-          required: false,
-        },
-        {
-          model: AlbumModel,
-          as: 'albums',
-          attributes: ['id'],
-          through: { attributes: [] },
-          required: false,
-        },
-      ],
-      order: [['id', 'ASC']],
-      limit: count,
-      offset,
-      distinct: true,
-      subQuery: false,
-    });
-    const tracks = rows.map((model) => {
-      const track = model.get({ plain: true }) as TrackModel & {
-        author?: AuthorModel;
-        featuredAuthors?: AuthorModel[];
-        albums?: AlbumModel[];
-      };
-      return {
-        ...track,
-        authorName: track.author?.name ?? '',
-        albumId: track.albums?.[0]?.id,
-        featuredAuthors:
-          track.featuredAuthors?.map((author) => ({
-            id: author.id,
-            name: author.name,
-            avatar: author.avatar ?? null,
-          })) ?? [],
-      };
-    });
-    return { tracks, total };
+      ),
+      this.sequelize.query<{ total: number | string }>(
+        `SELECT COUNT(*) AS total FROM "tracks" t
+         WHERE t."authorId" = :authorId OR EXISTS (
+           SELECT 1 FROM "track_featured_authors" relation
+           WHERE relation."trackId" = t."id" AND relation."authorId" = :authorId
+         )`,
+        { replacements: { authorId: id }, type: QueryTypes.SELECT },
+      ),
+    ]);
+    const ids = page.map((row) => Number(row.id));
+    const rows = ids.length
+      ? await this.trackRepository.findAll({
+          where: { id: { [Op.in]: ids } },
+          include: [
+            {
+              model: AuthorModel,
+              as: 'author',
+              attributes: ['id', 'name', 'avatar'],
+            },
+            {
+              model: AuthorModel,
+              as: 'featuredAuthors',
+              attributes: ['id', 'name', 'avatar'],
+              through: { attributes: ['position'] },
+              required: false,
+            },
+            {
+              model: AlbumModel,
+              as: 'albums',
+              attributes: ['id', 'name'],
+              through: { attributes: ['position'] },
+              required: false,
+            },
+          ],
+        })
+      : [];
+    const byId = new Map(rows.map((row) => [row.id, mapTrackModel(row)]));
+    const tracks = ids.flatMap((trackId) =>
+      byId.has(trackId) ? [byId.get(trackId)!] : [],
+    );
+    return { tracks, total: Number(totals[0]?.total ?? 0) };
   }
 
   async getAlbums(id: number, count = 12, offset = 0) {
     await this.getOne(id);
-    const { rows, count: total } = await this.albumRepository.findAndCountAll({
-      where: { [Op.or]: [{ authorId: id }, { '$featuredAuthors.id$': id }] },
-      include: [
+    const [page, totals] = await Promise.all([
+      this.sequelize.query<{ id: number }>(
+        `SELECT album."id" FROM "albums" album
+         WHERE album."authorId" = :authorId OR EXISTS (
+           SELECT 1 FROM "album_featured_authors" relation
+           WHERE relation."albumId" = album."id" AND relation."authorId" = :authorId
+         )
+         ORDER BY album."id" ASC LIMIT :count OFFSET :offset`,
         {
-          model: AuthorModel,
-          as: 'author',
-          attributes: ['id', 'name', 'avatar'],
+          replacements: { authorId: id, count, offset },
+          type: QueryTypes.SELECT,
         },
-        {
-          model: AuthorModel,
-          as: 'featuredAuthors',
-          attributes: ['id', 'name', 'avatar'],
-          through: { attributes: ['position'] },
-          required: false,
-        },
-      ],
-      order: [['id', 'ASC']],
-      limit: count,
-      offset,
-      distinct: true,
-      subQuery: false,
-    });
-    const albums = rows.map((model) => {
-      const album = model.get({ plain: true }) as AlbumModel & {
-        author?: AuthorModel;
-        featuredAuthors?: AuthorModel[];
-      };
-      return {
-        ...album,
-        authorName: album.author?.name ?? '',
-        featuredAuthors:
-          album.featuredAuthors?.map((author) => ({
-            id: author.id,
-            name: author.name,
-            avatar: author.avatar ?? null,
-          })) ?? [],
-      };
-    });
-    return { albums, total };
+      ),
+      this.sequelize.query<{ total: number | string }>(
+        `SELECT COUNT(*) AS total FROM "albums" album
+         WHERE album."authorId" = :authorId OR EXISTS (
+           SELECT 1 FROM "album_featured_authors" relation
+           WHERE relation."albumId" = album."id" AND relation."authorId" = :authorId
+         )`,
+        { replacements: { authorId: id }, type: QueryTypes.SELECT },
+      ),
+    ]);
+    const ids = page.map((row) => Number(row.id));
+    const rows = ids.length
+      ? await this.albumRepository.findAll({
+          where: { id: { [Op.in]: ids } },
+          include: [
+            {
+              model: AuthorModel,
+              as: 'author',
+              attributes: ['id', 'name', 'avatar'],
+            },
+            {
+              model: AuthorModel,
+              as: 'featuredAuthors',
+              attributes: ['id', 'name', 'avatar'],
+              through: { attributes: ['position'] },
+              required: false,
+            },
+          ],
+        })
+      : [];
+    const byId = new Map(rows.map((row) => [row.id, mapAlbumModel(row)]));
+    const albums = ids.flatMap((albumId) =>
+      byId.has(albumId) ? [byId.get(albumId)!] : [],
+    );
+    return { albums, total: Number(totals[0]?.total ?? 0) };
   }
 }

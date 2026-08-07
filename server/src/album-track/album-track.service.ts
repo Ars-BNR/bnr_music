@@ -3,7 +3,8 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { InjectModel } from '@nestjs/sequelize';
+import { InjectConnection, InjectModel } from '@nestjs/sequelize';
+import { Sequelize } from 'sequelize';
 import { AlbumModel } from 'src/album/model/album.model';
 import { TrackModel } from 'src/track/model/track.model';
 import { CreateAlbumTrackDto } from './dto/create-albumTrack.dto';
@@ -17,13 +18,36 @@ export class AlbumTrackService {
     private readonly relationRepository: typeof AlbumTrackModel,
     @InjectModel(AlbumModel)
     private readonly albumRepository: typeof AlbumModel,
+    @InjectConnection() private readonly sequelize: Sequelize,
   ) {}
 
   async create(dto: CreateAlbumTrackDto): Promise<AlbumTrackModel> {
-    const relation = { albumId: dto.albumId, trackId: dto.trackId };
-    if (await this.relationRepository.findOne({ where: relation }))
-      throw new ConflictException('Track is already in this album');
-    return this.relationRepository.create(relation);
+    return this.sequelize.transaction(async (transaction) => {
+      const album = await this.albumRepository.findByPk(dto.albumId, {
+        transaction,
+        lock: transaction.LOCK.UPDATE,
+      });
+      if (!album) throw new NotFoundException('Album not found');
+      const relation = { albumId: dto.albumId, trackId: dto.trackId };
+      if (
+        await this.relationRepository.findOne({ where: relation, transaction })
+      )
+        throw new ConflictException('Track is already in this album');
+      const currentMax = await this.relationRepository.max('position', {
+        where: { albumId: dto.albumId },
+        transaction,
+      });
+      return this.relationRepository.create(
+        {
+          ...relation,
+          position:
+            currentMax === null || currentMax === undefined
+              ? 0
+              : Number(currentMax) + 1,
+        },
+        { transaction },
+      );
+    });
   }
 
   async getOne(albumId: number): Promise<AlbumModel> {
@@ -50,6 +74,15 @@ export class AlbumTrackService {
     });
     if (duplicate && duplicate.id !== relation.id)
       throw new ConflictException('Track is already in this album');
+    if (albumId !== relation.albumId) {
+      const currentMax = await this.relationRepository.max('position', {
+        where: { albumId },
+      });
+      relation.position =
+        currentMax === null || currentMax === undefined
+          ? 0
+          : Number(currentMax) + 1;
+    }
     relation.albumId = albumId;
     relation.trackId = trackId;
     return relation.save();

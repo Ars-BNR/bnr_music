@@ -1,9 +1,16 @@
-"use client";
+﻿"use client";
 
 import { ChevronLeft, ChevronRight, ImageOff, Pause, Play } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type FocusEvent,
+  type KeyboardEvent,
+} from "react";
 import stl from "../styles/Carousel.module.scss";
 import { BASE_URL } from "@/shared/config/config";
 import useAlbumStore from "@/shared/store/album";
@@ -24,7 +31,6 @@ const AUTOPLAY_DELAY = 5_000;
 function normalizeIndex(index: number, length: number) {
   return ((index % length) + length) % length;
 }
-
 function getVisibleOffsets(length: number) {
   if (length === 1) return [0];
   if (length === 2) return [-1, 0];
@@ -94,7 +100,7 @@ export default function Carousel() {
     }));
   }, [activeIndex, albums]);
 
-  const handleKeyDown = (event: React.KeyboardEvent<HTMLElement>) => {
+  const handleKeyDown = (event: KeyboardEvent<HTMLElement>) => {
     if (event.key === "ArrowLeft") {
       event.preventDefault();
       moveBy(-1);
@@ -105,11 +111,11 @@ export default function Carousel() {
     }
   };
 
-  const handleBlur = (event: React.FocusEvent<HTMLElement>) => {
+  const handleBlur = (event: FocusEvent<HTMLElement>) => {
     if (!event.currentTarget.contains(event.relatedTarget)) setIsInteracting(false);
   };
 
-  if (loading) return <LoadingReveal loading label="Открываем популярные альбомы"><Skeleton className={stl.skeleton} /></LoadingReveal>;
+  if (loading) return <LoadingReveal loading label="РћС‚РєСЂС‹РІР°РµРј РїРѕРїСѓР»СЏСЂРЅС‹Рµ Р°Р»СЊР±РѕРјС‹"><Skeleton className={stl.skeleton} /></LoadingReveal>;
 
   if (!albums.length) {
     return (
@@ -118,8 +124,8 @@ export default function Carousel() {
           <EmptyMedia variant="icon">
             <ImageOff />
           </EmptyMedia>
-          <EmptyTitle>Популярные альбомы пока не найдены</EmptyTitle>
-          <EmptyDescription>{error || "Вернитесь позже — подборка обновляется."}</EmptyDescription>
+          <EmptyTitle>Популярные альбомы пока не доступны</EmptyTitle>
+          <EmptyDescription>{error || "Что-то пошло не так — попробуйте обновить страницу."}</EmptyDescription>
         </EmptyHeader>
       </Empty>
     );
@@ -137,7 +143,12 @@ export default function Carousel() {
       onPointerEnter={() => setIsInteracting(true)}
       onPointerLeave={() => setIsInteracting(false)}
     >
-      <SectionHeading className={stl.heading} description="Избранные релизы из музыкального архива BNR.">Популярные альбомы</SectionHeading>
+      <div className={stl.headingRow}>
+        <SectionHeading className={stl.heading} description="Королевская витрина из глубины царства BNR.">Популярные альбомы</SectionHeading>
+        <Button asChild variant="brandLink" size="sm">
+          <Link href="/albums">Все популярные альбомы</Link>
+        </Button>
+      </div>
       <div className={stl.viewport}>
         {visibleAlbums.map(({ album, offset }) => {
           const isActive = offset === 0;

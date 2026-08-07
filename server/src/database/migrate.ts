@@ -9,6 +9,7 @@ import * as userProfile from './migrations/0003-user-profile';
 import * as creatorStudio from './migrations/0004-creator-studio';
 import * as creatorStudioHardening from './migrations/0005-creator-studio-hardening';
 import * as rbac from './migrations/0006-rbac';
+import * as catalogSearchAndBulk from './migrations/0007-catalog-search-and-bulk';
 
 loadEnvironment({ path: `.${process.env.NODE_ENV ?? 'development'}.env` });
 const env = validateEnvironment(process.env);
@@ -31,6 +32,7 @@ const umzug = new Umzug({
     creatorStudio,
     creatorStudioHardening,
     rbac,
+    catalogSearchAndBulk,
   ],
   context: sequelize.getQueryInterface(),
   storage: new SequelizeStorage({ sequelize }),
@@ -42,7 +44,18 @@ async function main(): Promise<void> {
   try {
     if (command === 'up') await umzug.up();
     else if (command === 'down') await umzug.down({ step: 1 });
-    else if (command === 'status') {
+    else if (command === 'check') {
+      const pending = await umzug.pending();
+      if (pending.length) {
+        throw new Error(
+          `Pending database migrations: ${pending
+            .map((migration) => migration.name)
+            .join(
+              ', ',
+            )}. Run "yarn db:migrate" before starting the application.`,
+        );
+      }
+    } else if (command === 'status') {
       const [executed, pending] = await Promise.all([
         umzug.executed(),
         umzug.pending(),

@@ -1,11 +1,12 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/sequelize';
-import { Sequelize } from 'sequelize';
+import { Op } from 'sequelize';
 import { AuthorModel } from 'src/author/model/author.model';
-import { mapFeaturedAuthors } from 'src/author/featured-author.mapper';
 import { TrackModel } from 'src/track/model/track.model';
 import { CreateAlbumDto } from './dto/create-album.dto';
 import { AlbumModel } from './model/album.model';
+import { mapTrackModel } from 'src/track/track.mapper';
+import { mapAlbumModel } from './album.mapper';
 
 @Injectable()
 export class AlbumService {
@@ -15,15 +16,7 @@ export class AlbumService {
   ) {}
 
   private mapAlbum(model: AlbumModel) {
-    const album = model.get({ plain: true }) as AlbumModel & {
-      author?: AuthorModel;
-      featuredAuthors?: AuthorModel[];
-    };
-    return {
-      ...album,
-      authorName: album.author?.name ?? '',
-      featuredAuthors: mapFeaturedAuthors(album.featuredAuthors),
-    };
+    return mapAlbumModel(model);
   }
 
   create(dto: CreateAlbumDto): Promise<AlbumModel> {
@@ -77,6 +70,72 @@ export class AlbumService {
     return albums.map((album) => this.mapAlbum(album));
   }
 
+  async getCatalog(count = 20, offset = 0, query?: string) {
+    const normalizedQuery = query?.trim();
+    const where = normalizedQuery
+      ? {
+          [Op.or]: [
+            { name: { [Op.iLike]: `%${normalizedQuery}%` } },
+            { '$author.name$': { [Op.iLike]: `%${normalizedQuery}%` } },
+          ],
+        }
+      : undefined;
+    const authorSearchInclude = normalizedQuery
+      ? [
+          {
+            model: AuthorModel,
+            as: 'author',
+            attributes: [],
+            required: false,
+          },
+        ]
+      : undefined;
+    const [page, total] = await Promise.all([
+      this.albumRepository.findAll({
+        attributes: ['id'],
+        where,
+        include: authorSearchInclude,
+        order: [
+          ['listens', 'DESC'],
+          ['id', 'ASC'],
+        ],
+        limit: count,
+        offset,
+      }),
+      this.albumRepository.count({
+        where,
+        include: authorSearchInclude,
+        distinct: true,
+      }),
+    ]);
+    const ids = page.map((album) => album.id);
+    if (!ids.length) return { items: [], total };
+    const albums = await this.albumRepository.findAll({
+      where: { id: { [Op.in]: ids } },
+      include: [
+        {
+          model: AuthorModel,
+          as: 'author',
+          attributes: ['id', 'name', 'avatar'],
+        },
+        {
+          model: AuthorModel,
+          as: 'featuredAuthors',
+          attributes: ['id', 'name', 'avatar'],
+          through: { attributes: ['position'] },
+          required: false,
+        },
+      ],
+    });
+    const byId = new Map(
+      albums.map((album) => [album.id, this.mapAlbum(album)]),
+    );
+    return {
+      items: ids.flatMap((id) => (byId.has(id) ? [byId.get(id)!] : [])),
+      total,
+    };
+  }
+
   async getOne(id: number) {
     const album = await this.albumRepository.findByPk(id, {
       subQuery: false,
@@ -96,22 +155,41 @@ export class AlbumService {
         {
           model: TrackModel,
           as: 'tracks',
-          through: { attributes: [] },
-          include: [{ model: AuthorModel, as: 'author', attributes: [] }],
-          attributes: {
-            include: [
-              [
-                Sequelize.literal('"tracks->AlbumTrackModel"."albumId"'),
-                'albumId',
-              ],
-              [Sequelize.literal('"tracks->author"."name"'), 'authorName'],
-            ],
-          },
+          through: { attributes: ['position'] },
+          include: [
+            {
+              model: AuthorModel,
+              as: 'author',
+              attributes: ['id', 'name', 'avatar'],
+            },
+            {
+              model: AuthorModel,
+              as: 'featuredAuthors',
+              attributes: ['id', 'name', 'avatar'],
+              through: { attributes: ['position'] },
+              required: false,
+            },
+            {
+              model: AlbumModel,
+              as: 'albums',
+              attributes: ['id', 'name'],
+              through: { attributes: ['position'] },
+              required: false,
+            },
+          ],
         },
       ],
     });
     if (!album) throw new NotFoundException('Album not found');
-    return this.mapAlbum(album);
+    const mapped = this.mapAlbum(album) as ReturnType<
+      AlbumService['mapAlbum']
+    > & {
+      tracks?: TrackModel[];
+    };
+    return {
+      ...mapped,
+      tracks: (album.tracks ?? []).map(mapTrackModel),
+    };
   }
 
   async delete(id: number): Promise<void> {

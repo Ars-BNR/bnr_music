@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Image from "next/image";
 import { useEffect, useId, useRef, useState } from "react";
@@ -21,6 +21,7 @@ import { FleurDeLis } from "@/shared/ui/brand";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/shared/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/shared/ui/popover";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/shared/ui/select";
+import { AlbumAssignmentDialog, BulkTrackDialog } from "./creator-studio/ui/BulkTrackDialog";
 
 type Author = { id: number; name: string; avatar?: string | null };
 type Studio = { state: "none" } | { state: "pending" | "rejected"; application: { stageName: string; bio: string; avatar: string; reviewNote?: string | null } } | { state: "approved"; author: Author & { bio: string; avatar: string | null }; counts: { tracks: number; albums: number } };
@@ -108,7 +109,6 @@ function FeaturedAuthors({ value, onChange, primaryAuthorId }: { value: Author[]
     {value.length ? <div className="flex flex-wrap gap-2" aria-live="polite">{value.map((author) => <Badge key={author.id} variant="outline" className="gap-1 border-bnr-lilac/50 px-2 py-1 text-bnr-bone">{author.name}<button type="button" aria-label={`Убрать ${author.name}`} onClick={() => onChange(value.filter((item) => item.id !== author.id))}><X className="size-3" /></button></Badge>)}</div> : null}
   </Field>;
 }
-
 function GenrePicker({ value, onChange }: { value: Genre[]; onChange: (next: Genre[]) => void }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -186,15 +186,13 @@ function ApprovedStudio({ studio, onChanged }: { studio: Extract<Studio, { state
   const refreshCatalog = () => void Promise.all([$api.get<{ items: Item[] }>("/creator/tracks"), $api.get<{ items: Item[] }>("/creator/albums")]).then(([trackData, albumData]) => { setTracks(trackData.data.items); setAlbums(albumData.data.items); });
   useEffect(() => { refreshCatalog(); }, [studio.counts.tracks, studio.counts.albums]);
   return <><HeraldicPanel watermark className="p-6 sm:p-8"><div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between"><div className="flex min-w-0 items-center gap-4"><div className="grid size-20 shrink-0 place-items-center overflow-hidden border border-bnr-lilac/50 bg-bnr-abyss font-cinzel text-3xl text-bnr-lilac">{studio.author.avatar ? <Image src={fileUrl(studio.author.avatar)!} alt="" width={80} height={80} className="size-full object-cover" /> : studio.author.name[0]}</div><div className="min-w-0"><Badge variant="outline" className="border-bnr-lilac/50 px-2 py-1 text-[10px] text-bnr-lilac"><ShieldCheck className="mr-1 size-3" />ОДОБРЕНО</Badge><h1 id="creator-studio-title" className="mt-2 truncate font-cinzel text-3xl font-semibold text-bnr-bone">{studio.author.name}</h1><p className="mt-1 text-sm text-bnr-ash">{studio.counts.tracks} треков · {studio.counts.albums} альбомов</p></div></div><span className="font-cinzel text-[10px] tracking-[.18em] text-bnr-ash">АРХИВ АВТОРА</span></div></HeraldicPanel>
-    <Tabs defaultValue="tracks" className="mt-8"><TabsList className="bg-bnr-surface"><TabsTrigger value="tracks">Треки</TabsTrigger><TabsTrigger value="albums">Альбомы</TabsTrigger></TabsList><TabsContent value="tracks"><StudioList title="Ваши треки" items={tracks} icon={<FileAudio />} action={<TrackDialog albums={albums} primaryAuthorId={studio.author.id} onCreated={() => { refreshCatalog(); onChanged(); }} />} /></TabsContent><TabsContent value="albums"><StudioList title="Ваши альбомы" items={albums} icon={<Disc3 />} action={<AlbumDialog primaryAuthorId={studio.author.id} onCreated={() => { refreshCatalog(); onChanged(); }} />} /></TabsContent></Tabs>
+    <Tabs defaultValue="tracks" className="mt-8"><TabsList className="bg-bnr-surface"><TabsTrigger value="tracks">Треки</TabsTrigger><TabsTrigger value="albums">Альбомы</TabsTrigger></TabsList><TabsContent value="tracks"><StudioList title="Ваши треки" items={tracks} icon={<FileAudio />} action={<BulkTrackDialog albums={albums} primaryAuthorId={studio.author.id} onCreated={() => { refreshCatalog(); onChanged(); }} />} /></TabsContent><TabsContent value="albums"><StudioList title="Ваши альбомы" items={albums} icon={<Disc3 />} action={<div className="flex flex-wrap gap-2"><AlbumDialog primaryAuthorId={studio.author.id} onCreated={() => { refreshCatalog(); onChanged(); }} /><AlbumAssignmentDialog tracks={tracks} albums={albums} onChanged={refreshCatalog} /></div>} /></TabsContent></Tabs>
   </>;
 }
 
 function StudioList({ title, items, action, icon }: { title: string; items: Item[]; action: React.ReactNode; icon: React.ReactNode }) { return <section className="mt-5"><div className="flex flex-wrap items-center justify-between gap-3"><SectionHeading>{title}</SectionHeading>{action}</div>{items.length ? <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">{items.map((item) => <article key={item.id} className="min-w-0 border border-bnr-line bg-bnr-surface p-4"><div className="flex items-center gap-2 text-bnr-lilac">{icon}<span className="font-cinzel text-[10px] tracking-[.14em]">ОПУБЛИКОВАНО</span></div><h3 className="mt-7 truncate text-sm font-semibold text-bnr-bone">{item.name}</h3></article>)}</div> : <Empty className="mt-5 border border-bnr-line"><EmptyHeader><EmptyTitle>{title} пока пусты</EmptyTitle><EmptyDescription>Создайте первую запись в архиве.</EmptyDescription></EmptyHeader></Empty>}</section>; }
 
 function AlbumDialog({ primaryAuthorId, onCreated }: { primaryAuthorId: number; onCreated: () => void }) { return <CreationDialog kind="album" primaryAuthorId={primaryAuthorId} onCreated={onCreated} />; }
-function TrackDialog({ albums, primaryAuthorId, onCreated }: { albums: Item[]; primaryAuthorId: number; onCreated: () => void }) { return <CreationDialog kind="track" albums={albums} primaryAuthorId={primaryAuthorId} onCreated={onCreated} />; }
-
 function CreationDialog({ kind, albums = [], primaryAuthorId, onCreated }: { kind: "track" | "album"; albums?: Item[]; primaryAuthorId: number; onCreated: () => void }) {
   const [open, setOpen] = useState(false); const [featured, setFeatured] = useState<Author[]>([]); const [genres, setGenres] = useState<Genre[]>([]); const [albumId, setAlbumId] = useState(""); const [error, setError] = useState(""); const [busy, setBusy] = useState(false);
   const title = kind === "track" ? "Создать трек" : "Создать альбом";

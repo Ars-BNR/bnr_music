@@ -1,6 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import {
   AutoIncrement,
+  AllowNull,
   BelongsTo,
   BelongsToMany,
   Column,
@@ -19,7 +20,17 @@ import { PlaylistModel } from 'src/playlist/model/playlist.model';
 import { TrackGenreModel } from 'src/track-genre/model/track-genre.model';
 import { TrackFeaturedAuthorModel } from 'src/track-featured-author/model/track-featured-author.model';
 
-@Table({ tableName: 'tracks', timestamps: false })
+@Table({
+  tableName: 'tracks',
+  timestamps: false,
+  indexes: [
+    {
+      name: 'tracks_author_creator_request_unique',
+      unique: true,
+      fields: ['authorId', 'creatorRequestId'],
+    },
+  ],
+})
 export class TrackModel extends Model {
   @ApiProperty({
     example: 1,
@@ -66,6 +77,10 @@ export class TrackModel extends Model {
   @ApiProperty({ example: 1, description: 'ID автора трека' })
   @Column(DataType.INTEGER)
   authorId: number;
+
+  @AllowNull
+  @Column(DataType.UUID)
+  creatorRequestId: string | null;
 
   @BelongsTo(() => AuthorModel)
   author: AuthorModel;

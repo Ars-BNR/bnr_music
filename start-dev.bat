@@ -37,6 +37,18 @@ if not exist "%BNR_CLIENT%\node_modules" (
   exit /b 1
 )
 
+echo [BNR] Checking database migrations...
+pushd "%BNR_SERVER%"
+call yarn db:migrate:check
+set "BNR_MIGRATION_RESULT=%ERRORLEVEL%"
+popd
+if not "%BNR_MIGRATION_RESULT%"=="0" (
+  echo [BNR] Database migrations are pending or unavailable.
+  echo [BNR] Run: cd server ^&^& yarn db:migrate
+  pause
+  exit /b %BNR_MIGRATION_RESULT%
+)
+
 if /I "%~1"=="--check" (
   echo [BNR] Startup prerequisites are available.
   exit /b 0

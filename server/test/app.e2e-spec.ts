@@ -6,6 +6,7 @@ import * as bcrypt from 'bcrypt';
 import request from 'supertest';
 import { AlbumModel } from '../src/album/model/album.model';
 import { AlbumFeaturedAuthorModel } from '../src/album-featured-author/model/album-featured-author.model';
+import { AlbumTrackModel } from '../src/album-track/model/album-track.model';
 import { AuthorModel } from '../src/author/model/author.model';
 import { CollectionAlbumModel } from '../src/collection-album/model/collection-album.model';
 import { GenreModel } from '../src/genre/model/genre.model';
@@ -86,6 +87,7 @@ describeE2e('BNR Music API (e2e)', () => {
     );
     await app.init();
     sequelize = app.get(Sequelize);
+    await sequelize.query('CREATE EXTENSION IF NOT EXISTS pg_trgm');
     rbacService = app.get(RbacService);
   }, 30_000);
 
@@ -305,6 +307,222 @@ describeE2e('BNR Music API (e2e)', () => {
       .get(`/genres/${genre.id}/tracks?offset=-1`)
       .expect(400);
     await request(app.getHttpServer()).get('/genres/999999/tracks').expect(404);
+  });
+
+  it('searches the full catalog, exposes album catalog and keeps creator bulk actions idempotent', async () => {
+    const owner = await register('catalog-search-owner');
+    const ownerId = owner.response.body.user.sub as number;
+    const ownerToken = owner.response.body.accessToken as string;
+    const primary = await AuthorModel.create({
+      userId: ownerId,
+      name: 'Neon Saint',
+      bio: '',
+      avatar: null,
+    });
+    const featured = await AuthorModel.create({ name: 'Purple Guest' });
+    const genre = await GenreModel.create({ name: 'Synthwave Archive' });
+    await rbacService.assignSystemRole(ownerId, 'author');
+
+    const firstAlbumKey = '11111111-1111-4111-8111-111111111111';
+    const secondAlbumKey = '22222222-2222-4222-8222-222222222222';
+    const createAlbum = (
+      name: string,
+      idempotencyKey: string,
+      fileName: string,
+    ) =>
+      owner.agent
+        .post('/creator/albums')
+        .set('Authorization', `Bearer ${ownerToken}`)
+        .set('Idempotency-Key', idempotencyKey)
+        .field('name', name)
+        .field('featuredAuthorIds', JSON.stringify([featured.id]))
+        .attach('picture', Buffer.from(`picture-${name}`), fileName);
+
+    const firstAlbum = await createAlbum(
+      'Neon Archive',
+      firstAlbumKey,
+      'neon-archive.webp',
+    ).expect(201);
+    const secondAlbum = await createAlbum(
+      'Third Street Sessions',
+      secondAlbumKey,
+      'third-street.webp',
+    ).expect(201);
+    createdFixtureFiles.add(firstAlbum.body.picture);
+    createdFixtureFiles.add(secondAlbum.body.picture);
+
+    const repeatedAlbum = await createAlbum(
+      'Ignored duplicate album',
+      firstAlbumKey,
+      'duplicate-album.webp',
+    ).expect(201);
+    expect(repeatedAlbum.body.id).toBe(firstAlbum.body.id);
+    await expect(
+      AlbumModel.count({
+        where: { authorId: primary.id, creatorRequestId: firstAlbumKey },
+      }),
+    ).resolves.toBe(1);
+
+    const trackKey = '33333333-3333-4333-8333-333333333333';
+    const createTrack = (name: string, suffix: string) =>
+      owner.agent
+        .post('/creator/tracks')
+        .set('Authorization', `Bearer ${ownerToken}`)
+        .set('Idempotency-Key', trackKey)
+        .field('name', name)
+        .field('text', 'Searchable creator fixture')
+        .field('genreIds', JSON.stringify([genre.id]))
+        .field('featuredAuthorIds', JSON.stringify([featured.id]))
+        .field(
+          'albumIds',
+          JSON.stringify([firstAlbum.body.id, secondAlbum.body.id]),
+        )
+        .attach(
+          'picture',
+          Buffer.from(`track-picture-${suffix}`),
+          `${suffix}.webp`,
+        )
+        .attach('audio', Buffer.from(`track-audio-${suffix}`), `${suffix}.mp3`);
+
+    const track = await createTrack('Neon Crown', 'neon-crown').expect(201);
+    createdFixtureFiles.add(track.body.picture);
+    createdFixtureFiles.add(track.body.audio);
+    const repeatedTrack = await createTrack(
+      'Ignored duplicate track',
+      'duplicate-track',
+    ).expect(201);
+    expect(repeatedTrack.body.id).toBe(track.body.id);
+    await expect(
+      TrackModel.count({
+        where: { authorId: primary.id, creatorRequestId: trackKey },
+      }),
+    ).resolves.toBe(1);
+
+    const relations = await AlbumTrackModel.findAll({
+      where: { trackId: track.body.id },
+      order: [
+        ['albumId', 'ASC'],
+        ['position', 'ASC'],
+      ],
+    });
+    expect(relations).toHaveLength(2);
+    expect(relations.map((relation) => relation.position)).toEqual([0, 0]);
+
+    await owner.agent
+      .put(`/creator/albums/${firstAlbum.body.id}/tracks`)
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({ trackIds: [track.body.id] })
+      .expect(200);
+    await owner.agent
+      .put(`/creator/albums/${firstAlbum.body.id}/tracks`)
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({ trackIds: [track.body.id] })
+      .expect(200);
+    await expect(
+      AlbumTrackModel.count({
+        where: { albumId: firstAlbum.body.id, trackId: track.body.id },
+      }),
+    ).resolves.toBe(1);
+
+    const catalog = await request(app.getHttpServer())
+      .get('/albums/catalog?count=20&offset=0')
+      .expect(200);
+    expect(catalog.body).toEqual(
+      expect.objectContaining({
+        total: 2,
+        items: expect.arrayContaining([
+          expect.objectContaining({
+            id: firstAlbum.body.id,
+            authorName: 'Neon Saint',
+          }),
+        ]),
+      }),
+    );
+
+    const preview = await request(app.getHttpServer())
+      .get('/search?query=Neon&count=5')
+      .expect(200);
+    expect(preview.body).toEqual(
+      expect.objectContaining({
+        tracks: expect.objectContaining({
+          total: 1,
+          items: [
+            expect.objectContaining({
+              id: track.body.id,
+              authorName: 'Neon Saint',
+              albums: [
+                expect.objectContaining({ id: firstAlbum.body.id }),
+                expect.objectContaining({ id: secondAlbum.body.id }),
+              ],
+              featuredAuthors: [expect.objectContaining({ id: featured.id })],
+            }),
+          ],
+        }),
+        authors: expect.objectContaining({ total: 1 }),
+        albums: expect.objectContaining({ total: 1 }),
+        genres: expect.objectContaining({ total: 0 }),
+        playlists: expect.objectContaining({ total: 0 }),
+      }),
+    );
+    await request(app.getHttpServer())
+      .get('/search/tracks?query=Purple%20Guest&count=20&offset=0')
+      .expect(200)
+      .expect((response) => {
+        expect(response.body.total).toBe(1);
+        expect(response.body.items[0].id).toBe(track.body.id);
+      });
+    await request(app.getHttpServer())
+      .get('/search/tracks?query=Noen&count=20&offset=0')
+      .expect(200)
+      .expect((response) => {
+        expect(response.body.items).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({ id: track.body.id }),
+          ]),
+        );
+      });
+    await request(app.getHttpServer())
+      .get('/search?query=x&count=5')
+      .expect(400);
+
+    const playlist = await owner.agent
+      .post('/playlist')
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({ name: 'Neon public mix' })
+      .expect(201);
+    await owner.agent
+      .post(`/playlist/${playlist.body.id}/tracks`)
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({ trackId: track.body.id })
+      .expect(201);
+    await request(app.getHttpServer())
+      .get(`/playlist/${playlist.body.id}?count=20&offset=0`)
+      .expect(200)
+      .expect((response) => {
+        expect(response.body).toEqual(
+          expect.objectContaining({
+            id: playlist.body.id,
+            total: 1,
+            tracks: [expect.objectContaining({ id: track.body.id })],
+          }),
+        );
+      });
+    await request(app.getHttpServer())
+      .post(`/playlist/${playlist.body.id}/tracks`)
+      .send({ trackId: track.body.id })
+      .expect(401);
+    await request(app.getHttpServer())
+      .get('/search/playlists?query=Neon&count=20&offset=0')
+      .expect(200)
+      .expect((response) => {
+        expect(response.body.items).toEqual([
+          expect.objectContaining({
+            id: playlist.body.id,
+            ownerName: expect.any(String),
+            trackCount: 1,
+          }),
+        ]);
+      });
   });
 
   it('rotates refresh sessions, never serializes the token, and invalidates logout', async () => {
