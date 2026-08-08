@@ -12,6 +12,7 @@ import {
   ShieldCheck,
   UsersRound,
   X,
+  ChartNoAxesCombined,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -58,6 +59,12 @@ const adminLinks: ReadonlyArray<{
   label: string;
   permission: PermissionCode;
 }> = [
+  {
+    href: "/admin/dashboard",
+    icon: ChartNoAxesCombined,
+    label: "Статистика",
+    permission: "analytics.read",
+  },
   {
     href: "/studio/moderation",
     icon: ShieldCheck,

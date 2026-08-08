@@ -11,6 +11,7 @@ export interface UserProfile {
   roles: string[];
   permissions: string[];
   isActivated: boolean;
+  mustChangePassword?: boolean;
 }
 
 export const ROLE_CODES = ["user", "author", "admin"] as const;
@@ -25,6 +26,7 @@ export const PERMISSION_CODES = [
   "catalog.manage",
   "users.read",
   "rbac.manage",
+  "analytics.read",
 ] as const;
 export type PermissionCode = (typeof PERMISSION_CODES)[number];
 

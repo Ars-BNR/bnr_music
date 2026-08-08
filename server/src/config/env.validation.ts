@@ -15,6 +15,14 @@ export interface Environment {
   REFRESH_COOKIE_MAX_AGE: number;
   SEED_ADMIN_EMAIL?: string;
   SEED_ADMIN_PASSWORD?: string;
+  MAIL_DISABLED: boolean;
+  SMTP_HOST?: string;
+  SMTP_PORT: number;
+  SMTP_SECURE: boolean;
+  SMTP_USER?: string;
+  SMTP_PASSWORD?: string;
+  SMTP_FROM?: string;
+  MAIL_TEST_TO?: string;
 }
 
 const required = (value: string | undefined, key: string): string => {
@@ -37,6 +45,17 @@ const asNumber = (
 const optionalNonEmpty = (value: string | undefined): string | undefined =>
   value?.trim() ? value : undefined;
 
+const asBoolean = (
+  value: string | undefined,
+  key: string,
+  fallback: boolean,
+): boolean => {
+  if (value === undefined || value.trim() === '') return fallback;
+  if (value === 'true') return true;
+  if (value === 'false') return false;
+  throw new Error(`Environment variable ${key} must be true or false`);
+};
+
 export const validateEnvironment = (
   config: Record<string, string | undefined>,
 ): Environment => {
@@ -44,6 +63,36 @@ export const validateEnvironment = (
     'development') as Environment['NODE_ENV'];
   if (!['development', 'test', 'production'].includes(NODE_ENV)) {
     throw new Error('NODE_ENV must be development, test, or production');
+  }
+
+  const MAIL_DISABLED = asBoolean(
+    config.MAIL_DISABLED,
+    'MAIL_DISABLED',
+    NODE_ENV === 'test' || !optionalNonEmpty(config.SMTP_USER),
+  );
+  const SMTP_PORT = asNumber(config.SMTP_PORT, 'SMTP_PORT', 587);
+  const SMTP_SECURE = asBoolean(
+    config.SMTP_SECURE,
+    'SMTP_SECURE',
+    false,
+  );
+  const SMTP_HOST = optionalNonEmpty(config.SMTP_HOST);
+  const SMTP_USER = optionalNonEmpty(config.SMTP_USER);
+  const SMTP_PASSWORD = optionalNonEmpty(config.SMTP_PASSWORD);
+  const SMTP_FROM = optionalNonEmpty(config.SMTP_FROM);
+
+  if (!MAIL_DISABLED) {
+    for (const [key, value] of Object.entries({
+      SMTP_HOST,
+      SMTP_USER,
+      SMTP_PASSWORD,
+      SMTP_FROM,
+    })) {
+      if (!value) throw new Error(`Missing required environment variable: ${key}`);
+    }
+    if (SMTP_PORT === 587 && SMTP_SECURE) {
+      throw new Error('SMTP_SECURE must be false when SMTP_PORT is 587');
+    }
   }
 
   return {
@@ -70,5 +119,13 @@ export const validateEnvironment = (
     ),
     SEED_ADMIN_EMAIL: optionalNonEmpty(config.SEED_ADMIN_EMAIL),
     SEED_ADMIN_PASSWORD: optionalNonEmpty(config.SEED_ADMIN_PASSWORD),
+    MAIL_DISABLED,
+    SMTP_HOST,
+    SMTP_PORT,
+    SMTP_SECURE,
+    SMTP_USER,
+    SMTP_PASSWORD,
+    SMTP_FROM,
+    MAIL_TEST_TO: optionalNonEmpty(config.MAIL_TEST_TO),
   };
 };

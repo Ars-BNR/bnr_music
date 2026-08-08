@@ -56,6 +56,21 @@ $ yarn start:dev
 `yarn db:migrate` is safe to run repeatedly. Do not enable automatic seed or
 Sequelize `synchronize` for development or production databases.
 
+The catalog seed is restricted to development and test environments. It
+creates or repairs the following mock author accounts on every run:
+
+| Author            | Login                     | Password          |
+| ----------------- | ------------------------- | ----------------- |
+| Jesper Kyd        | `jesper.kyd@bnr.local`    | `JesperKyd!2026`  |
+| Brian Tyler       | `brian.tyler@bnr.local`   | `BrianTyler!2026` |
+| Malcolm Kirby Jr. | `malcolm.kirby@bnr.local` | `MalcolmK!2026`   |
+| Lorne Bafle       | `lorne.bafle@bnr.local`   | `LorneBafle!2026` |
+
+These credentials are development/test fixtures and must not be used for a
+deployed environment. `yarn seed` refuses to run when `NODE_ENV=production`.
+The administrator login remains configured only through
+`SEED_ADMIN_EMAIL` and `SEED_ADMIN_PASSWORD` in `.development.env`.
+
 ## Running the app
 
 ```bash

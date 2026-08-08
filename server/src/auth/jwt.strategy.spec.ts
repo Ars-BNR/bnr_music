@@ -14,6 +14,13 @@ describe('JwtStrategy', () => {
     const strategy = new JwtStrategy(
       { getOrThrow: jest.fn().mockReturnValue('test-secret') } as never,
       rbacService as never,
+      {
+        findByPk: jest.fn().mockResolvedValue({
+          id: 4,
+          accountStatus: 'active',
+          sessionVersion: 0,
+        }),
+      } as never,
     );
 
     await expect(

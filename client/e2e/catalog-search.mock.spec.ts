@@ -115,6 +115,16 @@ async function mockCatalogApp(page: Page) {
   }> = [];
   const creatorAlbumKeys: string[] = [];
   const assignments: Array<{ albumId: number; trackIds: number[] }> = [];
+  const studioTracks = [track, tracks[1]];
+  const studioAlbums = [albums[0], albums[1]];
+  const deletedTrackBatches: number[][] = [];
+  const deletedAlbumBatches: number[][] = [];
+  const creatorProfile = {
+    ...primaryAuthor,
+    bio: "Approved creator fixture biography",
+  };
+  const creatorProfileDeletes: Array<{ currentPassword: string; stageName: string }> = [];
+  let creatorDeleted = false;
   let brokenDraftAttempts = 0;
 
   await page.route("**://localhost:8340/**", async (route) => {
@@ -125,7 +135,9 @@ async function mockCatalogApp(page: Page) {
     if (path === "/refresh") {
       return fulfillJson(route, {
         accessToken: "catalog-access-token",
-        user: principal,
+        user: creatorDeleted
+          ? { ...principal, roles: ["user"], permissions: principal.permissions.filter((permission) => permission !== "creator.publish") }
+          : principal,
       });
     }
     if (path === "/users/me") {
@@ -162,20 +174,56 @@ async function mockCatalogApp(page: Page) {
       return fulfillJson(route, [primaryAuthor, featuredAuthor, secondAuthor]);
     }
     if (path === "/creator/me") {
+      if (request.method() === "PATCH") {
+        const body = request.postDataBuffer()?.toString("utf8") ?? "";
+        creatorProfile.name = readMultipartField(body, "stageName") ?? creatorProfile.name;
+        creatorProfile.bio = readMultipartField(body, "bio") ?? creatorProfile.bio;
+        return fulfillJson(route, {
+          state: "approved",
+          author: creatorProfile,
+          counts: { tracks: studioTracks.length, albums: studioAlbums.length },
+        });
+      }
+      if (request.method() === "DELETE") {
+        const body = request.postDataJSON() as { currentPassword: string; stageName: string };
+        creatorProfileDeletes.push(body);
+        if (body.currentPassword !== "author-password") return fulfillJson(route, { message: "Current password is incorrect" }, 401);
+        creatorDeleted = true;
+        studioTracks.splice(0);
+        studioAlbums.splice(0);
+        return fulfillJson(route, { deleted: true, authorId: creatorProfile.id });
+      }
+      if (creatorDeleted) return fulfillJson(route, { state: "none" });
       return fulfillJson(route, {
         state: "approved",
-        author: {
-          ...primaryAuthor,
-          bio: "Approved creator fixture",
-        },
-        counts: { tracks: creatorTrackRequests.length, albums: 2 },
+        author: creatorProfile,
+        counts: { tracks: studioTracks.length, albums: studioAlbums.length },
       });
     }
     if (path === "/creator/albums" && request.method() === "GET") {
-      return fulfillJson(route, { items: albums.slice(0, 2), total: 2 });
+      return fulfillJson(route, { items: studioAlbums, total: studioAlbums.length });
     }
     if (path === "/creator/tracks" && request.method() === "GET") {
-      return fulfillJson(route, { items: [], total: creatorTrackRequests.length });
+      return fulfillJson(route, { items: studioTracks, total: studioTracks.length });
+    }
+    const singleTrackDelete = path.match(/^\/creator\/tracks\/(\d+)$/);
+    if (singleTrackDelete && request.method() === "DELETE") {
+      const id = Number(singleTrackDelete[1]);
+      studioTracks.splice(studioTracks.findIndex((item) => item.id === id), 1);
+      deletedTrackBatches.push([id]);
+      return fulfillJson(route, { deletedIds: [id] });
+    }
+    if (path === "/creator/tracks/bulk-delete" && request.method() === "POST") {
+      const ids = (request.postDataJSON() as { ids: number[] }).ids;
+      ids.forEach((id) => { const index = studioTracks.findIndex((item) => item.id === id); if (index >= 0) studioTracks.splice(index, 1); });
+      deletedTrackBatches.push(ids);
+      return fulfillJson(route, { deletedIds: ids });
+    }
+    if (path === "/creator/albums/bulk-delete" && request.method() === "POST") {
+      const ids = (request.postDataJSON() as { ids: number[] }).ids;
+      ids.forEach((id) => { const index = studioAlbums.findIndex((item) => item.id === id); if (index >= 0) studioAlbums.splice(index, 1); });
+      deletedAlbumBatches.push(ids);
+      return fulfillJson(route, { deletedIds: ids });
     }
     if (path === "/creator/albums" && request.method() === "POST") {
       creatorAlbumKeys.push(request.headers()["idempotency-key"] ?? "");
@@ -267,6 +315,9 @@ async function mockCatalogApp(page: Page) {
     creatorTrackRequests,
     creatorAlbumKeys,
     assignments,
+    deletedTrackBatches,
+    deletedAlbumBatches,
+    creatorProfileDeletes,
   };
 }
 
@@ -516,4 +567,84 @@ test("bulk studio keeps successful drafts and retries only failed uploads", asyn
       { albumId: 99, trackIds: [502] },
     ]),
   );
+});
+
+test("creator deletes one release and atomically bulk deletes selected releases", async ({
+  page,
+}) => {
+  const api = await mockCatalogApp(page);
+  await page.goto("/studio");
+
+  const firstTrack = page.locator("article").filter({ hasText: track.name });
+  await firstTrack.getByRole("button", { name: "Удалить", exact: true }).click();
+  const singleDialog = page.getByRole("alertdialog");
+  await expect(singleDialog).toContainText("аудиофайлы");
+  await singleDialog.getByRole("button", { name: "Отмена" }).click();
+  await expect(firstTrack.getByRole("button", { name: "Удалить", exact: true })).toBeFocused();
+
+  await firstTrack.getByRole("button", { name: "Удалить", exact: true }).click();
+  await singleDialog.getByRole("button", { name: "Удалить навсегда" }).click();
+  await expect(page.getByText(track.name, { exact: true })).toHaveCount(0);
+  expect(api.deletedTrackBatches).toEqual([[track.id]]);
+
+  await page.getByRole("tab", { name: "Альбомы" }).click();
+  await page.getByRole("button", { name: "Выбрать", exact: true }).click();
+  await page.getByRole("checkbox", { name: `Выбрать альбом ${albums[0].name}` }).check();
+  await page.getByRole("checkbox", { name: `Выбрать альбом ${albums[1].name}` }).check();
+  await page.getByRole("button", { name: "Удалить (2)" }).click();
+  const bulkDialog = page.getByRole("alertdialog");
+  await expect(bulkDialog).toContainText("треки сохранятся");
+  await bulkDialog.getByRole("button", { name: "Удалить навсегда" }).click();
+  await expect(page.getByText(albums[0].name, { exact: true })).toHaveCount(0);
+  await expect(page.getByText(albums[1].name, { exact: true })).toHaveCount(0);
+  expect(api.deletedAlbumBatches).toEqual([[albums[0].id, albums[1].id]]);
+});
+
+test("creator edits and permanently removes the author profile without logging out", async ({
+  page,
+}) => {
+  const api = await mockCatalogApp(page);
+  await page.setViewportSize({ width: 375, height: 667 });
+  await page.goto("/search?q=neon&type=tracks");
+  await page.locator(`button[aria-label$="${track.name}"]`).first().click();
+  await expect(page.getByRole("region", { name: "Audio player" })).toContainText(track.name);
+  await page.goto("/studio");
+
+  await page.getByRole("button", { name: "Редактировать профиль" }).click();
+  const editDialog = page.getByRole("dialog", { name: "Редактировать профиль автора" });
+  await editDialog.getByLabel("Псевдоним").fill("New Neon Saint");
+  await editDialog.getByLabel("Bio").fill("A renewed public creator biography for the archive.");
+  await editDialog.getByLabel("Новый аватар").setInputFiles({
+    name: "new-author.webp",
+    mimeType: "image/webp",
+    buffer: Buffer.from("avatar"),
+  });
+  await expect(editDialog.getByAltText("Предпросмотр аватара автора")).toBeVisible();
+  await editDialog.getByRole("button", { name: "Сохранить профиль" }).click();
+  await expect(page.getByRole("heading", { name: "New Neon Saint" })).toBeVisible();
+
+  const deleteTrigger = page.getByRole("button", { name: "Удалить авторский аккаунт" });
+  await deleteTrigger.click();
+  let deleteDialog = page.getByRole("alertdialog");
+  await deleteDialog.getByRole("button", { name: "Отмена" }).click();
+  await expect(deleteTrigger).toBeFocused();
+
+  await deleteTrigger.click();
+  deleteDialog = page.getByRole("alertdialog");
+  await deleteDialog.getByLabel(/Введите псевдоним/).fill("New Neon Saint");
+  await deleteDialog.getByLabel("Текущий пароль").fill("wrong-password");
+  await deleteDialog.getByRole("button", { name: "Удалить безвозвратно" }).click();
+  await expect(deleteDialog).toContainText("Текущий пароль указан неверно");
+  await expect(deleteDialog).toBeVisible();
+
+  await deleteDialog.getByLabel("Текущий пароль").fill("author-password");
+  await deleteDialog.getByRole("button", { name: "Удалить безвозвратно" }).click();
+  await expect(page.getByRole("heading", { name: "Стать автором" })).toBeVisible();
+  await expect(page.getByLabel("Псевдоним")).toBeVisible();
+  await expect(page.getByRole("region", { name: "Audio player" })).toHaveCount(0);
+  expect(api.creatorProfileDeletes).toEqual([
+    { currentPassword: "wrong-password", stageName: "New Neon Saint" },
+    { currentPassword: "author-password", stageName: "New Neon Saint" },
+  ]);
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
 });

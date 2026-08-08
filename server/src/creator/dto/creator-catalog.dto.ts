@@ -1,6 +1,7 @@
 import { Transform, Type } from 'class-transformer';
 import {
   ArrayNotEmpty,
+  ArrayMaxSize,
   ArrayUnique,
   IsArray,
   IsInt,
@@ -25,6 +26,17 @@ const transformIds = ({ value }: { value: unknown }) => {
     return value.split(',').map((id) => Number(id.trim()));
   }
 };
+
+export class BulkDeleteCreatorReleasesDto {
+  @Transform(transformIds)
+  @IsArray()
+  @ArrayNotEmpty()
+  @ArrayMaxSize(100)
+  @ArrayUnique()
+  @IsInt({ each: true })
+  @Min(1, { each: true })
+  ids: number[];
+}
 
 export class CreateCreatorAlbumDto {
   @IsString()
@@ -88,6 +100,53 @@ export class AssignCreatorAlbumTracksDto {
   @IsInt({ each: true })
   @Min(1, { each: true })
   trackIds: number[];
+}
+
+export class ReplaceCreatorAlbumCompositionDto {
+  @Transform(transformIds)
+  @IsArray()
+  @ArrayUnique()
+  @IsInt({ each: true })
+  @Min(1, { each: true })
+  trackIds: number[];
+}
+
+export class UpdateCreatorTrackDto {
+  @IsOptional() @IsString() @MaxLength(255) name?: string;
+  @IsOptional() @IsString() text?: string;
+  @IsOptional()
+  @Transform(transformGenreIds)
+  @IsArray()
+  @ArrayNotEmpty()
+  @ArrayUnique()
+  @IsInt({ each: true })
+  @Min(1, { each: true })
+  genreIds?: number[];
+  @IsOptional()
+  @Transform(transformIds)
+  @IsArray()
+  @ArrayUnique()
+  @IsInt({ each: true })
+  @Min(1, { each: true })
+  featuredAuthorIds?: number[];
+  @IsOptional()
+  @Transform(transformIds)
+  @IsArray()
+  @ArrayUnique()
+  @IsInt({ each: true })
+  @Min(1, { each: true })
+  albumIds?: number[];
+}
+
+export class UpdateCreatorAlbumDto {
+  @IsOptional() @IsString() @MaxLength(255) name?: string;
+  @IsOptional()
+  @Transform(transformIds)
+  @IsArray()
+  @ArrayUnique()
+  @IsInt({ each: true })
+  @Min(1, { each: true })
+  featuredAuthorIds?: number[];
 }
 
 export class CreatorCatalogQueryDto extends PaginationQueryDto {

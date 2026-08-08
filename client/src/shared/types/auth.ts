@@ -3,6 +3,7 @@ export interface dataUser {
   email: string;
   roles: string[];
   permissions: string[];
+  mustChangePassword?: boolean;
 }
 
 export interface user {

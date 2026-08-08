@@ -42,7 +42,7 @@ export class RbacService {
     transaction?: Transaction,
   ): Promise<AuthenticatedPrincipal> {
     const user = await this.userRepository.findByPk(userId, {
-      attributes: ['id', 'email'],
+      attributes: ['id', 'email', 'mustChangePassword'],
       transaction,
     });
     if (!user) throw new UnauthorizedException('User no longer exists');
@@ -74,6 +74,7 @@ export class RbacService {
       email: user.email,
       roles: userRoles.map((role) => role.code).sort(),
       permissions: permissions.map((permission) => permission.code),
+      mustChangePassword: user.mustChangePassword,
     };
   }
 
@@ -208,6 +209,59 @@ export class RbacService {
     });
   }
 
+  async deleteRole(
+    id: number,
+  ): Promise<{ deletedRoleId: number; affectedUsers: number }> {
+    return this.sequelize.transaction(async (transaction) => {
+      const role = await this.roleRepository.findByPk(id, {
+        transaction,
+        lock: transaction.LOCK.UPDATE,
+      });
+      if (!role) throw new NotFoundException('Role not found');
+      if (role.isSystem)
+        throw new ForbiddenException('System roles cannot be deleted');
+      await this.assertManageAccessRemains(role.id, [], transaction);
+      const affectedUsers = await this.userRoleRepository.count({
+        where: { roleId: role.id },
+        transaction,
+      });
+      await this.userRoleRepository.destroy({
+        where: { roleId: role.id },
+        transaction,
+      });
+      await this.rolePermissionRepository.destroy({
+        where: { roleId: role.id },
+        transaction,
+      });
+      await role.destroy({ transaction });
+      return { deletedRoleId: id, affectedUsers };
+    });
+  }
+
+  async assertUserCanLoseManageAccess(
+    userId: number,
+    transaction: Transaction,
+  ): Promise<void> {
+    const manageRoleIds = await this.getManageRoleIds(transaction);
+    if (!manageRoleIds.length) return;
+    const isManager = await this.userRoleRepository.count({
+      where: { userId, roleId: { [Op.in]: manageRoleIds } },
+      transaction,
+    });
+    if (!isManager) return;
+    const other = await this.userRoleRepository.findOne({
+      where: {
+        userId: { [Op.ne]: userId },
+        roleId: { [Op.in]: manageRoleIds },
+      },
+      transaction,
+    });
+    if (!other)
+      throw new ForbiddenException(
+        'At least one active RBAC manager is required',
+      );
+  }
+
   async getUsers(query = '', count = 20, offset = 0) {
     const where = query
       ? {
@@ -219,7 +273,14 @@ export class RbacService {
       : undefined;
     const { rows, count: total } = await this.userRepository.findAndCountAll({
       where,
-      attributes: ['id', 'email', 'displayName'],
+      attributes: [
+        'id',
+        'email',
+        'displayName',
+        'accountStatus',
+        'blockedAt',
+        'deletedAt',
+      ],
       order: [['id', 'ASC']],
       limit: count,
       offset,
@@ -231,6 +292,9 @@ export class RbacService {
         id: user.id,
         email: user.email,
         displayName: user.displayName,
+        accountStatus: user.accountStatus,
+        blockedAt: user.blockedAt,
+        deletedAt: user.deletedAt,
         roles: roles.get(user.id) ?? [],
       })),
       total,
@@ -299,6 +363,22 @@ export class RbacService {
     await this.userRoleRepository.findOrCreate({
       where: { userId, roleId: role.id },
       defaults: { userId, roleId: role.id },
+      transaction,
+    });
+  }
+
+  async removeSystemRole(
+    userId: number,
+    roleCode: SystemRoleCode,
+    transaction?: Transaction,
+  ): Promise<void> {
+    const role = await this.roleRepository.findOne({
+      where: { code: roleCode, isSystem: true },
+      transaction,
+    });
+    if (!role) throw new Error(`System role ${roleCode} is not initialized`);
+    await this.userRoleRepository.destroy({
+      where: { userId, roleId: role.id },
       transaction,
     });
   }

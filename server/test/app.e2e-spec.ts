@@ -8,6 +8,7 @@ import { AlbumModel } from '../src/album/model/album.model';
 import { AlbumFeaturedAuthorModel } from '../src/album-featured-author/model/album-featured-author.model';
 import { AlbumTrackModel } from '../src/album-track/model/album-track.model';
 import { AuthorModel } from '../src/author/model/author.model';
+import { AuthorApplicationModel } from '../src/author-application/model/author-application.model';
 import { CollectionAlbumModel } from '../src/collection-album/model/collection-album.model';
 import { GenreModel } from '../src/genre/model/genre.model';
 import { FileService } from '../src/file/file.service';
@@ -18,6 +19,7 @@ import { TrackFeaturedAuthorModel } from '../src/track-featured-author/model/tra
 import { TrackGenreModel } from '../src/track-genre/model/track-genre.model';
 import { TokenModel } from '../src/token/model/token.model';
 import { UserModel } from '../src/user/model/user.model';
+import { PlayEventModel } from '../src/analytics/model/play-event.model';
 
 const requiredDatabaseVariables = [
   'E2E_POSTGRES_HOST',
@@ -265,6 +267,101 @@ describeE2e('BNR Music API (e2e)', () => {
         ],
       }),
     );
+  });
+
+  it('updates and deletes only the author account while keeping the user', async () => {
+    const owner = await register('creator-profile');
+    const ownerId = owner.response.body.user.sub as number;
+    const ownerToken = owner.response.body.accessToken as string;
+    const author = await AuthorModel.create({
+      userId: ownerId,
+      name: 'Archive Saint',
+      bio: 'An approved creator biography for integration testing.',
+      avatar: null,
+    });
+    await AuthorApplicationModel.create({
+      userId: ownerId,
+      stageName: 'Archive Saint',
+      bio: 'An approved creator biography for integration testing.',
+      avatar: 'image/application.webp',
+      status: 'approved',
+      reviewNote: null,
+      reviewedBy: null,
+      reviewedAt: new Date(),
+    });
+    await rbacService.assignSystemRole(ownerId, 'author');
+    await AlbumModel.create({
+      name: 'Disposable album',
+      picture: 'image/disposable-album.webp',
+      listens: 0,
+      authorId: author.id,
+    });
+    await TrackModel.create({
+      name: 'Disposable track',
+      picture: 'image/disposable-track.webp',
+      text: '',
+      listens: 0,
+      audio: 'audio/disposable-track.mp3',
+      authorId: author.id,
+    });
+
+    await owner.agent
+      .patch('/creator/me')
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .field('stageName', 'Renewed Saint')
+      .field(
+        'bio',
+        'A renewed and sufficiently detailed public creator biography.',
+      )
+      .expect(200);
+    await expect(AuthorModel.findByPk(author.id)).resolves.toEqual(
+      expect.objectContaining({ name: 'Renewed Saint' }),
+    );
+    await expect(
+      AuthorApplicationModel.findOne({ where: { userId: ownerId } }),
+    ).resolves.toEqual(expect.objectContaining({ stageName: 'Renewed Saint' }));
+
+    await owner.agent
+      .delete('/creator/me')
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({ currentPassword: 'wrong-password', stageName: 'Renewed Saint' })
+      .expect(401);
+    await expect(AuthorModel.findByPk(author.id)).resolves.not.toBeNull();
+
+    await owner.agent
+      .delete('/creator/me')
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({ currentPassword: 'strong-password', stageName: 'Renewed Saint' })
+      .expect(200)
+      .expect({ deleted: true, authorId: author.id });
+
+    await expect(UserModel.findByPk(ownerId)).resolves.not.toBeNull();
+    await expect(AuthorModel.findByPk(author.id)).resolves.toBeNull();
+    await expect(
+      TrackModel.count({ where: { authorId: author.id } }),
+    ).resolves.toBe(0);
+    await expect(
+      AlbumModel.count({ where: { authorId: author.id } }),
+    ).resolves.toBe(0);
+    const refresh = await owner.agent.post('/refresh').expect(201);
+    expect(refresh.body.user.roles).toEqual(['user']);
+    await owner.agent
+      .get('/creator/me')
+      .set('Authorization', `Bearer ${refresh.body.accessToken}`)
+      .expect(200)
+      .expect({ state: 'none' });
+    const reapplied = await owner.agent
+      .post('/creator/application')
+      .set('Authorization', `Bearer ${refresh.body.accessToken}`)
+      .field('stageName', 'Reborn Saint')
+      .field(
+        'bio',
+        'A completely new creator biography after account deletion.',
+      )
+      .attach('avatar', Buffer.from('reborn-avatar'), 'reborn.webp')
+      .expect(201);
+    createdFixtureFiles.add(reapplied.body.avatar);
+    expect(reapplied.body.status).toBe('pending');
   });
 
   it('serves a public, paginated genre queue and validates its pagination', async () => {
@@ -931,5 +1028,87 @@ describeE2e('BNR Music API (e2e)', () => {
     const files = app.get(FileService);
     files.deleteFile(createdTrack.body.picture);
     files.deleteFile(createdTrack.body.audio);
+  });
+
+  it('records idempotent play events and exposes period and all-time analytics', async () => {
+    const manager = await register('analytics-manager');
+    const member = await register('analytics-member');
+    const managerId = manager.response.body.user.sub as number;
+    const managerToken = manager.response.body.accessToken as string;
+    const memberToken = member.response.body.accessToken as string;
+    await rbacService.assignSystemRole(managerId, 'admin');
+
+    const [primary, featured, genre] = await Promise.all([
+      AuthorModel.create({ name: 'Analytics primary' }),
+      AuthorModel.create({ name: 'Analytics featured' }),
+      GenreModel.create({ name: 'Analytics genre' }),
+    ]);
+    const album = await AlbumModel.create({
+      name: 'Analytics album',
+      picture: 'image/analytics.jpg',
+      listens: 0,
+      authorId: primary.id,
+    });
+    const track = await TrackModel.create({
+      name: 'Analytics track',
+      picture: 'image/analytics-track.jpg',
+      text: '',
+      audio: 'audio/analytics.mp3',
+      authorId: primary.id,
+      listens: 5,
+    });
+    await Promise.all([
+      TrackGenreModel.create({ trackId: track.id, genreId: genre.id }),
+      AlbumTrackModel.create({
+        trackId: track.id,
+        albumId: album.id,
+        position: 0,
+      }),
+      TrackFeaturedAuthorModel.create({
+        trackId: track.id,
+        authorId: featured.id,
+        position: 0,
+      }),
+      AlbumFeaturedAuthorModel.create({
+        albumId: album.id,
+        authorId: featured.id,
+        position: 0,
+      }),
+    ]);
+
+    const playbackId = '4ea72ba6-58b5-4608-b522-75e5ef78fa34';
+    await request(app.getHttpServer())
+      .post(`/tracks/${track.id}/plays`)
+      .send({ playbackId })
+      .expect(201)
+      .expect({ recorded: true, listens: 6 });
+    await request(app.getHttpServer())
+      .post(`/tracks/${track.id}/plays`)
+      .send({ playbackId })
+      .expect(201)
+      .expect({ recorded: false, listens: 6 });
+    await expect(PlayEventModel.count()).resolves.toBe(1);
+
+    await member.agent
+      .get('/admin/analytics?period=7d&limit=10')
+      .set('Authorization', `Bearer ${memberToken}`)
+      .expect(403);
+    const period = await manager.agent
+      .get('/admin/analytics?period=7d&limit=10')
+      .set('Authorization', `Bearer ${managerToken}`)
+      .expect(200);
+    expect(period.body.popularAuthors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: primary.id, listens: 1 }),
+        expect.objectContaining({ id: featured.id, listens: 1 }),
+      ]),
+    );
+    const allTime = await manager.agent
+      .get('/admin/analytics?period=all&limit=10')
+      .set('Authorization', `Bearer ${managerToken}`)
+      .expect(200);
+    expect(allTime.body.popularTracksByGenre).toEqual([
+      expect.objectContaining({ trackId: track.id, listens: 6 }),
+    ]);
   });
 });

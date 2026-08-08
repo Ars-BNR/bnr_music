@@ -10,6 +10,10 @@ import * as creatorStudio from './migrations/0004-creator-studio';
 import * as creatorStudioHardening from './migrations/0005-creator-studio-hardening';
 import * as rbac from './migrations/0006-rbac';
 import * as catalogSearchAndBulk from './migrations/0007-catalog-search-and-bulk';
+import * as creatorEditAndUserAdmin from './migrations/0008-creator-edit-and-user-admin';
+import * as creatorRemoderationAndPasswordState from './migrations/0009-creator-remoderation-and-password-state';
+import * as playAnalytics from './migrations/0010-play-analytics';
+import * as mailDeliveryHardening from './migrations/0011-mail-delivery-hardening';
 
 loadEnvironment({ path: `.${process.env.NODE_ENV ?? 'development'}.env` });
 const env = validateEnvironment(process.env);
@@ -33,6 +37,10 @@ const umzug = new Umzug({
     creatorStudioHardening,
     rbac,
     catalogSearchAndBulk,
+    creatorEditAndUserAdmin,
+    creatorRemoderationAndPasswordState,
+    playAnalytics,
+    mailDeliveryHardening,
   ],
   context: sequelize.getQueryInterface(),
   storage: new SequelizeStorage({ sequelize }),

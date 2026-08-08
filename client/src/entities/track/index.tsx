@@ -7,6 +7,7 @@ import { Button } from "@/shared/ui/button";
 export { favoriteTracksApi } from "./api/favorite-tracks";
 export type { FavoriteTracksPage } from "./api/favorite-tracks";
 export { useFavoriteTracksStore } from "./model/favorite-tracks";
+export { trackPlaysApi } from "./api/track-plays";
 
 export function TrackRow({ track, index, onPlay, onRemove }: { track: ITrack; index: number; onPlay: () => void; onRemove?: () => void }) {
   const handleRowClick = (event: MouseEvent<HTMLElement>) => {

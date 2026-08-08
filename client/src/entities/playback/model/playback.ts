@@ -39,6 +39,8 @@ interface PlaybackStore extends PlaybackState {
   setDuration: (duration: number) => void;
   playFromQueue: (track: ITrack, tracks: ITrack[], context: PlaybackContext) => void;
   replaceQueue: (tracks: ITrack[], context: PlaybackContext) => void;
+  removeTracks: (trackIds: number[]) => void;
+  removeAuthorCatalog: (authorId: number) => void;
   next: () => void;
   previous: () => void;
   restart: () => void;
@@ -151,6 +153,91 @@ export const usePlaybackStore = create<PlaybackStore>((set) => ({
       return {
         queue,
         shuffleOrder: createOrder(queue, state.active?.id, state.isShuffle),
+      };
+    }),
+
+  removeTracks: (trackIds) =>
+    set((state) => {
+      const removed = new Set(trackIds);
+      const queue = state.queue.filter((track) => !removed.has(track.id));
+      const shuffleOrder = state.shuffleOrder.filter((id) => !removed.has(id));
+
+      if (!state.active || !removed.has(state.active.id))
+        return { queue, shuffleOrder };
+
+      if (queue.length === 0)
+        return {
+          active: null,
+          queue: [],
+          context: null,
+          shuffleOrder: [],
+          currentTime: 0,
+          duration: 0,
+          pause: true,
+          playbackRequest: state.playbackRequest + 1,
+        };
+
+      const order = state.isShuffle && state.shuffleOrder.length
+        ? state.shuffleOrder
+        : state.queue.map((track) => track.id);
+      const activeIndex = order.indexOf(state.active.id);
+      const nextId = Array.from({ length: order.length }, (_, offset) =>
+        order[(Math.max(activeIndex, 0) + offset + 1) % order.length],
+      ).find((id) => !removed.has(id));
+      const nextTrack = queue.find((track) => track.id === nextId) ?? queue[0];
+
+      return {
+        ...setActiveTrack(state, nextTrack),
+        queue,
+        shuffleOrder: createOrder(queue, nextTrack.id, state.isShuffle),
+      };
+    }),
+
+  removeAuthorCatalog: (authorId) =>
+    set((state) => {
+      const removed = new Set(
+        state.queue
+          .filter((track) => track.authorId === authorId)
+          .map((track) => track.id),
+      );
+      const withoutCredit = (track: ITrack) => ({
+        ...track,
+        featuredAuthors: track.featuredAuthors?.filter(
+          (author) => author.id !== authorId,
+        ),
+      });
+      const queue = state.queue
+        .filter((track) => !removed.has(track.id))
+        .map(withoutCredit);
+      const shuffleOrder = state.shuffleOrder.filter((id) => !removed.has(id));
+      const active = state.active ? withoutCredit(state.active) : null;
+
+      if (!state.active || !removed.has(state.active.id))
+        return { active, queue, shuffleOrder };
+      if (!queue.length)
+        return {
+          active: null,
+          queue: [],
+          context: null,
+          shuffleOrder: [],
+          currentTime: 0,
+          duration: 0,
+          pause: true,
+          playbackRequest: state.playbackRequest + 1,
+        };
+
+      const order = state.isShuffle && state.shuffleOrder.length
+        ? state.shuffleOrder
+        : state.queue.map((track) => track.id);
+      const activeIndex = order.indexOf(state.active.id);
+      const nextId = Array.from({ length: order.length }, (_, offset) =>
+        order[(Math.max(activeIndex, 0) + offset + 1) % order.length],
+      ).find((id) => !removed.has(id));
+      const nextTrack = queue.find((track) => track.id === nextId) ?? queue[0];
+      return {
+        ...setActiveTrack(state, nextTrack),
+        queue,
+        shuffleOrder: createOrder(queue, nextTrack.id, state.isShuffle),
       };
     }),
 

@@ -1,8 +1,11 @@
 import {
   Body,
+  BadRequestException,
   Controller,
   Delete,
   Get,
+  HttpCode,
+  HttpStatus,
   Param,
   Patch,
   Post,
@@ -35,6 +38,8 @@ import { ChangeEmailDto } from './dto/change-email.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { UserProfileResponse } from './response/user-profile-response';
+import { ConfirmPasswordResetDto } from './dto/confirm-password-reset.dto';
+import { ResendActivationDto } from './dto/resend-activation.dto';
 
 type AuthenticatedRequest = Request & {
   user: AuthenticatedPrincipal;
@@ -49,18 +54,19 @@ export class UserController {
   ) {}
 
   @Post('registration')
+  @HttpCode(HttpStatus.ACCEPTED)
   @ApiOperation({ summary: 'Register a user' })
-  @ApiResponse({ status: 201, type: UserResponse })
-  async registration(
-    @Body() dto: CreateUserDto,
-    @Res({ passthrough: true }) response: Response,
-  ) {
-    const session = await this.userService.registration(dto);
-    await this.userService.setRefreshTokenCookie(
-      response,
-      session.refreshToken,
-    );
-    return { accessToken: session.accessToken, user: session.user };
+  @ApiResponse({ status: 202 })
+  registration(@Body() dto: CreateUserDto) {
+    return this.userService.registration(dto);
+  }
+
+  @Post('activation/resend')
+  @HttpCode(HttpStatus.ACCEPTED)
+  @Throttle({ default: { limit: 3, ttl: 15 * 60 * 1000 } })
+  async resendActivation(@Body() dto: ResendActivationDto) {
+    await this.userService.resendActivation(dto.email);
+    return { success: true };
   }
 
   @Post('login')
@@ -102,6 +108,12 @@ export class UserController {
       session.refreshToken,
     );
     return { accessToken: session.accessToken, user: session.user };
+  }
+
+  @Post('password-reset/confirm')
+  async confirmPasswordReset(@Body() dto: ConfirmPasswordResetDto) {
+    await this.userService.confirmPasswordReset(dto.token, dto.password);
+    return { success: true };
   }
 
   @Get('users/me')
@@ -177,8 +189,16 @@ export class UserController {
 
   @Get('activate/:link')
   async activate(@Param() params: ActivateDto, @Res() response: Response) {
-    await this.userService.activate(params.link);
-    return response.redirect(this.config.getOrThrow<string>('CLIENT_URL'));
+    const clientUrl = this.config.getOrThrow<string>('CLIENT_URL');
+    try {
+      await this.userService.activate(params.link);
+      return response.redirect(`${clientUrl}/login?activated=1`);
+    } catch (error) {
+      if (error instanceof BadRequestException) {
+        return response.redirect(`${clientUrl}/login?activation=invalid`);
+      }
+      throw error;
+    }
   }
 
   @Get('users')

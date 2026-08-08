@@ -22,6 +22,16 @@ export class PermissionsGuard implements CanActivate {
     const user = context.switchToHttp().getRequest().user as
       | AuthenticatedPrincipal
       | undefined;
+    if (user?.mustChangePassword) {
+      const request = context
+        .switchToHttp()
+        .getRequest<{ route?: { path?: string } }>();
+      const path = request.route?.path ?? '';
+      const allowed = new Set(['/users/me', '/users/me/change-password']);
+      if (!allowed.has(path)) {
+        throw new ForbiddenException('PASSWORD_CHANGE_REQUIRED');
+      }
+    }
     if (
       !user ||
       (!user.roles.includes('admin') &&

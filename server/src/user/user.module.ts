@@ -4,6 +4,7 @@ import { CollectionModel } from 'src/collection/model/collection.model';
 import { MailModule } from 'src/mail/mail.module';
 import { FileModule } from 'src/file/file.module';
 import { UserModel } from './model/user.model';
+import { PasswordResetTokenModel } from './model/password-reset-token.model';
 import { UserController } from './user.controller';
 import { UserService } from './user.service';
 
@@ -11,7 +12,11 @@ import { UserService } from './user.service';
   imports: [
     MailModule,
     FileModule,
-    SequelizeModule.forFeature([UserModel, CollectionModel]),
+    SequelizeModule.forFeature([
+      UserModel,
+      CollectionModel,
+      PasswordResetTokenModel,
+    ]),
   ],
   controllers: [UserController],
   providers: [UserService],

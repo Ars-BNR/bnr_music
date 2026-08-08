@@ -34,6 +34,18 @@ export const adminAccessApi = {
     const { data } = await $api.patch(`/rbac/roles/${id}`, values);
     return data;
   },
+  async deleteRole(id: number): Promise<{ deletedRoleId: number; affectedUsers: number }> {
+    const { data } = await $api.delete(`/rbac/roles/${id}`);
+    return data;
+  },
+  async setAccountStatus(userId: number, action: "block" | "unblock" | "restore" | "delete") {
+    const { data } = action === "delete" ? await $api.delete(`/admin/users/${userId}`) : await $api.patch(`/admin/users/${userId}/${action}`);
+    return data as { success: boolean };
+  },
+  async sendPasswordReset(userId: number) {
+    const { data } = await $api.post(`/admin/users/${userId}/password-reset`);
+    return data as { mode: "email" } | { mode: "temporary-password"; temporaryPassword: string };
+  },
 
   async replaceUserRoles(userId: number, roleIds: number[]): Promise<RbacUser> {
     const { data } = await $api.put(`/rbac/users/${userId}/roles`, { roleIds });

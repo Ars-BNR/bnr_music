@@ -21,6 +21,7 @@ import { CreateTrackDto } from './dto/create-track.dto';
 import { searchDto } from './dto/search-dto';
 import { UpdateTrackDto } from './dto/update-track.dto';
 import { TrackService } from './track.service';
+import { RecordPlayDto } from './dto/record-play.dto';
 
 @Controller('tracks')
 export class TrackController {
@@ -60,6 +61,14 @@ export class TrackController {
   @Post('listen/:id')
   listen(@Param('id', ParseIntPipe) id: number) {
     return this.trackService.listen(id);
+  }
+
+  @Post(':id/plays')
+  recordPlay(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: RecordPlayDto,
+  ) {
+    return this.trackService.recordPlay(id, dto.playbackId);
   }
 
   @Get('search')

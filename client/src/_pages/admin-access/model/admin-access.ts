@@ -22,6 +22,8 @@ export interface RbacUser {
   email: string;
   displayName: string;
   roles: RbacRoleSummary[];
+  accountStatus?: "active" | "blocked" | "deleted";
+  permissions?: string[];
 }
 
 export interface RbacUsersPage {

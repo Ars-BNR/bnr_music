@@ -9,7 +9,9 @@ export const PERMISSION_CODES = [
   'creator.moderate',
   'catalog.manage',
   'users.read',
+  'users.manage',
   'rbac.manage',
+  'analytics.read',
 ] as const;
 
 export type PermissionCode = (typeof PERMISSION_CODES)[number];
@@ -28,4 +30,5 @@ export interface AuthenticatedPrincipal {
   email: string;
   roles: string[];
   permissions: string[];
+  mustChangePassword?: boolean;
 }

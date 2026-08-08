@@ -26,17 +26,16 @@ const AuthStore = create<AuthState>((set) => ({
       localStorage.setItem("token", data.accessToken);
       localStorage.removeItem("collection");
       set({ profiles: data, isAuth: true });
-      router.replace("/");
+      router.replace(data.user.mustChangePassword ? "/settings?tab=security&forced=1" : "/");
     } finally { set({ isLoading: false }); }
   },
   registration: async ({ email, password, router }) => {
     set({ isLoading: true });
     try {
-      const data = await userService.registration(email, password);
-      localStorage.setItem("token", data.accessToken);
+      await userService.registration(email, password);
+      localStorage.removeItem("token");
       localStorage.removeItem("collection");
-      set({ profiles: data, isAuth: true });
-      router.replace("/");
+      set(clearSession());
     } finally { set({ isLoading: false }); }
   },
   logout: async (router) => {
@@ -56,6 +55,7 @@ const AuthStore = create<AuthState>((set) => ({
       localStorage.setItem("token", data.accessToken);
       localStorage.removeItem("collection");
       set({ profiles: data, isAuth: true });
+      if (data.user.mustChangePassword) router.replace("/settings?tab=security&forced=1");
       return true;
     } catch {
       localStorage.removeItem("token");

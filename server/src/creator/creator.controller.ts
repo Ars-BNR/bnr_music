@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Headers,
   Param,
@@ -30,9 +31,17 @@ import {
   CreateCreatorAlbumDto,
   CreateCreatorTrackDto,
   AssignCreatorAlbumTracksDto,
+  ReplaceCreatorAlbumCompositionDto,
+  UpdateCreatorAlbumDto,
+  UpdateCreatorTrackDto,
   CreatorCatalogQueryDto,
+  BulkDeleteCreatorReleasesDto,
 } from './dto/creator-catalog.dto';
 import { ReviewApplicationDto } from './dto/review-application.dto';
+import {
+  DeleteCreatorProfileDto,
+  UpdateCreatorProfileDto,
+} from './dto/creator-profile.dto';
 import { CreatorService } from './creator.service';
 
 type AuthenticatedRequest = Request & {
@@ -47,6 +56,30 @@ export class CreatorController {
   @Get('me')
   getMe(@Req() request: AuthenticatedRequest) {
     return this.creatorService.getMe(request.user.sub);
+  }
+
+  @Patch('me')
+  @Permissions('creator.publish')
+  @UseGuards(PermissionsGuard)
+  @UseInterceptors(
+    FileInterceptor('avatar', { limits: { fileSize: 2 * 1024 * 1024 } }),
+  )
+  updateMe(
+    @Req() request: AuthenticatedRequest,
+    @Body() dto: UpdateCreatorProfileDto,
+    @UploadedFile() avatar?: Express.Multer.File,
+  ) {
+    return this.creatorService.updateProfile(request.user.sub, dto, avatar);
+  }
+
+  @Delete('me')
+  @Permissions('creator.apply')
+  @UseGuards(PermissionsGuard)
+  deleteMe(
+    @Req() request: AuthenticatedRequest,
+    @Body() dto: DeleteCreatorProfileDto,
+  ) {
+    return this.creatorService.deleteProfile(request.user.sub, dto);
   }
 
   @Post('application')
@@ -123,6 +156,64 @@ export class CreatorController {
     );
   }
 
+  @Get('tracks/:id')
+  @Permissions('creator.publish')
+  @UseGuards(PermissionsGuard)
+  getTrack(
+    @Req() request: AuthenticatedRequest,
+    @Param('id', ParseIntPipe) id: number,
+  ) {
+    return this.creatorService.getTrack(request.user.sub, id);
+  }
+
+  @Patch('tracks/:id')
+  @Permissions('creator.publish')
+  @UseGuards(PermissionsGuard)
+  @UseInterceptors(
+    FileFieldsInterceptor(
+      [
+        { name: 'picture', maxCount: 1 },
+        { name: 'audio', maxCount: 1 },
+      ],
+      { limits: { files: 2, fileSize: 50 * 1024 * 1024 } },
+    ),
+  )
+  updateTrack(
+    @Req() request: AuthenticatedRequest,
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateCreatorTrackDto,
+    @UploadedFiles()
+    files: { picture?: Express.Multer.File[]; audio?: Express.Multer.File[] },
+  ) {
+    return this.creatorService.updateTrack(
+      request.user.sub,
+      id,
+      dto,
+      files?.picture?.[0],
+      files?.audio?.[0],
+    );
+  }
+
+  @Delete('tracks/:id')
+  @Permissions('creator.publish')
+  @UseGuards(PermissionsGuard)
+  deleteTrack(
+    @Req() request: AuthenticatedRequest,
+    @Param('id', ParseIntPipe) id: number,
+  ) {
+    return this.creatorService.deleteTracks(request.user.sub, [id]);
+  }
+
+  @Post('tracks/bulk-delete')
+  @Permissions('creator.publish')
+  @UseGuards(PermissionsGuard)
+  bulkDeleteTracks(
+    @Req() request: AuthenticatedRequest,
+    @Body() dto: BulkDeleteCreatorReleasesDto,
+  ) {
+    return this.creatorService.deleteTracks(request.user.sub, dto.ids);
+  }
+
   @Post('albums')
   @Permissions('creator.publish')
   @UseGuards(PermissionsGuard)
@@ -140,6 +231,66 @@ export class CreatorController {
       dto,
       picture,
       idempotencyKey,
+    );
+  }
+
+  @Get('albums/:id')
+  @Permissions('creator.publish')
+  @UseGuards(PermissionsGuard)
+  getAlbum(
+    @Req() request: AuthenticatedRequest,
+    @Param('id', ParseIntPipe) id: number,
+  ) {
+    return this.creatorService.getAlbum(request.user.sub, id);
+  }
+
+  @Patch('albums/:id')
+  @Permissions('creator.publish')
+  @UseGuards(PermissionsGuard)
+  @UseInterceptors(
+    FileInterceptor('picture', { limits: { fileSize: 5 * 1024 * 1024 } }),
+  )
+  updateAlbum(
+    @Req() request: AuthenticatedRequest,
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateCreatorAlbumDto,
+    @UploadedFile() picture?: Express.Multer.File,
+  ) {
+    return this.creatorService.updateAlbum(request.user.sub, id, dto, picture);
+  }
+
+  @Delete('albums/:id')
+  @Permissions('creator.publish')
+  @UseGuards(PermissionsGuard)
+  deleteAlbum(
+    @Req() request: AuthenticatedRequest,
+    @Param('id', ParseIntPipe) id: number,
+  ) {
+    return this.creatorService.deleteAlbums(request.user.sub, [id]);
+  }
+
+  @Post('albums/bulk-delete')
+  @Permissions('creator.publish')
+  @UseGuards(PermissionsGuard)
+  bulkDeleteAlbums(
+    @Req() request: AuthenticatedRequest,
+    @Body() dto: BulkDeleteCreatorReleasesDto,
+  ) {
+    return this.creatorService.deleteAlbums(request.user.sub, dto.ids);
+  }
+
+  @Put('albums/:albumId/composition')
+  @Permissions('creator.publish')
+  @UseGuards(PermissionsGuard)
+  replaceComposition(
+    @Req() request: AuthenticatedRequest,
+    @Param('albumId', ParseIntPipe) albumId: number,
+    @Body() dto: ReplaceCreatorAlbumCompositionDto,
+  ) {
+    return this.creatorService.replaceAlbumComposition(
+      request.user.sub,
+      albumId,
+      dto.trackIds,
     );
   }
 

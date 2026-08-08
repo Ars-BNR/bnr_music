@@ -15,13 +15,16 @@ import { TrackModel } from 'src/track/model/track.model';
 import { TrackGenreModel } from 'src/track-genre/model/track-genre.model';
 import { TrackFeaturedAuthorModel } from 'src/track-featured-author/model/track-featured-author.model';
 import { UserModel } from 'src/user/model/user.model';
+import { PasswordResetTokenModel } from 'src/user/model/password-reset-token.model';
 import { PermissionModel } from 'src/rbac/model/permission.model';
 import { RolePermissionModel } from 'src/rbac/model/role-permission.model';
 import { RoleModel } from 'src/rbac/model/role.model';
 import { UserRoleModel } from 'src/rbac/model/user-role.model';
+import { PlayEventModel } from 'src/analytics/model/play-event.model';
 
 export const databaseModels = [
   UserModel,
+  PasswordResetTokenModel,
   TokenModel,
   PlaylistModel,
   TrackModel,
@@ -42,6 +45,7 @@ export const databaseModels = [
   PermissionModel,
   UserRoleModel,
   RolePermissionModel,
+  PlayEventModel,
 ];
 
 export const databaseTables = [

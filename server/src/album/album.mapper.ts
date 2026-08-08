@@ -9,6 +9,17 @@ export function mapAlbumModel(model: AlbumModel) {
   };
   const publicAlbum = { ...album };
   Reflect.deleteProperty(publicAlbum, 'creatorRequestId');
+  if (Array.isArray(publicAlbum.tracks)) {
+    publicAlbum.tracks = [...publicAlbum.tracks].sort((left, right) => {
+      const leftPosition =
+        (left as unknown as { AlbumTrackModel?: { position?: number } })
+          .AlbumTrackModel?.position ?? Number.MAX_SAFE_INTEGER;
+      const rightPosition =
+        (right as unknown as { AlbumTrackModel?: { position?: number } })
+          .AlbumTrackModel?.position ?? Number.MAX_SAFE_INTEGER;
+      return leftPosition - rightPosition;
+    });
+  }
   return {
     ...publicAlbum,
     authorName: album.author?.name ?? '',

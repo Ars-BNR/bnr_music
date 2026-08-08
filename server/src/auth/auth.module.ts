@@ -8,6 +8,7 @@ import { TokenModel } from 'src/token/model/token.model';
 import { TokenService } from 'src/token/token.service';
 import { CollectionModel } from 'src/collection/model/collection.model';
 import { PlaylistModel } from 'src/playlist/model/playlist.model';
+import { UserModel } from 'src/user/model/user.model';
 import { JwtStrategy } from './jwt.strategy';
 import { OwnershipService } from './ownership.service';
 
@@ -26,7 +27,12 @@ import { OwnershipService } from './ownership.service';
         },
       }),
     }),
-    SequelizeModule.forFeature([TokenModel, CollectionModel, PlaylistModel]),
+    SequelizeModule.forFeature([
+      TokenModel,
+      CollectionModel,
+      PlaylistModel,
+      UserModel,
+    ]),
   ],
   providers: [TokenService, JwtStrategy, JwtAuthGuard, OwnershipService],
   exports: [

@@ -13,8 +13,9 @@ describe('TrackService', () => {
   const fileService = { createFile: jest.fn(), deleteFile: jest.fn() };
   const sequelize = {
     transaction: jest.fn(async (callback: (transaction: object) => unknown) =>
-      callback({}),
+      callback({ LOCK: { UPDATE: 'UPDATE' } }),
     ),
+    query: jest.fn(),
   };
   const service = new TrackService(
     repository as any,
@@ -35,16 +36,34 @@ describe('TrackService', () => {
   });
 
   it('increments listens atomically and returns the persisted value', async () => {
-    repository.increment.mockResolvedValue([1]);
-    repository.findByPk.mockResolvedValue({ id: 3, listens: 12 });
+    const track = {
+      id: 3,
+      listens: 11,
+      increment: jest.fn(async () => undefined),
+      reload: jest.fn(async function (this: { listens: number }) {
+        this.listens = 12;
+      }),
+    };
+    repository.findByPk.mockResolvedValue(track);
+    sequelize.query.mockResolvedValue([{ id: '1' }]);
     await expect(service.listen(3)).resolves.toEqual({ listens: 12 });
-    expect(repository.increment).toHaveBeenCalledWith('listens', {
-      where: { id: 3 },
-    });
+    expect(track.increment).toHaveBeenCalledWith(
+      'listens',
+      expect.objectContaining({ by: 1 }),
+    );
+  });
+
+  it('does not count a repeated playback id twice', async () => {
+    const track = { id: 3, listens: 12 };
+    repository.findByPk.mockResolvedValue(track);
+    sequelize.query.mockResolvedValue([]);
+    await expect(
+      service.recordPlay(3, 'e68fbe5d-11b6-4310-84df-419421ce6247'),
+    ).resolves.toEqual({ recorded: false, listens: 12 });
   });
 
   it('returns 404 instead of a null dereference for a missing track', async () => {
-    repository.increment.mockResolvedValue([0]);
+    repository.findByPk.mockResolvedValue(null);
     await expect(service.listen(404)).rejects.toBeInstanceOf(NotFoundException);
   });
 

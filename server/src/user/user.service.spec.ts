@@ -37,6 +37,7 @@ describe('UserService profile operations', () => {
     const service = new UserService(
       userRepository as any,
       {} as any,
+      {} as any,
       { transaction: jest.fn(async (callback) => callback({})) } as any,
       tokenService as any,
       { sendActivationMail: jest.fn() } as any,
@@ -58,6 +59,7 @@ describe('UserService profile operations', () => {
       bio: '',
       avatar: null,
       isActivated: true,
+      mustChangePassword: false,
       password: 'secret',
       activationLink: 'private',
     });
@@ -76,6 +78,7 @@ describe('UserService profile operations', () => {
         'creator.apply',
       ],
       isActivated: true,
+      mustChangePassword: false,
     });
     expect(profile).not.toHaveProperty('password');
     expect(profile).not.toHaveProperty('activationLink');

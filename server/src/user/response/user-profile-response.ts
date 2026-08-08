@@ -24,4 +24,7 @@ export class UserProfileResponse {
 
   @ApiProperty()
   isActivated: boolean;
+
+  @ApiProperty()
+  mustChangePassword: boolean;
 }

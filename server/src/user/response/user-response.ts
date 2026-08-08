@@ -10,6 +10,7 @@ export class UserResponse {
       email: 'user@example.com',
       roles: ['user'],
       permissions: ['profile.manage-own'],
+      mustChangePassword: false,
     },
   })
   user: {
@@ -17,5 +18,6 @@ export class UserResponse {
     email: string;
     roles: string[];
     permissions: string[];
+    mustChangePassword: boolean;
   };
 }

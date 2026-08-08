@@ -3,11 +3,13 @@
 import { useCallback, useEffect, useRef } from "react";
 import { usePlaybackStore } from "@/entities/playback";
 import { BASE_URL } from "@/shared/config/config";
+import { trackPlaysApi } from "@/entities/track";
 
 const isUsableDuration = (value: number) => Number.isFinite(value) && value >= 0;
 
 export function useAudioEngine() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const recordedRequestRef = useRef<number | null>(null);
   const active = usePlaybackStore((state) => state.active);
   const pause = usePlaybackStore((state) => state.pause);
   const volume = usePlaybackStore((state) => state.volume);
@@ -18,6 +20,31 @@ export function useAudioEngine() {
   const restart = usePlaybackStore((state) => state.restart);
   const setCurrentTime = usePlaybackStore((state) => state.setCurrentTime);
   const setDuration = usePlaybackStore((state) => state.setDuration);
+
+  const playCurrentRequest = useCallback(
+    async (audio: HTMLAudioElement) => {
+      if (!active) return;
+      try {
+        await audio.play();
+        const state = usePlaybackStore.getState();
+        if (
+          state.active?.id !== active.id ||
+          state.playbackRequest !== playbackRequest ||
+          recordedRequestRef.current === playbackRequest
+        ) {
+          return;
+        }
+        recordedRequestRef.current = playbackRequest;
+        const playbackId = crypto.randomUUID();
+        void trackPlaysApi.record(active.id, playbackId).catch(() => {
+          // Playback must remain uninterrupted when analytics is unavailable.
+        });
+      } catch {
+        pauseTrack();
+      }
+    },
+    [active, pauseTrack, playbackRequest],
+  );
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -69,9 +96,9 @@ export function useAudioEngine() {
     }
 
     if (!usePlaybackStore.getState().pause) {
-      void audio.play().catch(() => pauseTrack());
+      void playCurrentRequest(audio);
     }
-  }, [active, pauseTrack, playbackRequest, setCurrentTime]);
+  }, [active, playbackRequest, playCurrentRequest, setCurrentTime]);
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -87,8 +114,8 @@ export function useAudioEngine() {
       return;
     }
 
-    void audio.play().catch(() => pauseTrack());
-  }, [active, pause, pauseTrack]);
+    void playCurrentRequest(audio);
+  }, [active, pause, playCurrentRequest]);
 
   const seek = useCallback(
     (time: number) => {

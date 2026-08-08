@@ -234,6 +234,17 @@ export function AdminAccessPage() {
 }
 
 function UserAccessCard({ user, roles, actorId, onSaved }: { user: RbacUser; roles: RbacRole[]; actorId: number; onSaved: (user: RbacUser) => void }) {
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
+  const [temporaryPassword, setTemporaryPassword] = useState("");
+  const accountAction = async (action: "block" | "unblock" | "restore" | "delete" | "reset") => {
+    if (!window.confirm(action === "reset" ? "Отправить ссылку на сброс пароля?" : "Подтвердить изменение статуса аккаунта?")) return;
+    setPending(true); setError(""); setMessage("");
+    try { if (action === "reset") { const result = await adminAccessApi.sendPasswordReset(user.id); if (result.mode === "temporary-password") setTemporaryPassword(result.temporaryPassword); else setMessage("Ссылка для сброса пароля отправлена пользователю."); } else { await adminAccessApi.setAccountStatus(user.id, action); window.location.reload(); } }
+    catch (cause) { setError(getErrorMessage(cause, "Не удалось изменить аккаунт.")); }
+    finally { setPending(false); }
+  };
   return (
     <Card className="rounded-none border-bnr-line/70 bg-bnr-surface">
       <CardHeader>
@@ -241,11 +252,18 @@ function UserAccessCard({ user, roles, actorId, onSaved }: { user: RbacUser; rol
         <CardDescription className="truncate text-bnr-ash">{user.email}</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-wrap gap-2">
+        <Badge variant="outline" className="border-bnr-lilac/40 text-bnr-lilac">{user.accountStatus ?? "active"}</Badge>
         {user.roles.map((role) => <Badge key={role.id} variant="outline" className="border-bnr-lilac/40 text-bnr-lilac">{role.name}</Badge>)}
+        {user.permissions?.map((permission) => <Badge key={permission} variant="outline" className="border-bnr-line text-bnr-ash">{permission}</Badge>)}
+        {error ? <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert> : null}
+        {message ? <Alert><AlertDescription>{message}</AlertDescription></Alert> : null}
       </CardContent>
-      <CardFooter>
+      <CardFooter className="flex flex-wrap gap-2">
         <AssignRolesDialog user={user} roles={roles} actorId={actorId} onSaved={onSaved} />
+        <Button type="button" size="sm" variant="outline" disabled={pending || user.id === actorId} onClick={() => void accountAction("reset")}>Сбросить пароль</Button>
+        {user.accountStatus === "blocked" || user.accountStatus === "deleted" ? <Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => void accountAction(user.accountStatus === "deleted" ? "restore" : "unblock")}>Восстановить</Button> : <><Button type="button" size="sm" variant="outline" disabled={pending || user.id === actorId} onClick={() => void accountAction("block")}>Заблокировать</Button><Button type="button" size="sm" variant="destructive" disabled={pending || user.id === actorId} onClick={() => void accountAction("delete")}>Удалить</Button></>}
       </CardFooter>
+      <Dialog open={Boolean(temporaryPassword)} onOpenChange={(open) => { if (!open) setTemporaryPassword(""); }}><DialogContent className="border-bnr-line bg-bnr-surface"><DialogHeader><DialogTitle className="font-cinzel">Временный пароль seed-автора</DialogTitle><DialogDescription>Пароль показывается один раз. Передайте его пользователю безопасным способом; после входа потребуется обязательная смена.</DialogDescription></DialogHeader><div className="break-all border border-bnr-lilac/50 bg-bnr-abyss p-4 font-mono text-bnr-bone" data-testid="temporary-password">{temporaryPassword}</div><Button type="button" variant="brand" onClick={() => void navigator.clipboard.writeText(temporaryPassword)}>Копировать пароль</Button></DialogContent></Dialog>
     </Card>
   );
 }
@@ -337,6 +355,13 @@ function AssignRolesDialog({ user, roles, actorId, onSaved }: { user: RbacUser; 
 }
 
 function RoleCard({ role, permissions, onSaved }: { role: RbacRole; permissions: RbacPermission[]; onSaved: () => Promise<void> }) {
+  const [deleting, setDeleting] = useState(false);
+  const remove = async () => {
+    if (!window.confirm(`Удалить роль «${role.name}»? Назначения будут сняты.`)) return;
+    setDeleting(true);
+    try { await adminAccessApi.deleteRole(role.id); await onSaved(); }
+    finally { setDeleting(false); }
+  };
   return (
     <Card className="rounded-none border-bnr-line/70 bg-bnr-surface">
       <CardHeader>
@@ -355,7 +380,7 @@ function RoleCard({ role, permissions, onSaved }: { role: RbacRole; permissions:
         </div>
       </CardContent>
       <CardFooter>
-        {role.isSystem ? <p className="text-xs text-bnr-ash">Защищена политикой BNR</p> : <RoleDialog role={role} permissions={permissions} onSaved={onSaved} />}
+        {role.isSystem ? <p className="text-xs text-bnr-ash">Защищена политикой BNR</p> : <><RoleDialog role={role} permissions={permissions} onSaved={onSaved} /><Button type="button" size="sm" variant="destructive" disabled={deleting} onClick={() => void remove()}>Удалить</Button></>}
       </CardFooter>
     </Card>
   );

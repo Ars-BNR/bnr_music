@@ -38,6 +38,7 @@ import { TokenModel } from './token/model/token.model';
 import { TrackModel } from './track/model/track.model';
 import { TrackGenreModel } from './track-genre/model/track-genre.model';
 import { UserModel } from './user/model/user.model';
+import { PasswordResetTokenModel } from './user/model/password-reset-token.model';
 import { AuthorApplicationModel } from './author-application/model/author-application.model';
 import { TrackFeaturedAuthorModel } from './track-featured-author/model/track-featured-author.model';
 import { AlbumFeaturedAuthorModel } from './album-featured-author/model/album-featured-author.model';
@@ -47,9 +48,13 @@ import { RoleModel } from './rbac/model/role.model';
 import { UserRoleModel } from './rbac/model/user-role.model';
 import { RbacModule } from './rbac/rbac.module';
 import { SearchModule } from './search/search.module';
+import { AdminModule } from './admin/admin.module';
+import { AnalyticsModule } from './analytics/analytics.module';
+import { PlayEventModel } from './analytics/model/play-event.model';
 
 const models = [
   UserModel,
+  PasswordResetTokenModel,
   TokenModel,
   PlaylistModel,
   TrackModel,
@@ -70,6 +75,7 @@ const models = [
   PermissionModel,
   UserRoleModel,
   RolePermissionModel,
+  PlayEventModel,
 ];
 
 @Module({
@@ -117,6 +123,8 @@ const models = [
     SeedModule,
     CreatorModule,
     SearchModule,
+    AdminModule,
+    AnalyticsModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })

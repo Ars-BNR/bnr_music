@@ -3,7 +3,9 @@ import {
   ConflictException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { InjectConnection, InjectModel } from '@nestjs/sequelize';
 import { Op, Sequelize, Transaction } from 'sequelize';
@@ -24,11 +26,19 @@ import { TrackModel } from 'src/track/model/track.model';
 import { UserModel } from 'src/user/model/user.model';
 import { RbacService } from 'src/rbac/rbac.service';
 import { mapTrackModel } from 'src/track/track.mapper';
+import { TokenService } from 'src/token/token.service';
+import * as bcrypt from 'bcrypt';
 import { CreatorApplicationDto } from './dto/creator-application.dto';
 import {
   CreateCreatorAlbumDto,
   CreateCreatorTrackDto,
+  UpdateCreatorAlbumDto,
+  UpdateCreatorTrackDto,
 } from './dto/creator-catalog.dto';
+import {
+  DeleteCreatorProfileDto,
+  UpdateCreatorProfileDto,
+} from './dto/creator-profile.dto';
 
 const imageMimeTypes = new Set(['image/jpeg', 'image/png', 'image/webp']);
 const audioMimeTypes = new Set([
@@ -41,6 +51,8 @@ const audioMimeTypes = new Set([
 
 @Injectable()
 export class CreatorService {
+  private readonly logger = new Logger(CreatorService.name);
+
   constructor(
     @InjectModel(AuthorApplicationModel)
     private readonly applicationRepository: typeof AuthorApplicationModel,
@@ -64,6 +76,7 @@ export class CreatorService {
     @InjectConnection() private readonly sequelize: Sequelize,
     private readonly fileService: FileService,
     private readonly rbacService: RbacService,
+    private readonly tokenService: TokenService,
   ) {}
 
   private assertFile(
@@ -196,7 +209,7 @@ export class CreatorService {
       this.authorRepository.findOne({ where: { userId } }),
       this.applicationRepository.findOne({ where: { userId } }),
     ]);
-    if (author) {
+    if (author && application?.status !== 'rejected') {
       const [tracks, albums] = await Promise.all([
         this.trackRepository.count({ where: { authorId: author.id } }),
         this.albumRepository.count({ where: { authorId: author.id } }),
@@ -207,7 +220,132 @@ export class CreatorService {
     return {
       state: application.status as Exclude<AuthorApplicationStatus, 'approved'>,
       application,
+      ...(author ? { author } : {}),
     };
+  }
+
+  async updateProfile(
+    userId: number,
+    dto: UpdateCreatorProfileDto,
+    avatar?: Express.Multer.File,
+  ) {
+    if (!dto.stageName && !dto.bio && !avatar)
+      throw new BadRequestException('At least one profile field is required');
+    if (avatar) this.assertFile(avatar, 'avatar');
+
+    let nextAvatar: string | undefined;
+    let previousPaths: Array<string | null | undefined> = [];
+    try {
+      if (avatar)
+        nextAvatar = this.fileService.createFile(FileType.IMAGE, avatar);
+      previousPaths = await this.sequelize.transaction(async (transaction) => {
+        const author = await this.getOwnedAuthor(userId, transaction);
+        const application = await this.applicationRepository.findOne({
+          where: { userId },
+          transaction,
+          lock: transaction.LOCK.UPDATE,
+        });
+        const previous = [
+          nextAvatar ? author.avatar : undefined,
+          nextAvatar ? application?.avatar : undefined,
+        ];
+        const values = {
+          ...(dto.stageName !== undefined
+            ? { name: dto.stageName.trim() }
+            : {}),
+          ...(dto.bio !== undefined ? { bio: dto.bio.trim() } : {}),
+          ...(nextAvatar ? { avatar: nextAvatar } : {}),
+        };
+        await author.update(values, { transaction });
+        if (application?.status === 'approved')
+          await application.update(
+            {
+              ...(dto.stageName !== undefined
+                ? { stageName: dto.stageName.trim() }
+                : {}),
+              ...(dto.bio !== undefined ? { bio: dto.bio.trim() } : {}),
+              ...(nextAvatar ? { avatar: nextAvatar } : {}),
+            },
+            { transaction },
+          );
+        return previous;
+      });
+    } catch (error) {
+      if (nextAvatar) this.deleteFilesBestEffort([nextAvatar]);
+      throw error;
+    }
+    this.deleteFilesBestEffort([
+      ...new Set(previousPaths.filter((path) => path !== nextAvatar)),
+    ]);
+    return this.getMe(userId);
+  }
+
+  async deleteProfile(userId: number, dto: DeleteCreatorProfileDto) {
+    const result = await this.sequelize.transaction(async (transaction) => {
+      const user = await this.userRepository.findByPk(userId, {
+        transaction,
+        lock: transaction.LOCK.UPDATE,
+      });
+      if (!user || !(await bcrypt.compare(dto.currentPassword, user.password)))
+        throw new UnauthorizedException('Current password is incorrect');
+
+      const author = await this.authorRepository.findOne({
+        where: { userId },
+        transaction,
+        lock: transaction.LOCK.UPDATE,
+      });
+      if (!author) throw new NotFoundException('Author profile not found');
+      if (dto.stageName.trim() !== author.name)
+        throw new BadRequestException('Stage name does not match');
+
+      const [tracks, albums, application] = await Promise.all([
+        this.trackRepository.findAll({
+          where: { authorId: author.id },
+          attributes: ['id', 'picture', 'audio'],
+          transaction,
+          lock: transaction.LOCK.UPDATE,
+        }),
+        this.albumRepository.findAll({
+          where: { authorId: author.id },
+          attributes: ['id', 'picture'],
+          transaction,
+          lock: transaction.LOCK.UPDATE,
+        }),
+        this.applicationRepository.findOne({
+          where: { userId },
+          transaction,
+          lock: transaction.LOCK.UPDATE,
+        }),
+      ]);
+
+      const deletedTracks = await this.trackRepository.destroy({
+        where: { authorId: author.id },
+        transaction,
+      });
+      const deletedAlbums = await this.albumRepository.destroy({
+        where: { authorId: author.id },
+        transaction,
+      });
+      if (deletedTracks !== tracks.length || deletedAlbums !== albums.length)
+        throw new ConflictException('Author catalog changed during deletion');
+
+      if (application) await application.destroy({ transaction });
+      await author.destroy({ transaction });
+      await this.rbacService.removeSystemRole(userId, 'author', transaction);
+
+      return {
+        authorId: author.id,
+        paths: [
+          author.avatar,
+          application?.avatar,
+          ...tracks.flatMap((track) => [track.picture, track.audio]),
+          ...albums.map((album) => album.picture),
+        ],
+      };
+    });
+
+    this.deleteFilesBestEffort([...new Set(result.paths)]);
+    return { deleted: true, authorId: result.authorId };
   }
 
   async submitApplication(
@@ -311,24 +449,33 @@ export class CreatorService {
         { transaction, lock: transaction.LOCK.UPDATE },
       );
       if (!application) throw new NotFoundException('Application not found');
-      if (application.status !== 'pending')
+      if (!['pending', 'rejected'].includes(application.status))
         throw new ConflictException('Application has already been reviewed');
-      if (
-        await this.authorRepository.findOne({
-          where: { userId: application.userId },
-          transaction,
-        })
-      )
-        throw new ConflictException('Author profile already exists');
-      const author = await this.authorRepository.create(
-        {
-          userId: application.userId,
-          name: application.stageName,
-          bio: application.bio,
-          avatar: application.avatar,
-        },
-        { transaction },
-      );
+      let author = await this.authorRepository.findOne({
+        where: { userId: application.userId },
+        transaction,
+        lock: transaction.LOCK.UPDATE,
+      });
+      if (author) {
+        await author.update(
+          {
+            name: application.stageName,
+            bio: application.bio,
+            avatar: application.avatar,
+          },
+          { transaction },
+        );
+      } else {
+        author = await this.authorRepository.create(
+          {
+            userId: application.userId,
+            name: application.stageName,
+            bio: application.bio,
+            avatar: application.avatar,
+          },
+          { transaction },
+        );
+      }
       const user = await this.userRepository.findByPk(application.userId, {
         transaction,
       });
@@ -354,8 +501,19 @@ export class CreatorService {
         { transaction, lock: transaction.LOCK.UPDATE },
       );
       if (!application) throw new NotFoundException('Application not found');
-      if (application.status !== 'pending')
+      if (!['pending', 'approved'].includes(application.status))
         throw new ConflictException('Application has already been reviewed');
+      const user = await this.userRepository.findByPk(application.userId, {
+        transaction,
+        lock: transaction.LOCK.UPDATE,
+      });
+      if (!user) throw new NotFoundException('Application user not found');
+      if (application.status === 'approved') {
+        await this.rbacService.removeSystemRole(user.id, 'author', transaction);
+        user.sessionVersion += 1;
+        await user.save({ transaction });
+        await this.tokenService.removeAllForUser(user.id, transaction);
+      }
       return application.update(
         {
           status: 'rejected',
@@ -633,5 +791,350 @@ export class CreatorService {
       const author = await this.getOwnedAuthor(userId, transaction);
       return this.assignTracksToAlbum(author, albumId, trackIds, transaction);
     });
+  }
+
+  async getTrack(userId: number, trackId: number) {
+    const author = await this.getOwnedAuthor(userId);
+    const track = await this.trackRepository.findOne({
+      where: { id: trackId, authorId: author.id },
+      include: [
+        { model: AuthorModel, as: 'author' },
+        {
+          model: AuthorModel,
+          as: 'featuredAuthors',
+          through: { attributes: ['position'] },
+          required: false,
+        },
+        {
+          model: AlbumModel,
+          as: 'albums',
+          through: { attributes: ['position'] },
+          required: false,
+        },
+        {
+          model: GenreModel,
+          as: 'genres',
+          through: { attributes: [] },
+          required: false,
+        },
+      ],
+    });
+    if (!track) throw new NotFoundException('Track not found');
+    return mapTrackModel(track);
+  }
+
+  async getAlbum(userId: number, albumId: number) {
+    const author = await this.getOwnedAuthor(userId);
+    const album = await this.albumRepository.findOne({
+      where: { id: albumId, authorId: author.id },
+      include: [
+        { model: AuthorModel, as: 'author' },
+        {
+          model: AuthorModel,
+          as: 'featuredAuthors',
+          through: { attributes: ['position'] },
+          required: false,
+        },
+        {
+          model: TrackModel,
+          as: 'tracks',
+          through: { attributes: ['position'] },
+          required: false,
+        },
+      ],
+    });
+    if (!album) throw new NotFoundException('Album not found');
+    return mapAlbumModel(album);
+  }
+
+  async deleteTracks(userId: number, trackIds: number[]) {
+    const ids = [...trackIds];
+    const files = await this.sequelize.transaction(async (transaction) => {
+      const author = await this.getOwnedAuthor(userId, transaction);
+      const tracks = await this.trackRepository.findAll({
+        where: { id: { [Op.in]: ids }, authorId: author.id },
+        attributes: ['id', 'picture', 'audio'],
+        transaction,
+        lock: transaction.LOCK.UPDATE,
+      });
+      if (tracks.length !== ids.length)
+        throw new NotFoundException('One or more tracks were not found');
+
+      const deleted = await this.trackRepository.destroy({
+        where: { id: { [Op.in]: ids }, authorId: author.id },
+        transaction,
+      });
+      if (deleted !== ids.length)
+        throw new ConflictException('Tracks changed during deletion');
+
+      const byId = new Map(tracks.map((track) => [track.id, track]));
+      return ids.flatMap((id) => {
+        const track = byId.get(id);
+        return track ? [track.picture, track.audio] : [];
+      });
+    });
+
+    this.deleteFilesBestEffort(files);
+    return { deletedIds: ids };
+  }
+
+  async deleteAlbums(userId: number, albumIds: number[]) {
+    const ids = [...albumIds];
+    const files = await this.sequelize.transaction(async (transaction) => {
+      const author = await this.getOwnedAuthor(userId, transaction);
+      const albums = await this.albumRepository.findAll({
+        where: { id: { [Op.in]: ids }, authorId: author.id },
+        attributes: ['id', 'picture'],
+        transaction,
+        lock: transaction.LOCK.UPDATE,
+      });
+      if (albums.length !== ids.length)
+        throw new NotFoundException('One or more albums were not found');
+
+      const deleted = await this.albumRepository.destroy({
+        where: { id: { [Op.in]: ids }, authorId: author.id },
+        transaction,
+      });
+      if (deleted !== ids.length)
+        throw new ConflictException('Albums changed during deletion');
+
+      const byId = new Map(albums.map((album) => [album.id, album]));
+      return ids.flatMap((id) => {
+        const album = byId.get(id);
+        return album ? [album.picture] : [];
+      });
+    });
+
+    this.deleteFilesBestEffort(files);
+    return { deletedIds: ids };
+  }
+
+  private deleteFilesBestEffort(paths: Array<string | null | undefined>) {
+    for (const path of paths) {
+      if (!path) continue;
+      try {
+        this.fileService.deleteFile(path);
+      } catch (error) {
+        const reason = error instanceof Error ? error.message : String(error);
+        this.logger.warn(`Release deleted, but file cleanup failed: ${reason}`);
+      }
+    }
+  }
+
+  async updateTrack(
+    userId: number,
+    trackId: number,
+    dto: UpdateCreatorTrackDto,
+    picture?: Express.Multer.File,
+    audio?: Express.Multer.File,
+  ) {
+    if (picture) this.assertFile(picture, 'image');
+    if (audio) this.assertFile(audio, 'audio');
+    let nextPicture: string | undefined;
+    let nextAudio: string | undefined;
+    try {
+      if (picture)
+        nextPicture = this.fileService.createFile(FileType.IMAGE, picture);
+      if (audio) nextAudio = this.fileService.createFile(FileType.AUDIO, audio);
+      const removed = await this.sequelize.transaction(async (transaction) => {
+        const author = await this.getOwnedAuthor(userId, transaction);
+        const track = await this.trackRepository.findOne({
+          where: { id: trackId, authorId: author.id },
+          transaction,
+          lock: transaction.LOCK.UPDATE,
+        });
+        if (!track) throw new NotFoundException('Track not found');
+        if (dto.genreIds !== undefined)
+          await this.assertGenres(dto.genreIds, transaction);
+        const featured =
+          dto.featuredAuthorIds !== undefined
+            ? await this.assertFeaturedAuthors(
+                author.id,
+                dto.featuredAuthorIds,
+                transaction,
+              )
+            : undefined;
+        if (dto.albumIds !== undefined)
+          await this.assignTracksToAlbums(
+            author,
+            dto.albumIds,
+            [track.id],
+            transaction,
+            true,
+          );
+        const old = {
+          picture: nextPicture ? track.picture : undefined,
+          audio: nextAudio ? track.audio : undefined,
+        };
+        await track.update(
+          {
+            ...(dto.name !== undefined ? { name: dto.name.trim() } : {}),
+            ...(dto.text !== undefined ? { text: dto.text } : {}),
+            ...(nextPicture ? { picture: nextPicture } : {}),
+            ...(nextAudio ? { audio: nextAudio } : {}),
+          },
+          { transaction },
+        );
+        if (dto.genreIds !== undefined) {
+          await this.trackGenreRepository.destroy({
+            where: { trackId: track.id },
+            transaction,
+          });
+          await this.trackGenreRepository.bulkCreate(
+            dto.genreIds.map((genreId) => ({ trackId: track.id, genreId })),
+            { transaction },
+          );
+        }
+        if (featured !== undefined) {
+          await this.trackFeaturedAuthorRepository.destroy({
+            where: { trackId: track.id },
+            transaction,
+          });
+          if (featured.length)
+            await this.trackFeaturedAuthorRepository.bulkCreate(
+              featured.map((authorId, position) => ({
+                trackId: track.id,
+                authorId,
+                position,
+              })),
+              { transaction },
+            );
+        }
+        return old;
+      });
+      if (removed.picture) this.fileService.deleteFile(removed.picture);
+      if (removed.audio) this.fileService.deleteFile(removed.audio);
+      return this.getTrack(userId, trackId);
+    } catch (error) {
+      if (nextPicture) this.fileService.deleteFile(nextPicture);
+      if (nextAudio) this.fileService.deleteFile(nextAudio);
+      throw error;
+    }
+  }
+
+  async updateAlbum(
+    userId: number,
+    albumId: number,
+    dto: UpdateCreatorAlbumDto,
+    picture?: Express.Multer.File,
+  ) {
+    if (picture) this.assertFile(picture, 'image');
+    let nextPicture: string | undefined;
+    try {
+      if (picture)
+        nextPicture = this.fileService.createFile(FileType.IMAGE, picture);
+      const oldPicture = await this.sequelize.transaction(
+        async (transaction) => {
+          const author = await this.getOwnedAuthor(userId, transaction);
+          const album = await this.albumRepository.findOne({
+            where: { id: albumId, authorId: author.id },
+            transaction,
+            lock: transaction.LOCK.UPDATE,
+          });
+          if (!album) throw new NotFoundException('Album not found');
+          const featured =
+            dto.featuredAuthorIds !== undefined
+              ? await this.assertFeaturedAuthors(
+                  author.id,
+                  dto.featuredAuthorIds,
+                  transaction,
+                )
+              : undefined;
+          const old = nextPicture ? album.picture : undefined;
+          await album.update(
+            {
+              ...(dto.name !== undefined ? { name: dto.name.trim() } : {}),
+              ...(nextPicture ? { picture: nextPicture } : {}),
+            },
+            { transaction },
+          );
+          if (featured !== undefined) {
+            await this.albumFeaturedAuthorRepository.destroy({
+              where: { albumId },
+              transaction,
+            });
+            if (featured.length)
+              await this.albumFeaturedAuthorRepository.bulkCreate(
+                featured.map((authorId, position) => ({
+                  albumId,
+                  authorId,
+                  position,
+                })),
+                { transaction },
+              );
+          }
+          return old;
+        },
+      );
+      if (oldPicture) this.fileService.deleteFile(oldPicture);
+      return this.getAlbum(userId, albumId);
+    } catch (error) {
+      if (nextPicture) this.fileService.deleteFile(nextPicture);
+      throw error;
+    }
+  }
+
+  async replaceAlbumComposition(
+    userId: number,
+    albumId: number,
+    trackIds: number[],
+  ) {
+    return this.sequelize.transaction(async (transaction) => {
+      const author = await this.getOwnedAuthor(userId, transaction);
+      const album = await this.albumRepository.findOne({
+        where: { id: albumId, authorId: author.id },
+        transaction,
+        lock: transaction.LOCK.UPDATE,
+      });
+      if (!album) throw new NotFoundException('Album not found');
+      const unique = [...new Set(trackIds)];
+      if (unique.length) {
+        const tracks = await this.trackRepository.findAll({
+          where: { id: { [Op.in]: unique } },
+          attributes: ['id', 'authorId'],
+          transaction,
+        });
+        if (tracks.length !== unique.length)
+          throw new NotFoundException('One or more tracks were not found');
+        if (tracks.some((track) => track.authorId !== author.id))
+          throw new ForbiddenException('Track does not belong to author');
+      }
+      await this.albumTrackRepository.destroy({
+        where: { albumId },
+        transaction,
+      });
+      if (unique.length)
+        await this.albumTrackRepository.bulkCreate(
+          unique.map((trackId, position) => ({ albumId, trackId, position })),
+          { transaction },
+        );
+      return { albumId, trackIds: unique };
+    });
+  }
+
+  private async assignTracksToAlbums(
+    author: AuthorModel,
+    albumIds: number[],
+    trackIds: number[],
+    transaction: Transaction,
+    replace: boolean,
+  ) {
+    const uniqueAlbumIds = [...new Set(albumIds)];
+    const albums = await this.albumRepository.findAll({
+      where: { id: { [Op.in]: uniqueAlbumIds }, authorId: author.id },
+      transaction,
+      lock: transaction.LOCK.UPDATE,
+    });
+    if (albums.length !== uniqueAlbumIds.length)
+      throw new ForbiddenException(
+        'One or more albums do not belong to author',
+      );
+    if (replace)
+      await this.albumTrackRepository.destroy({
+        where: { trackId: { [Op.in]: trackIds } },
+        transaction,
+      });
+    for (const albumId of uniqueAlbumIds)
+      await this.assignTracksToAlbum(author, albumId, trackIds, transaction);
   }
 }

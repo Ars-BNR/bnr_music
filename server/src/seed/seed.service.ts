@@ -17,6 +17,7 @@ import { TrackGenreModel } from 'src/track-genre/model/track-genre.model';
 import { UserModel } from 'src/user/model/user.model';
 import { RbacService } from 'src/rbac/rbac.service';
 import { Sequelize } from 'sequelize';
+import { TokenService } from 'src/token/token.service';
 import albumTracks from './data/album_track-seed';
 import albums from './data/album-seed';
 import authors from './data/authors-seed';
@@ -29,6 +30,7 @@ import playlists from './data/playlist-seed';
 import playlistTracks from './data/playlist_track-seed';
 import tracks from './data/track-seed';
 import trackGenres from './data/track-genre-seed';
+import seedAuthorCredentials from './data/user-seed';
 
 @Injectable()
 export class SeedService {
@@ -56,6 +58,7 @@ export class SeedService {
     private readonly collectionPlaylistModel: typeof CollectionPlaylistModel,
     private readonly config: ConfigService,
     private readonly rbacService: RbacService,
+    private readonly tokenService: TokenService,
     @InjectConnection() private readonly sequelize: Sequelize,
   ) {}
 
@@ -99,9 +102,130 @@ export class SeedService {
     });
   }
 
+  private async ensureSeedAuthorAccounts(): Promise<void> {
+    await this.sequelize.transaction(async (transaction) => {
+      for (const credential of seedAuthorCredentials) {
+        const [authorByName, userByEmail] = await Promise.all([
+          this.authorModel.findOne({
+            where: { name: credential.authorName },
+            transaction,
+            lock: transaction.LOCK.UPDATE,
+          }),
+          this.userModel.findOne({
+            where: { email: credential.email },
+            transaction,
+            lock: transaction.LOCK.UPDATE,
+          }),
+        ]);
+
+        const authorByEmailOwner = userByEmail
+          ? await this.authorModel.findOne({
+              where: { userId: userByEmail.id },
+              transaction,
+              lock: transaction.LOCK.UPDATE,
+            })
+          : null;
+
+        if (
+          userByEmail &&
+          (!authorByEmailOwner ||
+            (authorByName && authorByEmailOwner.id !== authorByName.id))
+        ) {
+          throw new Error(
+            `Cannot seed author ${credential.authorName}: email ${credential.email} belongs to an unrelated user`,
+          );
+        }
+
+        const author = authorByEmailOwner ?? authorByName;
+        if (!author) {
+          throw new Error(
+            `Cannot seed author account: author ${credential.authorName} was not found`,
+          );
+        }
+
+        const linkedUser = author.userId
+          ? await this.userModel.findByPk(author.userId, {
+              transaction,
+              lock: transaction.LOCK.UPDATE,
+            })
+          : null;
+
+        if (linkedUser && userByEmail && linkedUser.id !== userByEmail.id) {
+          throw new Error(
+            `Cannot seed author ${credential.authorName}: email ${credential.email} belongs to another account`,
+          );
+        }
+
+        let user = linkedUser ?? userByEmail;
+        if (!user) {
+          user = await this.userModel.create(
+            {
+              email: credential.email,
+              password: await bcrypt.hash(credential.password, 10),
+              displayName: author.name,
+              isActivated: true,
+              activationLink: null,
+              accountStatus: 'active',
+              blockedAt: null,
+              deletedAt: null,
+              mustChangePassword: false,
+            },
+            { transaction },
+          );
+        } else {
+          const passwordMatches = await bcrypt
+            .compare(credential.password, user.password)
+            .catch(() => false);
+          const updates: Partial<UserModel> = {
+            email: credential.email,
+            isActivated: true,
+            activationLink: null,
+            accountStatus: 'active',
+            blockedAt: null,
+            deletedAt: null,
+            mustChangePassword: false,
+          };
+          if (!passwordMatches) {
+            updates.password = await bcrypt.hash(credential.password, 10);
+            updates.sessionVersion = (user.sessionVersion ?? 0) + 1;
+          }
+          await user.update(updates, { transaction });
+          if (!passwordMatches) {
+            await this.tokenService.removeAllForUser(user.id, transaction);
+          }
+        }
+
+        if (author.userId !== user.id) {
+          await author.update({ userId: user.id }, { transaction });
+        }
+        await this.collectionModel.findOrCreate({
+          where: { userId: user.id },
+          defaults: { userId: user.id },
+          transaction,
+        });
+        await this.rbacService.assignSystemRole(user.id, 'user', transaction);
+        await this.rbacService.assignSystemRole(user.id, 'author', transaction);
+      }
+    });
+
+    console.table(
+      seedAuthorCredentials.map(({ authorName, email, password }) => ({
+        author: authorName,
+        email,
+        password,
+      })),
+    );
+  }
+
   async seed(): Promise<void> {
+    if (this.config.get<string>('NODE_ENV') === 'production') {
+      throw new Error(
+        'Catalog seed is disabled in production because it contains mock credentials',
+      );
+    }
     await this.ensureAdmin();
     await this.insertWhenEmpty(this.authorModel, authors);
+    await this.ensureSeedAuthorAccounts();
     await this.insertWhenEmpty(this.genreModel, genres);
     await this.insertWhenEmpty(this.trackModel, tracks);
     await this.insertWhenEmpty(this.trackGenreModel, trackGenres);

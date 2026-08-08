@@ -18,6 +18,10 @@ const userService = {
     });
     return data;
   },
+  resendActivation: async (email: string) => {
+    const { data } = await $api.post('/activation/resend', { email });
+    return data as { success: true };
+  },
   logout: async () => {
     const { data } = await $api.post(exitEndpoint);
     return data;

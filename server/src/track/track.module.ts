@@ -7,6 +7,7 @@ import { AuthorModel } from 'src/author/model/author.model';
 import { FileModule } from 'src/file/file.module';
 import { GenreModel } from 'src/genre/model/genre.model';
 import { TrackGenreModel } from 'src/track-genre/model/track-genre.model';
+import { PlayEventModel } from 'src/analytics/model/play-event.model';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { TrackGenreModel } from 'src/track-genre/model/track-genre.model';
       AuthorModel,
       GenreModel,
       TrackGenreModel,
+      PlayEventModel,
     ]),
   ],
   providers: [TrackService],

@@ -2,7 +2,7 @@
 
 import { ChangeEvent, FormEvent, useEffect, useState } from "react";
 import { Camera, Loader2, ShieldCheck, Trash2 } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import AuthStore from "@/shared/store/auth";
 import { profileApi, type UserProfile, UserAvatar } from "@/entities/user";
 import { Alert, AlertDescription } from "@/shared/ui/alert";
@@ -19,6 +19,8 @@ const fieldClass = "border-bnr-line bg-bnr-abyss text-bnr-bone placeholder:text-
 
 export function SettingsPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const forcedPasswordChange = searchParams.get("forced") === "1";
   const logout = AuthStore((state) => state.logout);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [displayName, setDisplayName] = useState("");
@@ -89,7 +91,8 @@ export function SettingsPage() {
       <SectionHeading description="Управляйте личными данными и безопасностью аккаунта."><span id="settings-title">Настройки профиля</span></SectionHeading>
       {error ? <Alert variant="destructive" className="mb-4"><AlertDescription>{error}</AlertDescription></Alert> : null}
       {message ? <Alert className="mb-4 border-bnr-lilac/45 bg-bnr-violet/10 text-bnr-bone"><AlertDescription>{message}</AlertDescription></Alert> : null}
-      <Tabs defaultValue="profile" className="min-w-0">
+      {forcedPasswordChange ? <Alert className="mb-4 border-bnr-lilac/45 bg-bnr-violet/10 text-bnr-bone"><AlertDescription>Временный пароль необходимо заменить перед продолжением работы.</AlertDescription></Alert> : null}
+      <Tabs defaultValue={searchParams.get("tab") === "security" ? "security" : "profile"} className="min-w-0">
         <TabsList className="h-auto max-w-full rounded-none border border-bnr-line bg-bnr-surface p-1">
           <TabsTrigger value="profile" className="data-[state=active]:bg-bnr-violet data-[state=active]:text-bnr-bone">Профиль</TabsTrigger>
           <TabsTrigger value="security" className="data-[state=active]:bg-bnr-violet data-[state=active]:text-bnr-bone">Безопасность</TabsTrigger>

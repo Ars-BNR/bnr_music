@@ -14,9 +14,11 @@ import { CollectionTrackModel } from 'src/collection-track/model/collection-trac
 import { PlaylistTrackModel } from 'src/playlist-track/model/playlist-track.model';
 import { CollectionPlaylistModel } from 'src/collection-playlist/model/collection-playlist.model';
 import { TrackGenreModel } from 'src/track-genre/model/track-genre.model';
+import { AuthModule } from 'src/auth/auth.module';
 
 @Module({
   imports: [
+    AuthModule,
     SequelizeModule.forFeature([
       TrackModel,
       AlbumModel,

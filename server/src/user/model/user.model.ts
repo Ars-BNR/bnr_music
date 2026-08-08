@@ -70,6 +70,37 @@ export class UserModel extends Model {
   @Column(DataType.STRING)
   activationLink: string;
 
+  @AllowNull
+  @Column(DataType.DATE)
+  activationExpiresAt: Date | null;
+
+  @AllowNull
+  @Column(DataType.DATE)
+  activationSentAt: Date | null;
+
+  @AllowNull(false)
+  @Default('active')
+  @Column(DataType.STRING(16))
+  accountStatus: 'active' | 'blocked' | 'deleted';
+
+  @AllowNull
+  @Column(DataType.DATE)
+  blockedAt: Date | null;
+
+  @AllowNull
+  @Column(DataType.DATE)
+  deletedAt: Date | null;
+
+  @AllowNull(false)
+  @Default(0)
+  @Column(DataType.INTEGER)
+  sessionVersion: number;
+
+  @AllowNull(false)
+  @Default(false)
+  @Column(DataType.BOOLEAN)
+  mustChangePassword: boolean;
+
   @HasMany(() => TokenModel)
   tokens: TokenModel[];
 

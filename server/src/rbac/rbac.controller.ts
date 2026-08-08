@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Patch,
@@ -50,6 +51,11 @@ export class RbacController {
   @Patch('roles/:id')
   updateRole(@Param() params: RbacIdDto, @Body() dto: UpdateRoleDto) {
     return this.rbacService.updateRole(params.id, dto);
+  }
+
+  @Delete('roles/:id')
+  deleteRole(@Param() params: RbacIdDto) {
+    return this.rbacService.deleteRole(params.id);
   }
 
   @Get('users')

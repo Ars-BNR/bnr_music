@@ -555,3 +555,41 @@ test("admin access creates a role with selected permissions", async ({
   await expect(page.getByText("Catalog curator", { exact: true })).toBeVisible();
   await expect(page.getByText("catalog.manage", { exact: true }).last()).toBeVisible();
 });
+
+test("admin receives a one-time temporary password for a seed author", async ({ page }) => {
+  await mockProtectedApp(page, { roles: ["user", "admin"], permissions: adminPermissions });
+  await mockRbacManagement(page);
+  await page.route("**://localhost:8340/admin/users/2/password-reset", async (route) => {
+    await route.fulfill({ json: { mode: "temporary-password", temporaryPassword: "one-time-seed-password" } });
+  });
+  page.on("dialog", (dialog) => void dialog.accept());
+  await page.goto("/admin/access");
+  const card = page.getByText("Member Saint", { exact: true }).locator("xpath=ancestor::*[.//button[contains(., 'Сбросить пароль')]][1]");
+  await card.getByRole("button", { name: "Сбросить пароль" }).click();
+  const resetDialog = page.getByRole("dialog", { name: "Временный пароль seed-автора" });
+  await expect(resetDialog).toBeVisible();
+  await expect(resetDialog.getByTestId("temporary-password")).toHaveText("one-time-seed-password");
+  await expect(resetDialog.getByRole("button", { name: "Копировать пароль" })).toBeVisible();
+});
+
+test("moderation can suspend and restore an approved author", async ({ page }) => {
+  await mockProtectedApp(page, { roles: ["user", "admin"], permissions: adminPermissions });
+  let status: "approved" | "rejected" = "approved";
+  await page.route("**://localhost:8340/creator/applications**", async (route) => {
+    const request = route.request();
+    if (request.method() === "GET") return route.fulfill({ json: { items: [{ id: 7, stageName: "Purple Saint", bio: "Approved creator", avatar: "", status, user: { email: "seed-author-7@bnr.local", displayName: "Purple Saint" } }], total: 1 } });
+    if (request.url().endsWith("/reject")) status = "rejected";
+    if (request.url().endsWith("/approve")) status = "approved";
+    return route.fulfill({ json: { id: 7, status } });
+  });
+  await page.goto("/studio/moderation");
+  await page.getByRole("tab", { name: "Одобрены" }).click();
+  await page.getByRole("button", { name: "Приостановить" }).click();
+  const decision = page.getByRole("dialog", { name: "Причина решения" });
+  await decision.getByLabel("Сообщение автору").fill("Временная приостановка доступа");
+  await decision.getByRole("button", { name: "Сохранить решение" }).click();
+  await page.getByRole("tab", { name: "Отклонены" }).click();
+  await page.getByRole("button", { name: "Восстановить" }).click();
+  await page.getByRole("tab", { name: "Одобрены" }).click();
+  await expect(page.getByText("Purple Saint", { exact: true })).toBeVisible();
+});

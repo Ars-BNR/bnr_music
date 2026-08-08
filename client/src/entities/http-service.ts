@@ -1,5 +1,11 @@
 import axios, { InternalAxiosRequestConfig } from "axios";
 
+declare module "axios" {
+  export interface AxiosRequestConfig {
+    skipAuthRefresh?: boolean;
+  }
+}
+
 export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8340";
 
 const $api = axios.create({ withCredentials: true, baseURL: API_URL });
@@ -17,7 +23,7 @@ $api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const request = error.config as (InternalAxiosRequestConfig & { _retry?: boolean }) | undefined;
-    if (!request || error.response?.status !== 401 || request._retry || request.url?.includes("/refresh")) {
+    if (!request || error.response?.status !== 401 || request._retry || request.skipAuthRefresh || request.url?.includes("/refresh")) {
       return Promise.reject(error);
     }
     request._retry = true;

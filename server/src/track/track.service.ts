@@ -5,6 +5,8 @@ import {
 } from '@nestjs/common';
 import { InjectConnection, InjectModel } from '@nestjs/sequelize';
 import { Op, Sequelize, Transaction } from 'sequelize';
+import { QueryTypes } from 'sequelize';
+import { randomUUID } from 'crypto';
 import { AlbumModel } from 'src/album/model/album.model';
 import { AuthorModel } from 'src/author/model/author.model';
 import { FileService, FileType } from 'src/file/file.service';
@@ -177,14 +179,40 @@ export class TrackService {
   }
 
   async listen(id: number): Promise<{ listens: number }> {
-    const [affected] = await this.trackRepository.increment('listens', {
-      where: { id },
+    const result = await this.recordPlay(id, randomUUID());
+    return { listens: result.listens };
+  }
+
+  async recordPlay(
+    id: number,
+    playbackId: string,
+  ): Promise<{ recorded: boolean; listens: number }> {
+    return this.sequelize.transaction(async (transaction) => {
+      const track = await this.trackRepository.findByPk(id, {
+        attributes: ['id', 'listens'],
+        transaction,
+        lock: transaction.LOCK.UPDATE,
+      });
+      if (!track) throw new NotFoundException('Track not found');
+
+      const inserted = await this.sequelize.query<{ id: string }>(
+        `INSERT INTO "play_events" ("playbackId", "trackId", "playedAt")
+         VALUES (:playbackId, :trackId, CURRENT_TIMESTAMP)
+         ON CONFLICT ("playbackId") DO NOTHING RETURNING "id"`,
+        {
+          replacements: { playbackId, trackId: id },
+          type: QueryTypes.SELECT,
+          transaction,
+        },
+      );
+      if (inserted.length === 0) {
+        return { recorded: false, listens: track.listens };
+      }
+
+      await track.increment('listens', { by: 1, transaction });
+      await track.reload({ attributes: ['id', 'listens'], transaction });
+      return { recorded: true, listens: track.listens };
     });
-    if (Number(affected) === 0) throw new NotFoundException('Track not found');
-    const track = await this.trackRepository.findByPk(id, {
-      attributes: ['id', 'listens'],
-    });
-    return { listens: track!.listens };
   }
 
   async search(query: string, page = 1, limit = 5) {
